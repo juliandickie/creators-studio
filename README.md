@@ -36,21 +36,21 @@ Unlike simple API wrappers, Claude interprets your intent, selects domain expert
 ### Recommended Install (Unix/macOS/Linux)
 
 ```bash
-git clone --depth 1 https://github.com/AgriciDaniel/claude-nanobanana.git
-bash claude-nanobanana/install.sh
+git clone --depth 1 https://github.com/AgriciDaniel/claude-banana.git
+bash claude-banana/install.sh
 ```
 
 <details>
 <summary>One-liner (curl)</summary>
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AgriciDaniel/claude-nanobanana/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/AgriciDaniel/claude-banana/main/install.sh | bash
 ```
 
 Prefer to review the script before running?
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AgriciDaniel/claude-nanobanana/main/install.sh > install.sh
+curl -fsSL https://raw.githubusercontent.com/AgriciDaniel/claude-banana/main/install.sh > install.sh
 cat install.sh        # review
 bash install.sh       # run when satisfied
 rm install.sh
@@ -61,8 +61,8 @@ rm install.sh
 ### With MCP Setup
 
 ```bash
-git clone --depth 1 https://github.com/AgriciDaniel/claude-nanobanana.git
-cd claude-nanobanana
+git clone --depth 1 https://github.com/AgriciDaniel/claude-banana.git
+cd claude-banana
 ./install.sh --with-mcp YOUR_API_KEY
 ```
 
@@ -181,8 +181,8 @@ Instead of sending "a cat in space" to Gemini, Claude constructs:
 ## Uninstall
 
 ```bash
-git clone --depth 1 https://github.com/AgriciDaniel/claude-nanobanana.git
-bash claude-nanobanana/install.sh --uninstall
+git clone --depth 1 https://github.com/AgriciDaniel/claude-banana.git
+bash claude-banana/install.sh --uninstall
 ```
 
 ## Contributing

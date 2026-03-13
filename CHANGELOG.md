@@ -39,5 +39,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Batch variations, multi-turn chat, prompt inspiration
 - Install script with validation
 
-[2.1.0]: https://github.com/AgriciDaniel/claude-nanobanana/releases/tag/v2.1.0
-[2.0.0]: https://github.com/AgriciDaniel/claude-nanobanana/releases/tag/v2.0.0
+[2.1.0]: https://github.com/AgriciDaniel/claude-banana/releases/tag/v2.1.0
+[2.0.0]: https://github.com/AgriciDaniel/claude-banana/releases/tag/v2.0.0
