@@ -81,6 +81,10 @@ Claude will ask about your brand, select the right domain mode (Cinema, Product,
 | `/nano-banana batch <idea> [N]` | Generate N variations (default: 3) |
 | `/nano-banana setup` | Configure MCP and API key |
 
+## How It Works
+
+![Creative Director Pipeline](screenshots/pipeline-flow.jpeg)
+
 ## What Makes This Different
 
 - **Intent Analysis** — Understands *what you actually need* (blog header? app icon? product shot?)
@@ -94,6 +98,8 @@ Claude will ask about your brand, select the right domain mode (Cinema, Product,
 - **14 Aspect Ratios** — Including ultra-wide 21:9 for cinematic compositions
 
 ## The 6-Component Reasoning Brief
+
+![6-Component Reasoning Brief](screenshots/reasoning-brief.jpeg)
 
 Instead of sending "a cat in space" to Gemini, Claude constructs:
 
@@ -109,6 +115,8 @@ Instead of sending "a cat in space" to Gemini, Claude constructs:
 **Components used:** Subject (tabby cat, physical detail) → Action (floating, paw gesture) → Context (ISS cupola, Earth visible) → Composition (medium shot, curved framing) → Lighting (directional window + amber instruments) → Style (Canon R5, NASA documentary)
 
 ## Domain Modes
+
+![Domain Modes](screenshots/domain-modes.jpeg)
 
 | Mode | Best For | Example |
 |------|----------|---------|
