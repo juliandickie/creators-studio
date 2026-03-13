@@ -20,7 +20,7 @@ jobs:
       - name: Check SKILL.md line count
         shell: bash
         run: |
-          lines=$(wc -l < nano-banana/SKILL.md)
+          lines=$(wc -l < banana/SKILL.md)
           echo "SKILL.md: ${lines} lines"
           if [ "${lines}" -gt 500 ]; then
             echo "::error::SKILL.md exceeds 500 lines"
@@ -31,13 +31,13 @@ jobs:
         shell: bash
         run: |
           files=(
-            nano-banana/SKILL.md
-            nano-banana/references/gemini-models.md
-            nano-banana/references/mcp-tools.md
-            nano-banana/references/post-processing.md
-            nano-banana/references/prompt-engineering.md
-            nano-banana/scripts/setup_mcp.py
-            nano-banana/scripts/validate_setup.py
+            banana/SKILL.md
+            banana/references/gemini-models.md
+            banana/references/mcp-tools.md
+            banana/references/post-processing.md
+            banana/references/prompt-engineering.md
+            banana/scripts/setup_mcp.py
+            banana/scripts/validate_setup.py
             install.sh
           )
           for f in "${files[@]}"; do
@@ -47,7 +47,7 @@ jobs:
       - name: Check for outdated rate limits
         shell: bash
         run: |
-          if grep -rl "15 RPM" nano-banana/ README.md 2>/dev/null; then
+          if grep -rl "15 RPM" banana/ README.md 2>/dev/null; then
             echo "::error::Found outdated rate limits"
             exit 1
           fi

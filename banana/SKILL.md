@@ -1,5 +1,5 @@
 ---
-name: nano-banana
+name: banana
 description: >
   AI image generation, editing, and visual intelligence powered by Gemini
   Nano Banana models via MCP. Claude acts as Creative Director — interpreting
@@ -9,7 +9,7 @@ description: >
   best results. Supports generate, edit, multi-turn chat, transparency,
   post-processing, batch variations, and prompt inspiration from a 2,500+
   curated prompt database. Triggers on: "generate image", "create image",
-  "edit image", "nano banana", "image generation", "picture", "illustration",
+  "edit image", "banana", "image generation", "picture", "illustration",
   "visual", "modify image", "draw", "make an image", "hero image",
   "thumbnail", "logo", "icon", "banner", "mockup", "product shot",
   "transparent PNG", "remove background", "style transfer".
@@ -39,13 +39,13 @@ construct an optimized prompt using the Reasoning Brief system below.
 
 | Command | What it does |
 |---------|-------------|
-| `/nano-banana` | Interactive — detect intent, craft prompt, generate |
-| `/nano-banana generate <idea>` | Generate image with full prompt engineering |
-| `/nano-banana edit <path> <instructions>` | Edit existing image intelligently |
-| `/nano-banana chat` | Multi-turn visual session (character/style consistent) |
-| `/nano-banana inspire [category]` | Browse prompt database for ideas |
-| `/nano-banana batch <idea> [N]` | Generate N variations (default: 3) |
-| `/nano-banana setup` | Install MCP server and configure API key |
+| `/banana` | Interactive — detect intent, craft prompt, generate |
+| `/banana generate <idea>` | Generate image with full prompt engineering |
+| `/banana edit <path> <instructions>` | Edit existing image intelligently |
+| `/banana chat` | Multi-turn visual session (character/style consistent) |
+| `/banana inspire [category]` | Browse prompt database for ideas |
+| `/banana batch <idea> [N]` | Generate N variations (default: 3) |
+| `/banana setup` | Install MCP server and configure API key |
 
 ## Core Principle: Claude as Creative Director
 
@@ -191,7 +191,7 @@ Check if `magick` (ImageMagick 7) is available. Fall back to `convert` if not.
 
 ## Editing Workflows
 
-For `/nano-banana edit`, Claude should also enhance the edit instruction:
+For `/banana edit`, Claude should also enhance the edit instruction:
 
 - **Don't:** Pass "remove background" directly
 - **Do:** "Remove the existing background entirely, replacing it with a clean
@@ -207,7 +207,7 @@ Common intelligent edit transformations:
 | "make it pop" | Increase saturation, add contrast, enhance focal point |
 | "extend it" | Outpainting with style-consistent continuation description |
 
-## Multi-turn Chat (`/nano-banana chat`)
+## Multi-turn Chat (`/banana chat`)
 
 Use `gemini_chat` for iterative creative sessions:
 
@@ -216,7 +216,7 @@ Use `gemini_chat` for iterative creative sessions:
 3. Session maintains character consistency and style across turns
 4. Use for: character design sheets, sequential storytelling, progressive refinement
 
-## Prompt Inspiration (`/nano-banana inspire`)
+## Prompt Inspiration (`/banana inspire`)
 
 Search the curated prompt database for inspiration:
 
@@ -238,9 +238,9 @@ When adapting to Gemini, you MUST:
 - Add camera/lens specifications for photorealistic prompts
 - Expand terse tags into full scene descriptions
 
-## Batch Variations (`/nano-banana batch`)
+## Batch Variations (`/banana batch`)
 
-For `/nano-banana batch <idea> [N]`, generate N variations:
+For `/banana batch <idea> [N]`, generate N variations:
 
 1. Construct the base Reasoning Brief from the idea
 2. Create N variations by rotating one component per generation:
@@ -264,7 +264,7 @@ If the user mentions speed or quality preference, adjust accordingly:
 
 | Error | Resolution |
 |-------|-----------|
-| MCP not configured | Run `/nano-banana setup` |
+| MCP not configured | Run `/banana setup` |
 | API key invalid | New key at https://aistudio.google.com/apikey |
 | Rate limited (429) | Wait 60s, retry. Free tier: ~10 RPM / ~500 RPD |
 | `IMAGE_SAFETY` | Output blocked by safety filter — rephrase prompt. Non-retryable as-is. |

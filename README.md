@@ -75,16 +75,16 @@ Get a free API key at [Google AI Studio](https://aistudio.google.com/apikey).
 claude
 
 # Generate an image
-/nano-banana generate "a hero image for a coffee shop website"
+/banana generate "a hero image for a coffee shop website"
 
 # Edit an existing image
-/nano-banana edit ~/photo.png "remove the background"
+/banana edit ~/photo.png "remove the background"
 
 # Multi-turn creative session
-/nano-banana chat
+/banana chat
 
 # Browse 2,500+ prompt database
-/nano-banana inspire
+/banana inspire
 ```
 
 Claude will ask about your brand, select the right domain mode (Cinema, Product, Portrait, Editorial, UI, Logo, Landscape, Infographic), construct a detailed prompt with lighting and composition, set the right aspect ratio, and generate.
@@ -93,13 +93,13 @@ Claude will ask about your brand, select the right domain mode (Cinema, Product,
 
 | Command | Description |
 |---------|-------------|
-| `/nano-banana` | Interactive — Claude detects intent and guides you |
-| `/nano-banana generate <idea>` | Full Creative Director pipeline |
-| `/nano-banana edit <path> <instructions>` | Intelligent image editing |
-| `/nano-banana chat` | Multi-turn visual session (maintains consistency) |
-| `/nano-banana inspire [category]` | Browse 2,500+ prompt database |
-| `/nano-banana batch <idea> [N]` | Generate N variations (default: 3) |
-| `/nano-banana setup` | Configure MCP and API key |
+| `/banana` | Interactive — Claude detects intent and guides you |
+| `/banana generate <idea>` | Full Creative Director pipeline |
+| `/banana edit <path> <instructions>` | Intelligent image editing |
+| `/banana chat` | Multi-turn visual session (maintains consistency) |
+| `/banana inspire [category]` | Browse 2,500+ prompt database |
+| `/banana batch <idea> [N]` | Generate N variations (default: 3) |
+| `/banana setup` | Configure MCP and API key |
 
 ## How It Works
 
@@ -159,7 +159,7 @@ Instead of sending "a cat in space" to Gemini, Claude constructs:
 ## Architecture
 
 ```
-~/.claude/skills/nano-banana/          # The skill (installed location)
+~/.claude/skills/banana/          # The skill (installed location)
 ├── SKILL.md                           # Creative Director orchestration (v2.1)
 ├── references/
 │   ├── prompt-engineering.md          # 6-component system, domain modes, modifiers

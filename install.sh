@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-SKILL_NAME="nano-banana"
+SKILL_NAME="banana"
 SKILL_DIR="$HOME/.claude/skills/$SKILL_NAME"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SOURCE_DIR="$SCRIPT_DIR/$SKILL_NAME"
@@ -64,11 +64,11 @@ python3 "$SKILL_DIR/scripts/validate_setup.py"
 
 echo ""
 info "Installation complete!"
-echo "  Skill: /nano-banana"
+echo "  Skill: /banana"
 echo "  Location: $SKILL_DIR"
 echo ""
 echo "Next steps:"
 echo "  1. Get a free API key: https://aistudio.google.com/apikey"
-echo "  2. In Claude Code, run: /nano-banana setup"
+echo "  2. In Claude Code, run: /banana setup"
 echo "  3. Restart Claude Code"
-echo "  4. Try: /nano-banana generate \"a cat astronaut in space\""
+echo "  4. Try: /banana generate \"a cat astronaut in space\""
