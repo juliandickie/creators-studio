@@ -34,6 +34,7 @@ construct an optimized prompt using the 5-Component Formula from `references/pro
 | `/banana chat` | Multi-turn visual session (character/style consistent) |
 | `/banana inspire [category]` | Browse prompt database for ideas |
 | `/banana batch <idea> [N]` | Generate N variations (default: 3) |
+| `/banana slides [plan\|prompts\|generate]` | Slide deck pipeline: content → design brief → prompts → batch images |
 | `/banana setup` | Walk through Google AI API key setup (free, step-by-step) |
 | `/banana setup replicate` | Walk through Replicate token setup (optional fallback) |
 | `/banana preset [list\|create\|show\|delete]` | Manage brand/style presets |
@@ -350,6 +351,23 @@ For `/banana batch <idea> [N]`, generate N variations:
 
 For CSV-driven batch: `python3 ${CLAUDE_SKILL_DIR}/scripts/batch.py --csv path/to/file.csv`
 The script outputs a generation plan with cost estimates. Execute each row via MCP.
+
+## Slide Deck Pipeline (`/banana slides`)
+
+Three-step pipeline for generating presentation slide images from content:
+
+**Step 1 -- Plan** (`/banana slides plan`): Claude reads transcripts/content, divides into slides, and writes a detailed design brief (markdown). Each slide gets: timestamp reference, transcript snippet, background style, slide type, detailed design concept with visual elements, and intended message. Save as `slide-plan.md`. The user reviews and edits before proceeding.
+
+**Step 2 -- Prompts** (`/banana slides prompts`): Claude reads the plan and writes a Nano Banana Pro prompt for each slide using Presentation mode (Complete or Background-Only), the brand preset, and the 5-Component Formula. Save as `slide-prompts.md` with one `## Slide NN — Name` + code block per slide.
+
+**Step 3 -- Generate** (`/banana slides generate`): Run the batch generation script:
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/slides.py generate --prompts slide-prompts.md --output ~/slides/
+python3 ${CLAUDE_SKILL_DIR}/scripts/slides.py estimate --prompts slide-prompts.md  # cost only
+```
+
+Output: numbered PNGs (`slide-01-title.png`, etc.) + `generation-summary.json`.
+Default: 16:9, 4K. Use `--mode background` or `--mode complete` to control text rendering.
 
 ## Model Routing
 

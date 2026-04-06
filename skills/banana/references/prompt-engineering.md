@@ -650,6 +650,49 @@ composition with generous breathing room. 16:9 format, 4K resolution.
 NO text, NO logos, NO labels. Premium corporate keynote background.
 ```
 
+#### Additional Slide Types
+
+**Quote / Statement Slide (Background-Only):**
+```
+A dramatic presentation slide background with pure black base and a
+single bold golden accent line running horizontally across the upper
+third. Subtle silver geometric network at 15% opacity in the lower
+half. Deep, cinematic atmosphere with warm amber edge lighting from
+the left. Generous clean space in the center for a large quote overlay.
+16:9 widescreen, 4K resolution. NO text, NO logos, NO labels.
+Premium keynote statement slide aesthetic.
+```
+
+**Section Divider (Background-Only):**
+```
+A striking slide background with a rich gold-to-amber gradient sweeping
+diagonally from top-left to bottom-right, fading into deep charcoal.
+Abstract geometric shapes in dark tones at 20% opacity create subtle
+depth. Bold, confident, transitional energy. Large open center area.
+16:9 widescreen, 4K resolution. NO text, NO logos, NO labels.
+Premium section transition aesthetic.
+```
+
+**Image Feature Slide (Background-Only):**
+```
+A dark charcoal slide background with the right 55% reserved as clean
+dark space for a featured image overlay. The left 45% has a subtle
+vertical gradient from charcoal to slightly lighter gray, creating
+a natural content zone. Thin golden accent line separating the two
+zones. Minimal, editorial layout. 16:9 widescreen, 4K resolution.
+NO text, NO logos, NO labels. Premium split-layout presentation style.
+```
+
+**Infographic / Process Slide (Complete):**
+```
+A presentation slide showing a four-step progression flowing left to
+right on a pure black background. Four golden rounded rectangles
+connected by amber arrows, each containing a step number in bold
+white text: "1", "2", "3", "4". Below each rectangle, a short white
+label. Subtle silver network pattern at 10% opacity. 16:9 widescreen,
+4K resolution. Premium infographic process flow style.
+```
+
 ### Key Tactics That Make Prompts Work
 
 1. **Name real cameras** -- "Sony A7R IV", "Canon EOS R5", "iPhone 16 Pro Max" anchor realism
