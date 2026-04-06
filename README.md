@@ -79,45 +79,56 @@ Based on analysis of Google's official prompting guides and two research documen
 
 ### Plugin Install (Recommended)
 
-Add the marketplace and install:
-
-```shell
-/plugin marketplace add AgriciDaniel/banana-claude
-/plugin install banana-claude@banana-claude-marketplace
-```
-
-Or test locally:
+Clone the repo and load as a local plugin:
 
 ```bash
-git clone --depth 1 https://github.com/AgriciDaniel/banana-claude.git
+git clone https://github.com/juliandickie/banana-claude.git
 claude --plugin-dir ./banana-claude
+```
+
+To update later, just pull and reload:
+
+```bash
+cd banana-claude && git pull
+# Then in Claude Code: /reload-plugins
 ```
 
 <details>
 <summary>Standalone Install (without plugin system)</summary>
 
 ```bash
-git clone --depth 1 https://github.com/AgriciDaniel/banana-claude.git
+git clone https://github.com/juliandickie/banana-claude.git
 bash banana-claude/install.sh
-```
-
-**One-liner (curl):**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/AgriciDaniel/banana-claude/main/install.sh | bash
 ```
 
 **With MCP Setup:**
 
 ```bash
-git clone --depth 1 https://github.com/AgriciDaniel/banana-claude.git
+git clone https://github.com/juliandickie/banana-claude.git
 cd banana-claude
 ./install.sh --with-mcp YOUR_API_KEY
 ```
 
+**To update (standalone):**
+
+```bash
+cd banana-claude && git pull && bash install.sh
+```
+
 </details>
 
-Get a free API key at [Google AI Studio](https://aistudio.google.com/apikey).
+### API Key Setup
+
+Get a free API key at [Google AI Studio](https://aistudio.google.com/apikey), then:
+
+```bash
+# In Claude Code:
+/banana setup
+# Paste your API key when prompted
+
+# Optional: Add Replicate as fallback
+/banana setup replicate
+```
 
 ## Quick Start
 
@@ -216,6 +227,8 @@ Instead of sending "a cat in space" to Gemini, Claude constructs:
 
 ## Presentation Mode
 
+![Presentation Mode](screenshots/presentation-mode.webp)
+
 Presentation mode has two generation options designed for real-world slide workflows:
 
 **Complete Slide** -- The model renders headline and body text directly in the image. Nano Banana 2's text rendering (94% accuracy under 25 characters) produces finished slides ready to use as-is. Best for title slides, quote slides, and simple content layouts.
@@ -308,11 +321,7 @@ banana-claude/                         # Claude Code Plugin
 
 ## Uninstall
 
-**Plugin:**
-
-```shell
-/plugin uninstall banana-claude@banana-claude-marketplace
-```
+**Plugin:** Remove the plugin directory or stop using `--plugin-dir`.
 
 **Standalone:**
 
