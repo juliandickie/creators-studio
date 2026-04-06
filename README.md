@@ -77,58 +77,92 @@ Based on analysis of Google's official prompting guides and two research documen
 
 ## Installation
 
-### Plugin Install (Recommended)
+### Prerequisites
 
-Clone the repo and load as a local plugin:
+- [Claude Code](https://claude.ai/claude-code) installed and working
+- [Git](https://git-scm.com/) installed
+- [Node.js 18+](https://nodejs.org/) installed (for the MCP server)
 
-```bash
-git clone https://github.com/juliandickie/banana-claude.git
-claude --plugin-dir ./banana-claude
-```
-
-To update later, just pull and reload:
+### Step 1: Clone the Repository
 
 ```bash
-cd banana-claude && git pull
-# Then in Claude Code: /reload-plugins
+git clone https://github.com/juliandickie/banana-claude.git ~/banana-claude
 ```
+
+### Step 2: Get Your Google AI API Key (Free)
+
+1. Go to [Google AI Studio](https://aistudio.google.com/apikey)
+2. Sign in with your Google account
+3. Click **"Create API Key"**
+4. Select any Google Cloud project (or create one -- it's free)
+5. Copy the key (starts with `AIza...`)
+
+> **Note:** The free tier gives you ~5-15 images per minute and ~20-500 per day. No credit card required. For higher limits, enable billing in Google Cloud Console.
+
+### Step 3: Start Claude Code with the Plugin
+
+```bash
+claude --plugin-dir ~/banana-claude
+```
+
+### Step 4: Configure Your API Key
+
+In Claude Code, run:
+
+```
+/banana setup
+```
+
+Paste your API key when prompted. This saves it to both:
+- `~/.claude/settings.json` (for the MCP server)
+- `~/.banana/config.json` (for fallback scripts)
+
+### Step 5: Test It
+
+```
+/banana generate "a golden banana wearing a beret"
+```
+
+If you see an image path and the file exists, you're all set!
+
+### Updating
+
+```bash
+cd ~/banana-claude && git pull
+```
+
+Then in Claude Code, type `/reload-plugins` to pick up changes.
+
+<details>
+<summary>Optional: Replicate as Fallback Backend</summary>
+
+Replicate provides a simpler alternative when the MCP server isn't available.
+
+1. Go to [replicate.com/account/api-tokens](https://replicate.com/account/api-tokens)
+2. Sign in and create a token
+3. In Claude Code, run:
+
+```
+/banana setup replicate
+```
+
+Paste your token when prompted. The fallback chain is: MCP → Direct Gemini API → Replicate.
+
+</details>
 
 <details>
 <summary>Standalone Install (without plugin system)</summary>
 
-```bash
-git clone https://github.com/juliandickie/banana-claude.git
-bash banana-claude/install.sh
-```
-
-**With MCP Setup:**
+If you prefer to copy the skill files rather than use the plugin system:
 
 ```bash
-git clone https://github.com/juliandickie/banana-claude.git
-cd banana-claude
-./install.sh --with-mcp YOUR_API_KEY
+git clone https://github.com/juliandickie/banana-claude.git ~/banana-claude
+bash ~/banana-claude/install.sh
 ```
 
-**To update (standalone):**
-
-```bash
-cd banana-claude && git pull && bash install.sh
-```
+To update: `cd ~/banana-claude && git pull && bash install.sh`
 
 </details>
-
-### API Key Setup
-
-Get a free API key at [Google AI Studio](https://aistudio.google.com/apikey), then:
-
-```bash
-# In Claude Code:
-/banana setup
-# Paste your API key when prompted
-
-# Optional: Add Replicate as fallback
-/banana setup replicate
-```
 
 ## Quick Start
 
