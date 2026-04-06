@@ -137,9 +137,16 @@ def setup_mcp(api_key: str) -> None:
     }
 
     save_settings(settings)
+
+    # Also save to ~/.banana/config.json so fallback scripts can access it
+    config = load_banana_config()
+    config["google_ai_api_key"] = api_key
+    save_banana_config(config)
+
     print(f"\nMCP server '{MCP_NAME}' configured successfully!")
     print(f"  Package: {MCP_PACKAGE}")
     print(f"  Model:   {DEFAULT_MODEL}")
+    print(f"  API key saved to: {BANANA_CONFIG} (for fallback scripts)")
     print(f"\nRestart Claude Code for changes to take effect.")
     print(f"Generated images will be saved to: ~/Documents/nanobanana_generated/")
 

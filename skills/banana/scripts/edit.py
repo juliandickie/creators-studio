@@ -143,7 +143,16 @@ def main():
 
     api_key = args.api_key or os.environ.get("GOOGLE_AI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
-        print(json.dumps({"error": True, "message": "No API key. Set GOOGLE_AI_API_KEY env or pass --api-key"}))
+        # Try ~/.banana/config.json
+        config_path = Path.home() / ".banana" / "config.json"
+        if config_path.exists():
+            try:
+                with open(config_path) as f:
+                    api_key = json.load(f).get("google_ai_api_key", "")
+            except (json.JSONDecodeError, OSError):
+                pass
+    if not api_key:
+        print(json.dumps({"error": True, "message": "No API key. Run /banana setup, set GOOGLE_AI_API_KEY env, or pass --api-key"}))
         sys.exit(1)
 
     result = edit_image(
