@@ -2,6 +2,9 @@
 
 This file is read by Claude Code when working inside this repository.
 
+**Start every session by reading `PROGRESS.md`** -- it has full development
+history, design decisions, and next steps.
+
 ## What this repo is
 
 `banana-claude` is a Claude Code **plugin** that enables AI image generation
