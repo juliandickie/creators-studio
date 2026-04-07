@@ -200,7 +200,10 @@ claude
 # Multi-turn creative session
 /banana chat
 
-# Browse 2,500+ prompt database
+# Generate a slide deck from content
+/banana slides plan --content ~/transcripts/ --preset my-brand
+
+# Browse prompt database for ideas
 /banana inspire
 ```
 
@@ -215,10 +218,11 @@ Claude will ask about your brand, select the right domain mode (Cinema, Product,
 | `/banana` | Interactive -- Claude detects intent and guides you |
 | `/banana generate <idea>` | Full Creative Director pipeline |
 | `/banana edit <path> <instructions>` | Intelligent image editing |
-| `/banana chat` | Multi-turn visual session (maintains consistency) |
-| `/banana inspire [category]` | Browse 2,500+ prompt database |
+| `/banana chat` | Multi-turn visual session (character/style consistent) |
+| `/banana slides [plan\|prompts\|generate]` | Slide deck pipeline: content → design brief → prompts → batch images |
+| `/banana inspire [category]` | Browse prompt database for ideas |
 | `/banana batch <idea> [N]` | Generate N variations (default: 3) |
-| `/banana setup` | Guided API key setup (Claude walks you through it) |
+| `/banana setup` | Guided Google AI API key setup |
 | `/banana setup replicate` | Guided Replicate token setup (optional fallback) |
 | `/banana status` | Check version, installation, and API key status |
 | `/banana update` | Pull latest version from GitHub |
