@@ -2,7 +2,7 @@
 
 ## Context
 
-Banana Claude v1.7.0 is a comprehensive Creative Director skill for AI image generation. This roadmap captures planned features, organized by implementation priority.
+Banana Claude v1.8.0 is a comprehensive Creative Director skill for AI image generation. This roadmap captures planned features, organized by implementation priority.
 
 **Architecture note:** As this grows, the skill should split into three interlinked skills:
 1. **Brand Learning** (`/banana brand`) — Brand guide creation, asset registry, presets
@@ -244,7 +244,7 @@ Share brand guides and prompt templates across a team via a shared git repo.
 | 2 | `/banana brand` conversational builder | ~~Medium~~ | ~~Very High~~ | **DONE (v1.7.0)** |
 | 3 | Pre-built brand guide library (12 presets) | ~~Low~~ | ~~High~~ | **DONE (v1.7.0)** |
 | 4 | `/banana social` platform-native gen (46 platforms) | ~~Medium~~ | ~~High~~ | **DONE (v1.7.0)** |
-| 5 | Asset registry (people + products + objects) | Medium | High |
+| 5 | Asset registry (people + products + objects) | ~~Medium~~ | ~~High~~ | **DONE (v1.8.0)** |
 | 6 | `/banana video` with VEO 3.1 (separate skill) | Medium | Very High |
 | 7 | Image-to-prompt reverse | Medium | High |
 | 8 | Deck builder (.pptx output) | Medium | Very High |

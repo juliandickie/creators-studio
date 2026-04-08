@@ -3,7 +3,7 @@ name: banana
 description: "Use when ANY request involves image creation, editing, visual asset production, slide generation, or creative direction. Triggers on: generate an image, create a photo, edit this picture, design a logo, make a banner, slide deck, social media visuals, and all /banana commands."
 argument-hint: "[generate|edit|chat|slides|inspire|batch|setup] <idea, path, or command>"
 metadata:
-  version: "1.7.0"
+  version: "1.8.0"
   author: juliandickie
   mcp-package: "@ycse/nanobanana-mcp"
 ---
@@ -35,6 +35,7 @@ Before constructing ANY prompt or calling ANY tool, read:
 | `/banana batch <idea> [N]` | Generate N variations (default: 3) |
 | `/banana social <idea> --platforms <list>` | Platform-native image generation (47 platforms, 4K, auto-crop) |
 | `/banana brand` | Conversational brand guide builder (learn → refine → preview → save) |
+| `/banana asset [list\|show\|create\|delete]` | Manage persistent character/product/object references |
 | `/banana setup` | Guided Google AI API key setup |
 | `/banana setup replicate` | Guided Replicate token setup (optional fallback) |
 | `/banana status` | Check version, installation, and API key status |
@@ -57,6 +58,13 @@ If user mentions a brand/preset: `python3 ${CLAUDE_SKILL_DIR}/scripts/presets.py
 **Logo handling:** NEVER mention "logo" in prompts. Describe the area as "clean negative space." Logos are composited in presentation software after generation.
 
 **Example presets:** If no presets exist, offer to install examples: `ls ${CLAUDE_SKILL_DIR}/presets/` shows 12 pre-built brand guides. Copy with: `cp ${CLAUDE_SKILL_DIR}/presets/NAME.json ~/.banana/presets/`
+
+### Step 1.6: Check for Assets
+
+If user mentions a named character, product, or object, check assets:
+`python3 ${CLAUDE_SKILL_DIR}/scripts/assets.py list`. Load with `show NAME`.
+Pass `reference_images[]` as inlineData parts in the API call. Append
+`consistency_notes` to the prompt. See `references/asset-registry.md`.
 
 ## Social Media Generation (`/banana social`)
 
@@ -184,6 +192,7 @@ Load on-demand -- do NOT load all at startup:
 - `references/presets.md` -- Brand Style Guide schema (17 fields)
 - `references/social-platforms.md` -- 47 social media platform specs, ratios, pixel targets, negative space
 - `references/brand-builder.md` -- Guided brand creation flow (learn → refine → preview → save)
+- `references/asset-registry.md` -- Persistent asset registry (characters, products, objects, environments)
 - `references/setup.md` -- Guided API key configuration flow
 
 ## Setup, Status & Update

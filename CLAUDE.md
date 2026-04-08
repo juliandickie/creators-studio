@@ -56,6 +56,8 @@ This repo follows the official Claude Code plugin layout:
 | `skills/banana/scripts/edit.py` | Direct Gemini API fallback for editing. Uses urllib.request (stdlib). |
 | `skills/banana/scripts/replicate_generate.py` | Replicate API fallback for generation. Uses urllib.request (stdlib). |
 | `skills/banana/scripts/replicate_edit.py` | Replicate API fallback for editing. Uses urllib.request (stdlib). |
+| `skills/banana/references/asset-registry.md` | How to detect, load, and use persistent assets in generation. |
+| `skills/banana/scripts/assets.py` | Asset registry CRUD (list, show, create, delete, add-image). |
 | `skills/banana/scripts/presets.py` | Brand Style Guide CRUD (list, show, create, delete). |
 | `skills/banana/scripts/batch.py` | CSV batch workflow parser with cost estimates. |
 | `skills/banana/scripts/cost_tracker.py` | Cost logging and summaries (log, summary, today, estimate). |

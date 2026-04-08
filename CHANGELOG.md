@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-04-08
+
+### Added
+- **`/banana asset`** -- persistent asset registry for characters, products, equipment, and environments
+  - `scripts/assets.py` with list, show, create, delete, add-image subcommands
+  - `references/asset-registry.md` with usage guide, API limits, and CLI reference
+  - Assets save named references with images and descriptions to `~/.banana/assets/`
+  - Reference images passed as `inlineData` parts in Gemini API calls for visual consistency
+  - Validates image size (7MB max), format (JPEG/PNG/WebP/HEIC/HEIF), and count (14 max)
+  - Step 1.6 added to Creative Director pipeline for automatic asset detection
+
 ## [1.7.0] - 2026-04-07
 
 ### Added
@@ -222,6 +233,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Batch variations, multi-turn chat, prompt inspiration
 - Install script with validation
 
+[1.8.0]: https://github.com/juliandickie/banana-claude/releases/tag/v1.8.0
 [1.7.0]: https://github.com/juliandickie/banana-claude/releases/tag/v1.7.0
 [1.6.0]: https://github.com/juliandickie/banana-claude/releases/tag/v1.6.0
 [1.5.0]: https://github.com/juliandickie/banana-claude/releases/tag/v1.5.0

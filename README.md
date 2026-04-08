@@ -10,7 +10,7 @@ AI image generation skill for Claude Code where **Claude acts as Creative Direct
 Unlike simple API wrappers, Claude interprets your intent, selects domain expertise, constructs optimized prompts using Google's official 5-component formula, and orchestrates Gemini for the best possible results.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-1.7.0-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.8.0-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Upstream](https://img.shields.io/badge/upstream-AgriciDaniel%2Fbanana--claude-gray)](https://github.com/AgriciDaniel/banana-claude)
 
@@ -42,6 +42,9 @@ Unlike simple API wrappers, Claude interprets your intent, selects domain expert
 ## What's New in This Fork
 
 This fork extends [AgriciDaniel/banana-claude](https://github.com/AgriciDaniel/banana-claude) with features driven by production use and research analysis of Google's prompting guidance:
+
+### Asset Registry (v1.8.0)
+Persistent named references for characters, products, equipment, and environments. Save once with reference images, reuse across sessions — Claude automatically loads reference images and consistency notes into every generation.
 
 ### Social Media Generation (v1.7.0)
 Platform-native image generation for 46 social media platforms. Generates at the correct native ratio at 4K resolution, then auto-crops to exact platform pixel specs. One prompt → multiple platform-specific images. Groups platforms by ratio to avoid duplicate API calls.
@@ -198,6 +201,9 @@ claude
 # Multi-turn creative session
 /banana chat
 
+# Save a product for consistent reuse
+/banana asset create "my-headphones" --type product --reference ~/photos/headphones.jpg --description "wireless earbuds in charging case"
+
 # Generate for multiple social platforms at once
 /banana social "product launch hero" --platforms ig-feed,yt-thumb,li-feed
 
@@ -228,6 +234,7 @@ Claude will ask about your brand, select the right domain mode (Cinema, Product,
 | `/banana batch <idea> [N]` | Generate N variations (default: 3) |
 | `/banana social <idea> --platforms <list>` | Platform-native image generation (47 platforms, 4K, auto-crop) |
 | `/banana brand` | Conversational brand guide builder (learn → refine → preview → save) |
+| `/banana asset [list\|show\|create\|delete]` | Manage persistent character/product/object references |
 | `/banana setup` | Guided Google AI API key setup |
 | `/banana setup replicate` | Guided Replicate token setup (optional fallback) |
 | `/banana status` | Check version, installation, and API key status |
@@ -374,7 +381,7 @@ banana-claude/                         # Claude Code Plugin
 │   ├── plugin.json                    # Plugin manifest
 │   └── marketplace.json               # Marketplace catalog
 ├── skills/banana/                     # Main skill
-│   ├── SKILL.md                       # Creative Director orchestrator (v1.7, ~191 lines)
+│   ├── SKILL.md                       # Creative Director orchestrator (v1.8, ~199 lines)
 │   ├── references/
 │   │   ├── prompt-engineering.md      # 5-component formula, 11 domain modes, PEEL strategy
 │   │   ├── gemini-models.md           # Model specs, resolution tables, input limits
@@ -382,6 +389,7 @@ banana-claude/                         # Claude Code Plugin
 │   │   ├── replicate.md              # Replicate backend API reference
 │   │   ├── social-platforms.md        # 46 social media platform specs and ratios
 │   │   ├── brand-builder.md           # Conversational brand guide creation flow
+│   │   ├── asset-registry.md          # Persistent asset registry for characters/products
 │   │   ├── post-processing.md        # ImageMagick/FFmpeg pipelines, green screen
 │   │   ├── cost-tracking.md          # Pricing table, usage guide
 │   │   ├── presets.md                # Brand Style Guide schema (17 fields)
@@ -398,6 +406,7 @@ banana-claude/                         # Claude Code Plugin
 │       ├── edit.py                   # Direct Gemini API fallback -- editing
 │       ├── replicate_generate.py     # Replicate API fallback -- generation
 │       ├── replicate_edit.py         # Replicate API fallback -- editing
+│       ├── assets.py                 # Asset registry CRUD (characters, products, objects)
 │       ├── social.py                 # Social media platform-native generation
 │       ├── slides.py                 # Slide deck batch generation pipeline
 │       ├── cost_tracker.py           # Cost logging and summaries

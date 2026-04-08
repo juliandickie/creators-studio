@@ -8,7 +8,7 @@
 
 - **Repo:** https://github.com/juliandickie/banana-claude
 - **Upstream:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1)
-- **Current version:** 1.7.0
+- **Current version:** 1.8.0
 - **Local path:** `/Users/juliandickie/code/nano-banana-pro/banana-claude/`
 - **Plugin layout:** `.claude-plugin/` + `skills/banana/` + `agents/`
 
@@ -126,7 +126,7 @@ See `ROADMAP.md` for the full prioritized feature roadmap.
 | 2 | `/banana brand` — conversational brand guide builder (learn from website/docs → refine → preview) | **Done (v1.7.0)** |
 | 3 | Pre-built brand guide library (12 example JSON presets) | **Done (v1.7.0)** |
 | 4 | `/banana social` — platform-native generation (46 platforms) | **Done (v1.7.0)** |
-| 5 | Asset registry (characters + products + objects) | Planned |
+| 5 | Asset registry (characters + products + objects) | **Done (v1.8.0)** |
 | 6 | `/banana video` with VEO 3.1 (separate skill) | Planned |
 | 7 | Image-to-prompt reverse engineering | Planned |
 | 8 | Deck builder (.pptx output) | Future |
