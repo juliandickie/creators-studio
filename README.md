@@ -43,13 +43,12 @@ Built on [AgriciDaniel/banana-claude](https://github.com/AgriciDaniel/banana-cla
 
 ![Video Pipeline](screenshots/video-pipeline.webp)
 
-**Sample output (generated with `/video generate`):**
+**Sample videos (generated with `/video generate`):**
 
-<div style="padding:56.25% 0 0 0;position:relative;"><iframe src="https://player.vimeo.com/video/1181470215?badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479&amp;autoplay=1&amp;muted=1&amp;loop=1" frameborder="0" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" referrerpolicy="strict-origin-when-cross-origin" style="position:absolute;top:0;left:0;width:100%;height:100%;" title="product-reveal-demo"></iframe></div><script src="https://player.vimeo.com/api/player.js"></script>
-
-https://github.com/juliandickie/nano-banana-studio/raw/main/screenshots/videos/product-reveal-demo.mp4
-
-> 6-second product reveal at 1080p with native audio. Generated in ~47 seconds via VEO 3.1.
+| Product Reveal — 6s / 1080p | Banana Character — 4s / 720p |
+|---|---|
+| [![Product Reveal Demo](screenshots/video-product-reveal-thumb.webp)](https://vimeo.com/1181470215) | [![Banana Spinning Demo](screenshots/video-banana-spinning-thumb.webp)](https://vimeo.com/1181470192) |
+| ▶ [Watch on Vimeo](https://vimeo.com/1181470215) — Product reveal with native audio. Generated in ~47 seconds. | ▶ [Watch on Vimeo](https://vimeo.com/1181470192) — Character animation test. Generated in ~36 seconds. |
 
 New `/video` skill powered by Google VEO 3.1. Text-to-video, image-to-video (animate stills from `/banana`), and first/last frame keyframe interpolation for seamless shot chaining. 4-8 second clips at up to 4K with native synchronized audio (dialogue, SFX, ambient). 6 video domain modes (Product Reveal, Story-Driven, Environment Reveal, Social Short, Cinematic, Tutorial/Demo). Multi-shot sequence production with storyboard approval — generate frame pairs cheaply with `/banana` before committing to video generation. Clip extension to 148 seconds. FFmpeg toolkit for concat/trim/convert. Same API key, shared brand presets and asset registry.
 
