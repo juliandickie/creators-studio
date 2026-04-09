@@ -2,7 +2,7 @@
 
 ## Context
 
-Nano Banana Studio v2.4.0 is a comprehensive Creative Director plugin for AI image generation. This roadmap captures planned features, organized by implementation priority.
+Nano Banana Studio v2.5.0 is a comprehensive Creative Director plugin for AI image generation. This roadmap captures planned features, organized by implementation priority.
 
 **Architecture note:** As this grows, the skill should split into three interlinked skills:
 1. **Brand Learning** (`/banana brand`) — Brand guide creation, asset registry, presets
@@ -27,6 +27,7 @@ These would share the brand preset system and asset registry but have their own 
 | 8 | `/banana formats` — multi-format image converter | v2.2.0 | PNG/WebP/JPEG at 4K/2K/1K/512, sips fallback |
 | 9 | `/banana history` — session generation history | v2.3.0 | log, list, export as markdown gallery |
 | 10 | `/banana ab-test` — A/B prompt variation testing | v2.4.0 | Literal/Creative/Premium + preference learning |
+| 11 | `/banana deck` — slide deck builder | v2.5.0 | .pptx with 3 layouts, brand styling, logo placement |
 
 ---
 
@@ -53,14 +54,6 @@ Implementation: `video_generate.py` (stdlib-only, same pattern), `/banana video`
 ---
 
 ## Planned Features
-
-### Deck Builder (.pptx Output)
-
-Generate slide backgrounds AND produce an actual editable `.pptx` file with:
-- Generated backgrounds as slide images
-- Text layers with proper hierarchy
-- Logo placed per brand guide
-- Notes section with prompts used
 
 ### Analytics Dashboard
 
@@ -90,6 +83,5 @@ Local web dashboard showing cost trends, domain mode usage, quota monitoring.
 | # | Feature | Effort | Impact | Status |
 |---|---------|--------|--------|--------|
 | 1 | `/banana video` with VEO 3.1 | Medium | Very High | Next |
-| 2 | Deck builder (.pptx output) | Medium | Very High | Planned |
-| 3 | Analytics dashboard | Medium | Medium | Planned |
-| 4 | Multi-modal content pipeline | High | High | Planned |
+| 2 | Analytics dashboard | Medium | Medium | Planned |
+| 3 | Multi-modal content pipeline | High | High | Planned |

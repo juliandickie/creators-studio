@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-04-09
+
+### Added
+- **`/banana deck`** -- Slide deck builder: assemble generated images into editable .pptx
+  - `scripts/deckbuilder.py` (~590 lines) with 3 layout modes: fullbleed, standard, split
+  - Brand preset integration (colors, typography, logo placement)
+  - Title slide + content slides + closing slide
+  - Slide notes contain original prompts from generation-summary.json
+  - `references/deck-builder.md` -- layouts, preset integration, logo handling
+
 ## [2.4.0] - 2026-04-09
 
 ### Added
@@ -318,6 +328,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Batch variations, multi-turn chat, prompt inspiration
 - Install script with validation
 
+[2.5.0]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v2.5.0
 [2.4.0]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v2.4.0
 [2.3.0]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v2.3.0
 [2.2.0]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v2.2.0
