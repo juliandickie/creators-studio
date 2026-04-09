@@ -9,6 +9,14 @@
 
 Write as natural narrative prose -- NEVER as keyword lists. Each video prompt should include all 5 parts.
 
+**Target length: 100–200 words.** Shorter prompts underspecify the scene
+and produce generic results. Longer prompts (>300 words) tend to
+contradict themselves as the model tries to satisfy conflicting details.
+**150 words is the sweet spot** — enough to cover all 5 framework parts
+without overloading. The VEO 3.1 API hard limit is 1,024 tokens (~4,096
+characters); `video_generate.py` warns at ~950 tokens and errors at
+~1,125.
+
 ### Part 1 -- CAMERA
 
 Shot type and movement. Use professional cinematography language.
@@ -29,6 +37,19 @@ Shot type and movement. Use professional cinematography language.
 
 **Good:** "Slow dolly forward through the glass door, transitioning from exterior to interior in a single continuous take"
 **Bad:** "camera moves"
+
+**Lens focal length** (VEO responds accurately to specific mm values; use them):
+
+| Focal length | Effect | Use case |
+|---|---|---|
+| 16mm | Expands space, exaggerates depth | Establishing, environments, dramatic interiors |
+| 24–35mm | Natural perspective, close to human vision | Standard coverage, documentary, medium shots |
+| 50mm | Slight compression, flattering proportions | Portrait, conversation, product closeups |
+| 85mm | Heavy background compression, creamy bokeh | Portrait beauty, isolating subject from environment |
+| 100mm+ macro | Extreme close-up with very shallow DOF | Product details, textures, pour shots |
+
+Lenses control depth perception, not distance — specify them
+explicitly, e.g. `"85mm f/1.4, shallow depth of field"`.
 
 ### Part 2 -- SUBJECT
 
@@ -67,6 +88,51 @@ Film style, lighting, color grade, AND audio elements. Audio is unique to video.
 - **SFX:** `SFX: soft thud of dough hitting the counter, flour puffing into the air`
 - **Ambient:** `Quiet hum of the oven, distant birdsong through an open window`
 - **Music:** `Gentle acoustic guitar melody in the background`
+
+**Dialogue timing (one breath per clip):**
+
+- **4 s clip:** 3–5 words max (e.g., `A woman says, "I'm ready."`)
+- **6 s clip:** 6–10 words (e.g., `He whispers, "Let's go before they see us."`)
+- **8 s clip:** 10–15 words — one full breath of natural speech
+
+Too much dialogue causes unnaturally rapid speech; too little leaves
+VEO filling the silence with gibberish murmuring in clips that contain
+a visible speaker. Never leave a visible speaker silent.
+
+## Timestamp Prompting: Multi-Shot in a Single Clip
+
+VEO 3.1 accepts a timestamp syntax that directs a micro-sequence within
+a single 4/6/8-second generation. A 30-second sequence that would
+otherwise need 4 separate VEO calls can sometimes be packed into 2
+calls with 4 sub-shots each — a ~50% cost reduction.
+
+```
+[00:00-00:02] Medium shot from behind a young explorer pushing aside a jungle vine.
+[00:02-00:04] Reverse shot of the explorer's face, filled with awe. SFX: rustle of leaves.
+[00:04-00:06] Tracking shot following her hand over intricate carvings on a wall.
+[00:06-00:08] Wide crane shot revealing the vast temple complex. SFX: swelling orchestral score.
+```
+
+**Caveats:**
+
+- Works within the 4/6/8-second hard ceiling — cannot extend clip length.
+- Each sub-shot must make sense as a micro-cut (establishing → reaction → detail → wide).
+- Audio cues can be placed at specific timestamps for SFX alignment.
+- Total sub-shot duration must not exceed the clip duration.
+- 2–3 sub-shots per clip is the quality sweet spot; tight 4-sub-shot
+  cuts can look rushed.
+
+## Negative Prompts
+
+Google's official guidance is to **describe what you want rather than
+list exclusions**, and to use negative prompts only for known failure
+modes. Use `video_generate.py --negative-prompt "..."`.
+
+Community-tested boilerplate (copy-paste):
+
+```
+no motion blur, no face distortion, no warping, no morphing, no duplicate limbs, no text overlays
+```
 
 ## Proven Video Prompt Templates
 
@@ -125,6 +191,12 @@ Copy-paste the scene bible into every shot prompt. VEO maintains better consiste
 NEVER use: "8K," "masterpiece," "ultra-realistic," "high resolution"
 These degrade output quality. Use prestigious context anchors instead.
 
+**Do not rely on VEO for readable text.** Signs, shirts, posters,
+storefronts, and UI elements render as plausible-looking gibberish.
+The existing "clean negative space for logos" rule from the image skill
+applies double for video — describe the area as "blank" or "out of
+frame" and composite text in post-production using a video editor.
+
 ## Safety Rephrase for Video
 
 VEO has stricter frame-by-frame safety scanning. Common trigger words:
@@ -149,7 +221,12 @@ This section collects prompt engineering insights discovered while producing act
 
 ✅ **Demonstrated** (coffee shop 30s sequence, April 2026)
 
-When the same element must appear across multiple shots, use **identical phrasing, not paraphrases**. The model produces more consistent results when prompts share exact language than when they describe the same thing in different words.
+This technique is a **mitigation** for VEO's documented character drift
+limitation, not a complete solution (see Known Limitations in
+`veo-models.md`). When the same element must appear across multiple
+shots, use **identical phrasing, not paraphrases**. The model produces
+more consistent results when prompts share exact language than when
+they describe the same thing in different words.
 
 **Example from the coffee shop sequence:**
 

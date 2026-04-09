@@ -30,12 +30,28 @@ Nano Banana Studio v3.4.0 is a comprehensive Creative Director plugin for AI ima
 | 14 | `/video` — VEO 3.1 video generation (core) | v3.0.0 | Text-to-video, image-to-video, first/last frame |
 | 15 | `/video sequence` — multi-shot production | v3.3.0 | Storyboard approval, first/last frame chaining |
 | 16 | `/video extend` + `/video stitch` — extension + FFmpeg toolkit | v3.4.0 | Clip chaining to 148s, concat/trim/convert |
+| 17 | VEO 3.1 model variants + draft workflow + Scene Extension v2 | v3.5.0 | Lite/Fast/Standard tiers, `--quality-tier` flag, pricing fixes |
 
 ---
 
 ## Planned Features
 
-### v3.5.0 — Sequence Production Improvements
+### v3.5.0 — VEO 3.1 Model Variants & Draft Workflow (SHIPPED 2026-04-10)
+
+v3.5.0 shipped the VEO 3.1 model variant work (Standard / Fast / Lite /
+Legacy 3.0), corrected pricing, the `--quality-tier` draft-then-final
+workflow for sequences, Scene Extension v2 as the default extension
+method, token-limit prompt validation, and a full rewrite of
+`veo-models.md`. See `CHANGELOG.md` for the full list.
+
+The "Sequence Production Improvements" items below (review gate, plan
+hash tracking, audio strategy split, etc.) originally slated for v3.5.0
+are **deferred to v3.6.0** — the coffee shop demo surfaced the model
+variant gap as a higher-priority blocker, so that work landed first.
+
+### v3.6.0 — Deferred Sequence Production + Batch Features
+
+**Carry-over from v3.5.0 plan (original sequence production scope):**
 
 These learnings came from producing the first real 30-second multi-shot sequence (the coffee shop demo for the README). The theoretical pipeline shipped in v3.3.0 works, but these specific gaps surfaced during actual use:
 
@@ -124,6 +140,16 @@ These bugs were discovered during the first real VEO test and are documented her
 - ✅ Response path is `response.generateVideoResponse.generatedSamples[0].video.uri`, not `response.generatedSamples`
 - ✅ Video URIs require the API key as a query parameter for authenticated download
 
+#### New v3.6.0 items surfaced during v3.5.0 research
+
+- **`--num-videos` flag (1–4 per API call)** — VEO 3.1 supports generating up to 4 variations in a single `predictLongRunning` request, amortizing the setup/denoise overhead. Adds a new output shape (array of paths). Overlaps with the banana skill's `/banana ab-test` — might belong there instead.
+- **Object insertion support** — VEO 3.1 can add elements into generated video while maintaining consistent lighting and physics. New flag probably looks like `--insert-object <image.png> --insert-description "a coffee cup on the table"`.
+- **Parallel batch execution in `video_sequence.py`** — Currently shots are generated sequentially. Up to 10 concurrent operations are allowed per project. Parallel execution would cut a 4-shot sequence wall-clock from ~4 min to ~1 min at the cost of losing the "fail fast on shot 1" pattern.
+- **`output_gcs_uri` support** — Write directly to Cloud Storage instead of downloading and re-uploading. Required for workflows that need videos to outlive the 48-hour retention window without local storage.
+- **Regional restrictions awareness** — Detect EEA/Swiss/UK locale and warn when image-to-video features will be restricted. Also surface the `personGeneration: allow_adult` default in those regions.
+- **1080p Lite pricing verification** — The reference doc only explicitly states $0.05/sec for 720p Lite. 1080p Lite pricing is unverified. Run a real API call to confirm and update the PRICING dict.
+- **Character consistency improvements** — VEO's character drift is a documented limitation. Consider routing character-heavy shots through Replicate backends (Kling 2.6, Seedance 2.0) which handle multi-shot consistency better.
+
 #### Cost and workflow wins to preserve
 
 These worked well and should be documented in the video-sequences reference so future users follow the same pattern:
@@ -149,5 +175,6 @@ These worked well and should be documented in the video-sequences reference so f
 
 | # | Feature | Effort | Impact | Status |
 |---|---------|--------|--------|--------|
-| 1 | v3.5.0 — Sequence Production Improvements (review gate, prompt freshness, image-to-image chaining) | Medium | Very High | **Next** |
-| 2 | Replicate video model routing (Kling, Wan, PixVerse) | Medium | High | Future |
+| 1 | v3.5.0 — VEO 3.1 model variants + draft workflow + Scene Extension v2 | Medium | Very High | **Shipped 2026-04-10** |
+| 2 | v3.6.0 — Deferred sequence production improvements + batch/parallel features | Medium | Very High | **Next** |
+| 3 | Replicate video model routing (Kling, Wan, PixVerse) for character consistency | Medium | High | Future |

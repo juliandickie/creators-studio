@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0] - 2026-04-10
+
+### Fixed
+- **VEO Lite model ID** — the plugin previously shipped `veo-3.1-generate-lite-preview` which does not exist as a real API endpoint; Lite generation had never actually worked. v3.5.0 ships the correct GA ID `veo-3.1-lite-generate-001`.
+- **VEO pricing** — the cost tracker's Standard rate was incorrectly set to $0.15/sec. Corrected to the official $0.40/sec ($3.20 per 8s clip) matching Google Cloud Vertex AI pricing. Fast ($0.15/sec) and Lite ($0.05/sec) tiers are now listed separately rather than conflated.
+
+### Added
+- **VEO 3.1 model variants** in `video_generate.py` — Fast tier (`veo-3.1-fast-generate-preview` / `-001`), Lite tier (`veo-3.1-lite-generate-001`), and Legacy 3.0 (`veo-3.0-generate-001`). Both preview and GA (`-001`) IDs are accepted for Standard and Fast.
+- **Model-aware parameter validation** — Lite supports 5–60 s durations and 1:1 square aspect ratio; Standard/Fast reject those. 4K is rejected on Lite and Legacy 3.0.
+- **`--negative-prompt`** flag on `video_generate.py` with Google's official guidance (describe what you want; use negatives only for known failure modes).
+- **`--seed`** flag on `video_generate.py` for reproducible generations.
+- **`--video-input`** flag on `video_generate.py` — Scene Extension v2 mode, mutually exclusive with image inputs, forces 720p.
+- **`--quality-tier {draft,fast,standard,legacy}`** flag on `video_sequence.py generate` and `estimate` — enables the draft-then-final workflow where a 4-shot sequence renders at Lite for $1.60 before final at Standard.
+- **Per-shot and sequence-level `model`/`resolution` fields** in the plan.json schema, with a 3-level cascade (CLI override → shot → plan → default) and graceful fallback for old plans.
+- **`--method {video,keyframe}`** flag on `video_extend.py`. Default is `video` (Scene Extension v2: passes previous clip directly, preserves audio continuity at 720p). `keyframe` retains the legacy last-frame extraction path at any resolution.
+- **`--model` flag on `video_extend.py`** with per-hop cost estimation using the selected model's actual rate.
+- **Token-limit prompt validation** in `video_generate.py` — warns at ~950 tokens (3,800 chars), hard-rejects at ~1,125 tokens (4,500 chars) to prevent confusing API-layer failures.
+- **`download_expires_at` timestamp** in `video_generate.py` JSON output and a stderr warning about Google's 48-hour video retention window.
+- **New `_veo_cost(model, duration_seconds)` helper** in `cost_tracker.py` with per-second fallback for Lite's extended 5–60 s range.
+- **README: "VEO 3.1 Model Variants & Draft Workflow (v3.5.0)"** section.
+
+### Changed
+- **Scene Extension v2 is now the default** for `video_extend.py`. The legacy keyframe extension path is available as `--method keyframe`.
+- **`video_sequence.py` cost estimation** now uses real per-tier rates instead of a flat $1.20/clip. Output includes a per-model breakdown.
+- **Video SKILL.md Model Routing table** rewritten with 5 scenarios (draft / quick social / standard / hero / legacy) and a draft-first recommendation.
+
+### Docs
+- **Full rewrite of `skills/video/references/veo-models.md`** with the VEO release timeline, 3-tier comparison table, GA vs preview IDs, 4K-is-AI-upscaled clarification, capability matrix, known limitations (character drift, text rendering, 8 s ceiling, silent output failures), 48-hour video retention, regional availability (EEA/Swiss/UK), rate limits, competitive context (Arena Elo 1381), and audio quality comparison.
+- **`skills/video/references/video-sequences.md`** — new draft-then-final workflow section with cost comparison table, Gemini + VEO as Google's officially recommended pattern, timestamp prompting as a cost-reduction technique, and character drift mitigation framing.
+- **`skills/video/references/video-prompt-engineering.md`** — new sections for timestamp prompting (`[00:00-00:02]` syntax), lens focal length guidance (16 mm / 35 mm / 50 mm / 85 mm table), dialogue timing (words-per-clip by duration), recommended negative prompt boilerplate, text rendering warning, and 100–200 word prompt-length target.
+- **README** version badge bumped, model comparison table updated with all four VEO variants and per-second pricing.
+
 ## [3.4.1] - 2026-04-09
 
 ### Fixed

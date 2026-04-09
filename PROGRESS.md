@@ -7,7 +7,7 @@
 
 - **Repo:** https://github.com/juliandickie/nano-banana-studio
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
-- **Current version:** 3.4.1
+- **Current version:** 3.5.0
 - **Local path:** `/Users/juliandickie/code/nano-banana-pro/banana-claude/`
 - **Plugin layout:** `.claude-plugin/` + `skills/banana/` (image) + `skills/video/` (video) + `agents/`
 
@@ -181,6 +181,16 @@ Both keys stored in `~/.banana/config.json`. Scripts check: CLI flag → env var
 
 **Files created:** multiformat.py, history.py, abtester.py, deckbuilder.py, analytics.py, content_pipeline.py, video_generate.py, video_sequence.py, video_extend.py, video_stitch.py, video-brief-constructor.md, 12 reference docs, cover-image.webp
 **Files modified:** SKILL.md (banana), cost_tracker.py, content_pipeline.py, history.py, README.md, CHANGELOG.md, CLAUDE.md, PROGRESS.md, ROADMAP.md, plugin.json, CITATION.cff, + many more
+
+### Session 7 (2026-04-10)
+**Scope:** v3.5.0 — VEO 3.1 model variants, pricing fixes, draft workflow, Scene Extension v2, full docs rewrite
+
+1. **Commit 1 (9b33b4a):** Added Fast/Lite/Legacy model tiers, model-aware duration/ratio/resolution validation, `--negative-prompt`/`--seed`/`--video-input` flags to video_generate.py. Critical fix: the Lite model ID (`veo-3.1-lite-generate-001`) — previous releases shipped `veo-3.1-generate-lite-preview` which does not exist.
+2. **Commit 2 (9782705):** Fixed VEO pricing in cost_tracker.py — Standard was incorrectly $0.15/sec, corrected to official $0.40/sec ($3.20/8s). Added Fast ($0.15/sec), Lite ($0.05/sec), and Legacy 3.0 entries plus new `_veo_cost()` helper with per-second fallback. Added token-limit prompt validation (1,024-token ceiling) and 48-hour retention warnings.
+3. **Commit 3 (bba6d76):** Threaded model tiers through `video_sequence.py` (new `model`/`resolution` fields at sequence and per-shot levels, 3-level fallback cascade for backward compat with v3.4.x plans) and `video_extend.py` (new `--method {video,keyframe}` flag defaulting to Scene Extension v2). Added `--quality-tier {draft,fast,standard,legacy}` flag enabling the draft-then-final workflow. Per-shot cost estimation now uses real per-tier rates.
+4. **Commit 4:** Full rewrite of `veo-models.md` with release timeline, 3-tier comparison, known limitations (character drift, text rendering), regional availability, rate limits, 48-hour retention, competitive context. New sections in `video-prompt-engineering.md`: timestamp prompting, lens focal length, dialogue timing, negative prompt boilerplate, 100–200 word length target. New draft-then-final workflow section in `video-sequences.md`. Updated SKILL.md Model Routing table. Version bump 3.4.1 → 3.5.0 across plugin.json, README badge, CITATION.cff. CHANGELOG v3.5.0 section. ROADMAP updates: v3.5.0 marked shipped, deferred items moved to v3.6.0.
+
+**Verification:** zero-cost checks (compile, help, grep, backward-compat plan.json) + real API smoke test at Lite ($0.20) + Scene Extension v2 ($0.20).
 
 ## Expansion Roadmap
 

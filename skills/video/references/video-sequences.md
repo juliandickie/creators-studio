@@ -7,6 +7,69 @@
 
 VEO generates max 8 seconds per clip. Longer productions require a **shot list** approach: break the script into individual shots, generate storyboard frame pairs for approval, then batch-generate video clips and stitch them together.
 
+This Gemini + VEO workflow (Gemini for still storyboard frames → VEO for
+clip interpolation) is Google's officially recommended pattern for
+multi-shot production, not just our opinion. It both lets you catch
+composition problems at image cost before committing to video cost, and
+locks in per-shot continuity via first/last frame keyframing.
+
+## Draft-then-Final Workflow (v3.5.0+)
+
+```
+Plan → Storyboard → Generate (draft) → Review → Generate (final) → Stitch
+```
+
+With three VEO tiers, the cheapest way to validate a sequence is to run
+the whole thing at **Lite draft** quality first, review the motion and
+continuity, then re-run the approved shots at **Fast** or **Standard**
+for delivery.
+
+```bash
+# 1. First pass: draft at Lite ($0.05/sec)
+python3 ${CLAUDE_SKILL_DIR}/scripts/video_sequence.py generate \
+    --storyboard ~/storyboard --quality-tier draft
+
+# 2. Review the MP4s. Approve, tweak prompts, or regenerate.
+
+# 3. Final pass: Fast or Standard at full quality
+python3 ${CLAUDE_SKILL_DIR}/scripts/video_sequence.py generate \
+    --storyboard ~/storyboard --quality-tier standard
+```
+
+### Cost Comparison (4 shots × 8 s, 30-second sequence)
+
+| Mode | Draft pass | Final pass | Total |
+|---|---|---|---|
+| Blind at Standard | — | $12.80 | $12.80 |
+| Blind at Fast | — | $4.80 | $4.80 |
+| Blind at Lite | — | $1.60 | $1.60 |
+| Draft + Fast final | $1.60 | $4.80 | **$6.40** |
+| Draft + Standard final | $1.60 | $12.80 | **$14.40** |
+
+Draft-then-final is only "more expensive" on paper — in practice, blind
+generation at Standard typically needs 1–2 regenerations per shot because
+the user cannot preview motion before committing. One regeneration of a
+single 8 s Standard shot ($3.20) already exceeds the entire $1.60 draft
+pass. **Draft-then-final pays for itself the first time it prevents a
+regeneration on any shot at Standard tier.**
+
+## Timestamp Prompting: Pack Multiple Shots per Clip
+
+VEO 3.1 supports a timestamp syntax within a single prompt that directs
+multi-shot sequences inside one 8-second generation. A 30-second sequence
+that would otherwise need 4 clips can sometimes be compressed to 2
+clips with 4 sub-shots each, cutting VEO cost by ~50%. See the
+timestamp-prompting section in `video-prompt-engineering.md` for syntax
+and caveats.
+
+## Character Drift Mitigation
+
+VEO treats each prompt as a fresh generation with no persistent
+character memory. Between clips, faces, clothing, and hairstyle can
+subtly or dramatically shift. The consistency rules below (identity
+lock, wardrobe lock, reference images) are **mitigations, not
+solutions** — see the Known Limitations section of `veo-models.md`.
+
 ## The 4-Stage Pipeline
 
 ### Stage 1: Shot List (Free)

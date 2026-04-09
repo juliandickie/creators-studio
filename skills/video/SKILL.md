@@ -116,7 +116,7 @@ Check availability first: `which ffmpeg || echo "FFmpeg not installed"`
 | HTTP 429 | Wait 10s, exponential backoff, max 3 retries |
 | HTTP 403 | Billing not enabled -- VEO has no free tier. Inform user. |
 | HTTP 5xx | Server error -- wait 10s, retry with backoff, max 3 retries |
-| Poll timeout | Generation took too long (>300s). Retry once, or try `veo-3.1-generate-lite-preview` for faster results. |
+| Poll timeout | Generation took too long (>300s). Retry once, or try `veo-3.1-lite-generate-001` for faster results. |
 | Invalid API key | Suggest running `/banana setup` to reconfigure |
 
 ### Step 10: Log Cost + History
@@ -154,11 +154,17 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/video_extend.py --input clip.mp4 --target-du
 
 | Scenario | Model | Duration | When |
 |----------|-------|----------|------|
-| Standard production | `veo-3.1-generate-preview` | 8s | Default -- best quality |
-| Quick draft | `veo-3.1-generate-lite-preview` | 4s | Budget-conscious, rapid iteration |
-| Social short | `veo-3.1-generate-preview` | 4s | TikTok, Reels, Shorts |
+| Draft / motion check | `veo-3.1-lite-generate-001` | 4-8s | **First pass** for sequences ($0.05/sec) |
+| Quick turnaround social | `veo-3.1-fast-generate-preview` | 4s | TikTok, Reels, Shorts ($0.15/sec) |
+| Standard production | `veo-3.1-generate-preview` | 8s | Default single-clip ($0.40/sec) |
+| Hero / brand work | `veo-3.1-generate-preview` + 4K | 8s | Premium campaign (same $0.40/sec) |
+| Legacy / reproduction | `veo-3.0-generate-001` | 8s | Match existing VEO 3.0 style |
 
-Default: `veo-3.1-generate-preview`. See `references/veo-models.md` for full specs and pricing.
+Default: `veo-3.1-generate-preview`. **For sequences, always draft at
+Lite first** — see the draft-then-final workflow in
+`references/video-sequences.md`. The GA (`-001`) IDs for Standard and
+Fast are also accepted if users prefer them. See
+`references/veo-models.md` for full specs and pricing.
 
 ## Audio Quick Guide
 
