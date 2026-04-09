@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-04-09
+
+### Added
+- **`/video sequence`** -- Multi-shot video sequence production pipeline
+  - `scripts/video_sequence.py` -- plan, storyboard, estimate, generate, stitch subcommands
+  - Storyboard approval workflow: generate frame pairs with /banana before committing to video
+  - First/last frame chaining: end frame of shot N = start frame of shot N+1
+  - Target durations: 15s, 30s, 60s, 90s, 2min+ with shot count recommendations
+  - `references/video-sequences.md` -- shot list format, consistency rules, cost estimation
+
 ## [3.2.0] - 2026-04-09
 
 ### Added
@@ -379,6 +389,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Batch variations, multi-turn chat, prompt inspiration
 - Install script with validation
 
+[3.3.0]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v3.3.0
 [3.2.0]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v3.2.0
 [3.1.0]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v3.1.0
 [3.0.0]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v3.0.0
