@@ -245,7 +245,7 @@ To update: `cd ~/nano-banana-studio && git pull && bash install.sh`
 
 Claude will ask about your brand, select the right domain mode (Cinema, Product, Portrait, Editorial, UI, Logo, Landscape, Infographic, Abstract, Presentation), construct a detailed prompt with lighting and composition, set the right aspect ratio, and generate.
 
-![Banana Claude in action](screenshots/banana-claude-skillcommand.gif)
+![Nano Banana Studio in action](screenshots/nano-banana-studio-skillcommand.gif)
 
 ## Commands
 
