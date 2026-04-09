@@ -29,9 +29,24 @@ HOP_DURATION = 7  # effective seconds per generation (8s with overlap)
 GENERATE_DURATION = 8  # duration passed to video_generate.py
 MAX_HOPS = 20
 MAX_DURATION = 148  # MAX_HOPS * HOP_DURATION + initial clip headroom
-COST_PER_HOP = 1.20  # USD estimate per VEO generation
+DEFAULT_EXTEND_MODEL = "veo-3.1-generate-preview"
+# Per-second rates for cost estimation (kept in sync with cost_tracker.PRICING).
+_EXTEND_PER_SECOND = {
+    "veo-3.1-generate-preview": 0.40,
+    "veo-3.1-generate-001": 0.40,
+    "veo-3.1-fast-generate-preview": 0.15,
+    "veo-3.1-fast-generate-001": 0.15,
+    "veo-3.1-lite-generate-001": 0.05,
+    "veo-3.0-generate-001": 0.15,
+}
 SCRIPT_DIR = Path(__file__).resolve().parent
 GENERATE_SCRIPT = SCRIPT_DIR / "video_generate.py"
+
+
+def _hop_cost(model):
+    """Cost for one 8s extension hop at *model*'s rate."""
+    rate = _EXTEND_PER_SECOND.get(model, 0.15)
+    return round(rate * GENERATE_DURATION, 4)
 
 
 def _error_exit(message):
@@ -88,14 +103,30 @@ def _extract_last_frame(video_path, output_path):
         _error_exit(f"Failed to extract last frame: {result.stderr.strip()}")
 
 
-def _generate_clip(first_frame, prompt, api_key, output_dir):
-    """Call video_generate.py with first-frame to produce next clip."""
+def _generate_clip(
+    *, prompt, api_key, output_dir, model,
+    first_frame=None, video_input=None, resolution="1080p",
+):
+    """Call video_generate.py to produce the next extension clip.
+
+    Two modes (mutually exclusive):
+
+    - first_frame: classic keyframe extension. Pass the extracted last-frame
+      PNG as --first-frame. Works at any resolution but loses audio continuity.
+    - video_input: Scene Extension v2 (v3.5.0+). Pass the previous clip as
+      --video-input. Preserves audio continuity but is limited to 720p.
+    """
     cmd = [
         sys.executable, str(GENERATE_SCRIPT),
-        "--first-frame", str(first_frame),
+        "--model", model,
         "--duration", str(GENERATE_DURATION),
+        "--resolution", resolution,
         "--output", str(output_dir),
     ]
+    if first_frame is not None:
+        cmd.extend(["--first-frame", str(first_frame)])
+    if video_input is not None:
+        cmd.extend(["--video-input", str(video_input)])
     if prompt:
         cmd.extend(["--prompt", prompt])
     if api_key:
@@ -173,6 +204,22 @@ def main():
     parser.add_argument("--prompt", default="", help="Continuation prompt for each hop")
     parser.add_argument("--api-key", default=None, help="Google AI API key")
     parser.add_argument("--output", default=None, help="Output file path")
+    parser.add_argument(
+        "--model", default=DEFAULT_EXTEND_MODEL,
+        help=(
+            "VEO model for each extension hop. Default: "
+            f"{DEFAULT_EXTEND_MODEL}"
+        ),
+    )
+    parser.add_argument(
+        "--method", choices=["video", "keyframe"], default="video",
+        help=(
+            "Extension method. 'video' uses Scene Extension v2 (passes the "
+            "previous clip as --video-input, preserves audio continuity, "
+            "forced to 720p). 'keyframe' uses the legacy last-frame extraction "
+            "path (any resolution, loses audio continuity)."
+        ),
+    )
     args = parser.parse_args()
 
     # ── Preflight checks ─────────────────────────────────────────────
@@ -204,12 +251,18 @@ def main():
             f"(148s total). Reduce --target-duration."
         )
 
+    hop_cost = _hop_cost(args.model)
+    extend_resolution = "720p" if args.method == "video" else "1080p"
+
     _progress({
         "stage": "plan",
         "original_duration": round(original_duration, 1),
         "target_duration": target,
         "hops_needed": hops_needed,
-        "estimated_cost": round(hops_needed * COST_PER_HOP, 2),
+        "model": args.model,
+        "method": args.method,
+        "resolution": extend_resolution,
+        "estimated_cost": round(hops_needed * hop_cost, 2),
     })
 
     # ── Extension loop ───────────────────────────────────────────────
@@ -220,16 +273,31 @@ def main():
         for hop in range(1, hops_needed + 1):
             _progress({"stage": "hop", "hop": hop, "of": hops_needed})
 
-            # Extract last frame
-            last_frame = os.path.join(tmpdir, f"lastframe_{hop}.png")
-            _extract_last_frame(current_clip, last_frame)
-
-            # Generate next segment
             gen_dir = os.path.join(tmpdir, f"gen_{hop}")
             os.makedirs(gen_dir, exist_ok=True)
-            new_clip, error = _generate_clip(
-                last_frame, args.prompt, args.api_key, gen_dir
-            )
+
+            if args.method == "video":
+                # Scene Extension v2: feed the previous clip directly.
+                new_clip, error = _generate_clip(
+                    prompt=args.prompt,
+                    api_key=args.api_key,
+                    output_dir=gen_dir,
+                    model=args.model,
+                    video_input=current_clip,
+                    resolution="720p",
+                )
+            else:
+                # Legacy keyframe: extract last frame, use as first-frame seed.
+                last_frame = os.path.join(tmpdir, f"lastframe_{hop}.png")
+                _extract_last_frame(current_clip, last_frame)
+                new_clip, error = _generate_clip(
+                    prompt=args.prompt,
+                    api_key=args.api_key,
+                    output_dir=gen_dir,
+                    model=args.model,
+                    first_frame=last_frame,
+                    resolution=extend_resolution,
+                )
             if error:
                 _error_exit(f"Generation failed at hop {hop}/{hops_needed}: {error}")
 
@@ -270,7 +338,9 @@ def main():
         "original_duration": round(original_duration, 1),
         "final_duration": round(final_duration, 1),
         "hops": hops_done,
-        "cost": round(hops_done * COST_PER_HOP, 2),
+        "model": args.model,
+        "method": args.method,
+        "cost": round(hops_done * hop_cost, 2),
     }))
 
 

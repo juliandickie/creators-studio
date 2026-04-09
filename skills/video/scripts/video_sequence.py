@@ -30,13 +30,56 @@ from pathlib import Path
 
 OUTPUT_BASE = Path.home() / "Documents" / "nanobanana_generated"
 COST_STORYBOARD_FRAME = 0.078   # per 2K frame
-COST_VIDEO_CLIP_8S = 1.20       # per 8s VEO clip
 AVG_SHOT_DURATION = 7           # seconds, for shot-count estimation
 MIN_SHOTS = 2
 DEFAULT_SHOT_DURATION = 8
 MAX_SHOT_DURATION = 8
 
+# Default model for sequences. Individual shots (shot["model"]) and
+# sequence-level overrides (plan["model"]) take precedence over this.
+DEFAULT_SEQUENCE_MODEL = "veo-3.1-generate-preview"
+DEFAULT_SEQUENCE_RESOLUTION = "1080p"
+
+# Quality-tier CLI flag maps to concrete model IDs. Preview IDs are used for
+# Standard/Fast because those are the ones most thoroughly exercised in v3.5.x;
+# switch to GA (-001) in v3.6.0 once they're proven in production workflows.
+QUALITY_TIER_MODELS = {
+    "draft": "veo-3.1-lite-generate-001",
+    "fast": "veo-3.1-fast-generate-preview",
+    "standard": "veo-3.1-generate-preview",
+    "legacy": "veo-3.0-generate-001",
+}
+
+# Fallback per-second rates matching cost_tracker.PRICING. Kept in sync by
+# convention rather than import to preserve this script's stdlib-only posture.
+_VEO_PER_SECOND = {
+    "veo-3.1-generate-preview": 0.40,
+    "veo-3.1-generate-001": 0.40,
+    "veo-3.1-fast-generate-preview": 0.15,
+    "veo-3.1-fast-generate-001": 0.15,
+    "veo-3.1-lite-generate-001": 0.05,
+    "veo-3.0-generate-001": 0.15,
+}
+
 SHOT_TYPES = ("establishing", "content", "closeup", "transition", "broll")
+
+
+def _veo_cost(model, duration_seconds):
+    """Local VEO cost lookup. Mirrors cost_tracker._veo_cost but stdlib-only."""
+    rate = _VEO_PER_SECOND.get(model)
+    if rate is None:
+        return None
+    return round(rate * duration_seconds, 4)
+
+
+def _resolve_shot_model(shot, plan, override=None):
+    """3-level cascade: CLI override → shot["model"] → plan["model"] → default."""
+    return (
+        override
+        or shot.get("model")
+        or plan.get("model")
+        or DEFAULT_SEQUENCE_MODEL
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -198,22 +241,32 @@ def cmd_plan(args):
             "start_frame_prompt": "",
             "end_frame_prompt": "",
             "consistency_notes": "",
+            # Optional per-shot overrides. Empty string = fall back to the
+            # sequence-level model/resolution at generate time.
+            "model": "",
+            "resolution": "",
             "status": "planned",
         })
 
     storyboard_cost = shot_count * 2 * COST_STORYBOARD_FRAME
-    video_cost = shot_count * COST_VIDEO_CLIP_8S
+    # Sequence-level model used for the estimate. May be overridden later by
+    # --quality-tier at generate time.
+    sequence_model = DEFAULT_SEQUENCE_MODEL
+    video_cost = sum(_veo_cost(sequence_model, s["duration"]) or 0.0 for s in shots)
 
     plan = {
         "script": args.script,
         "target_duration": target,
         "preset": getattr(args, "preset", None),
+        "model": sequence_model,
+        "resolution": DEFAULT_SEQUENCE_RESOLUTION,
         "shot_count": shot_count,
         "shots": shots,
         "estimated_cost": {
             "storyboard_frames": round(storyboard_cost, 2),
             "video_clips": round(video_cost, 2),
             "total": round(storyboard_cost + video_cost, 2),
+            "model": sequence_model,
         },
     }
 
@@ -328,7 +381,11 @@ def cmd_storyboard(args):
 # ---------------------------------------------------------------------------
 
 def cmd_estimate(args):
-    """Print cost estimate from an existing plan."""
+    """Print cost estimate from an existing plan.
+
+    Honors per-shot, sequence-level, and --quality-tier model overrides.
+    Shows a per-tier breakdown so users see why draft-then-final saves money.
+    """
     plan = _load_plan(args.plan)
     shots = plan.get("shots", [])
     shot_count = len(shots)
@@ -339,8 +396,22 @@ def cmd_estimate(args):
     )
 
     storyboard_cost = shot_count * 2 * COST_STORYBOARD_FRAME
-    video_cost = shot_count * COST_VIDEO_CLIP_8S
     total_duration = sum(s.get("duration", DEFAULT_SHOT_DURATION) for s in shots)
+
+    override = QUALITY_TIER_MODELS.get(getattr(args, "quality_tier", None))
+
+    # Tier breakdown: { model: {"shots": N, "duration": S, "cost": C} }
+    breakdown = {}
+    video_cost = 0.0
+    for shot in shots:
+        duration = shot.get("duration", DEFAULT_SHOT_DURATION)
+        model = _resolve_shot_model(shot, plan, override=override)
+        per_shot = _veo_cost(model, duration) or 0.0
+        video_cost += per_shot
+        entry = breakdown.setdefault(model, {"shots": 0, "duration": 0, "cost": 0.0})
+        entry["shots"] += 1
+        entry["duration"] += duration
+        entry["cost"] = round(entry["cost"] + per_shot, 4)
 
     result = {
         "shots": shot_count,
@@ -350,8 +421,11 @@ def cmd_estimate(args):
             "storyboard_frames": round(storyboard_cost, 2),
             "video_clips": round(video_cost, 2),
             "total": round(storyboard_cost + video_cost, 2),
+            "per_model": breakdown,
         },
     }
+    if override:
+        result["quality_tier_override"] = override
     print(json.dumps(result, indent=2))
 
 
@@ -390,6 +464,9 @@ def cmd_generate(args):
     if not video_script.exists():
         _error_exit(f"Video generation script not found: {video_script}")
 
+    override = QUALITY_TIER_MODELS.get(getattr(args, "quality_tier", None))
+    sequence_resolution = plan.get("resolution") or DEFAULT_SEQUENCE_RESOLUTION
+
     results = []
     total_cost = 0.0
     total_duration = 0
@@ -409,14 +486,23 @@ def cmd_generate(args):
             continue
 
         duration = shot.get("duration", DEFAULT_SHOT_DURATION)
+        model = _resolve_shot_model(shot, plan, override=override)
+        resolution = shot.get("resolution") or sequence_resolution
 
-        _progress({"status": "generating_clip", "shot": num, "duration": duration})
+        _progress({
+            "status": "generating_clip",
+            "shot": num,
+            "duration": duration,
+            "model": model,
+            "resolution": resolution,
+        })
 
         cmd_args = [
             "--prompt", prompt,
+            "--model", model,
             "--duration", str(duration),
             "--aspect-ratio", "16:9",
-            "--resolution", "1080p",
+            "--resolution", resolution,
             "--first-frame", str(start_frame),
             "--last-frame", str(end_frame),
         ]
@@ -432,13 +518,17 @@ def cmd_generate(args):
             _progress({"warning": f"No video output for shot {num}"})
             continue
 
-        total_cost += COST_VIDEO_CLIP_8S
+        per_shot_cost = _veo_cost(model, duration) or 0.0
+        total_cost += per_shot_cost
         total_duration += duration
 
         results.append({
             "shot": num,
             "clip": clip_dst,
             "duration": duration,
+            "model": model,
+            "resolution": resolution,
+            "cost": round(per_shot_cost, 4),
         })
 
     # Save generation manifest
@@ -575,6 +665,11 @@ def main():
     # -- estimate --
     p_est = subparsers.add_parser("estimate", help="Print cost estimate from plan")
     p_est.add_argument("--plan", required=True, help="Path to shot-list.json")
+    p_est.add_argument(
+        "--quality-tier", choices=list(QUALITY_TIER_MODELS.keys()),
+        default=None,
+        help="Override model for all shots (draft|fast|standard|legacy)",
+    )
 
     # -- generate --
     p_gen = subparsers.add_parser(
@@ -585,6 +680,16 @@ def main():
     )
     p_gen.add_argument("--api-key", default=None, help="Google AI API key")
     p_gen.add_argument("--output", default=None, help="Output directory for clips")
+    p_gen.add_argument(
+        "--quality-tier", choices=list(QUALITY_TIER_MODELS.keys()),
+        default=None,
+        help=(
+            "Override model for all shots. 'draft' uses Lite (cheapest) for "
+            "first-pass review; 'standard' uses the flagship Standard tier "
+            "for final renders. See references/video-sequences.md for the "
+            "draft-then-final workflow."
+        ),
+    )
 
     # -- stitch --
     p_stitch = subparsers.add_parser(
