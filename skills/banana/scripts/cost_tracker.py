@@ -37,18 +37,63 @@ PRICING = {
         "2K": 0.050,
         "4K": 0.050,
     },
-    # VEO video models (keyed by duration instead of resolution)
+    # VEO video models (keyed by duration instead of resolution).
+    # Rates per Google Cloud Vertex AI pricing (April 2026):
+    #   Standard: $0.40/sec with audio
+    #   Fast:     $0.15/sec with audio
+    #   Lite:     $0.05/sec (720p; 1080p not explicitly documented)
+    #   Legacy 3.0: no explicit doc; treated same as Fast
+    # Both preview and GA (-001) IDs are listed so plans from any era resolve.
     "veo-3.1-generate-preview": {
-        "4s": 0.600,
-        "6s": 0.900,
-        "8s": 1.200,
+        "4s": 1.60, "6s": 2.40, "8s": 3.20,
+        "per_second": 0.40,
     },
-    "veo-3.1-generate-lite-preview": {
-        "4s": 0.300,
-        "6s": 0.450,
-        "8s": 0.600,
+    "veo-3.1-generate-001": {
+        "4s": 1.60, "6s": 2.40, "8s": 3.20,
+        "per_second": 0.40,
+    },
+    "veo-3.1-fast-generate-preview": {
+        "4s": 0.60, "6s": 0.90, "8s": 1.20,
+        "per_second": 0.15,
+    },
+    "veo-3.1-fast-generate-001": {
+        "4s": 0.60, "6s": 0.90, "8s": 1.20,
+        "per_second": 0.15,
+    },
+    # Lite supports 5-60s duration range; use per_second for variable durations.
+    # TODO: verify 1080p Lite pricing -- doc only explicitly states 720p rate.
+    "veo-3.1-lite-generate-001": {
+        "4s": 0.20, "6s": 0.30, "8s": 0.40,
+        "per_second": 0.05,
+    },
+    # Legacy VEO 3.0 -- pricing not explicitly documented; assume Fast-tier parity.
+    "veo-3.0-generate-001": {
+        "4s": 0.60, "6s": 0.90, "8s": 1.20,
+        "per_second": 0.15,
     },
 }
+
+
+def _veo_cost(model, duration_seconds, with_audio=True):
+    """Look up VEO generation cost for a model + duration.
+
+    Returns a float USD cost, or None if the model is unknown.
+
+    - Standard durations {4,6,8} use fixed-tier lookup.
+    - Non-standard durations (e.g. Lite 5-60s) fall back to per_second * duration.
+    - Audio is assumed on; the script does not yet support audio-off generation.
+    """
+    del with_audio  # reserved for future audio-off pricing
+    pricing = PRICING.get(model)
+    if not pricing:
+        return None
+    key = f"{int(duration_seconds)}s"
+    if key in pricing:
+        return pricing[key]
+    per_sec = pricing.get("per_second")
+    if per_sec is None:
+        return None
+    return round(per_sec * duration_seconds, 4)
 
 # Batch API gets 50% discount
 BATCH_DISCOUNT = 0.5

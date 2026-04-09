@@ -22,7 +22,7 @@ import sys
 import time
 import urllib.request
 import urllib.error
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -40,11 +40,26 @@ OUTPUT_DIR = Path.home() / "Documents" / "nanobanana_generated"
 # plugin releases used `veo-3.1-generate-lite-preview` which does not exist as
 # a real API endpoint, so Lite was never actually callable before v3.5.0.
 VALID_MODELS = {
+    # Preview IDs (tested working, still accepted going forward)
     "veo-3.1-generate-preview",       # Standard (flagship, highest quality)
     "veo-3.1-fast-generate-preview",  # Fast (mid tier)
-    "veo-3.1-lite-generate-001",      # Lite (draft tier, launched 2026-03-31)
+    # GA IDs (official production, recommended going forward)
+    "veo-3.1-generate-001",           # Standard GA
+    "veo-3.1-fast-generate-001",      # Fast GA
+    "veo-3.1-lite-generate-001",      # Lite (draft tier, GA, launched 2026-03-31)
     "veo-3.0-generate-001",           # Legacy (predecessor, still available)
 }
+
+# VEO 3.1 accepts prompts up to 1,024 tokens (English only). We have no
+# tokenizer dependency, so approximate using ~4 chars/token for English prose.
+# Warn near the limit, hard-reject clearly over.
+PROMPT_WARN_CHARS = 3800   # ~950 tokens
+PROMPT_ERROR_CHARS = 4500  # ~1,125 tokens
+
+# Generated video download URIs expire 48 hours after creation on Google's
+# servers. We download immediately so runtime is safe, but manifests that
+# store URIs become stale after this window.
+DOWNLOAD_RETENTION_HOURS = 48
 
 # Model-aware parameter constraints. Lite supports a wider range of
 # durations (5-60s) and a square aspect ratio (1:1) that the other
@@ -386,6 +401,23 @@ def main():
 
     args = parser.parse_args()
 
+    # Prompt length sanity check (VEO 3.1 = 1,024 token limit, English only).
+    # Approximate: ~4 chars/token for English prose.
+    prompt_len = len(args.prompt)
+    if prompt_len > PROMPT_ERROR_CHARS:
+        _error_exit(
+            f"Prompt is {prompt_len} characters (~{prompt_len // 4} tokens). "
+            f"VEO 3.1 limit is 1,024 tokens (~4,096 characters). "
+            f"Shorten the prompt or split into multiple shots."
+        )
+    elif prompt_len > PROMPT_WARN_CHARS:
+        _progress({
+            "warning": "prompt_approaching_limit",
+            "chars": prompt_len,
+            "estimated_tokens": prompt_len // 4,
+            "limit_tokens": 1024,
+        })
+
     # Validate model first so later validations can be model-aware
     if args.model not in VALID_MODELS:
         _error_exit(
@@ -478,6 +510,7 @@ def main():
     video_path = _save_video(response, args.output, api_key)
     gen_time = round(time.time() - gen_start, 1)
 
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=DOWNLOAD_RETENTION_HOURS)).isoformat()
     result = {
         "path": video_path,
         "model": args.model,
@@ -486,13 +519,21 @@ def main():
         "resolution": args.resolution,
         "prompt": args.prompt,
         "generation_time_seconds": gen_time,
+        "download_expires_at": expires_at,
     }
     if args.first_frame:
         result["first_frame"] = args.first_frame
     if args.last_frame:
         result["last_frame"] = args.last_frame
+    if args.video_input:
+        result["video_input"] = args.video_input
 
     print(json.dumps(result, indent=2))
+    print(
+        f"Note: The source download URI expires in {DOWNLOAD_RETENTION_HOURS} hours. "
+        f"The MP4 has been saved to disk at {video_path}.",
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":
