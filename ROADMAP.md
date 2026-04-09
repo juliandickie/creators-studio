@@ -2,14 +2,11 @@
 
 ## Context
 
-Nano Banana Studio v3.4.0 is a comprehensive Creative Director plugin for AI image generation. This roadmap captures planned features, organized by implementation priority.
+Nano Banana Studio v3.4.0 is a comprehensive Creative Director plugin for AI image and video generation. This roadmap captures planned features, organized by implementation priority.
 
-**Architecture note:** As this grows, the skill should split into three interlinked skills:
-1. **Brand Learning** (`/banana brand`) — Brand guide creation, asset registry, presets
-2. **Image Generation** (`/banana`, `/banana generate`, `/banana slides`, `/banana social`) — The current core, images only
-3. **Video Generation** (`/banana video`) — VEO 3.1 integration, separate skill with shared brand/asset system
-
-These would share the brand preset system and asset registry but have their own domain modes, prompt engineering, and output pipelines.
+**Architecture:** Two interlinked skills sharing brand presets and asset registry:
+1. **Image Skill** (`/banana`) — 24 commands: generation, editing, social media, slides, brand guides, assets, analytics, content pipeline
+2. **Video Skill** (`/video`) — 10 commands: VEO 3.1 generation, image-to-video, multi-shot sequences with storyboard approval, clip extension, FFmpeg toolkit
 
 ---
 
@@ -36,31 +33,7 @@ These would share the brand preset system and asset registry but have their own 
 
 ---
 
-## Next Up
-
-### `/banana video` — Video Generation with VEO 3.1
-
-VEO 3.1 (`veo-3.1-generate-preview`) is live and uses the same Google AI API key.
-
-- Text-to-video and image-to-video (animate a generated image)
-- 4-8 second clips at 24fps, up to 4K resolution
-- Built-in audio generation (dialogue, sound effects, ambient)
-- 16:9 and 9:16, reference images (up to 3), video extension (up to 141s)
-
-**Should be a separate skill** that shares brand presets and asset registry with the image generation skill.
-
-```
-/banana video "product reveal of the iTero Scanner rotating on dark surface"
-/banana video --from ~/slides/slide-03.png "animate the dental arch models"
-```
-
-Implementation: `video_generate.py` (stdlib-only, same pattern), `/banana video` skill file.
-
----
-
 ## Planned Features
-
----
 
 ## Future Considerations
 

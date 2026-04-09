@@ -9,7 +9,7 @@
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
 - **Current version:** 3.4.0
 - **Local path:** `/Users/juliandickie/code/nano-banana-pro/banana-claude/`
-- **Plugin layout:** `.claude-plugin/` + `skills/banana/` + `agents/`
+- **Plugin layout:** `.claude-plugin/` + `skills/banana/` (image) + `skills/video/` (video) + `agents/`
 
 ## Features Added Beyond Original banana-claude
 
@@ -42,6 +42,17 @@
 | `/banana book` — visual brand book generator (3 formats) | v2.0.0 | `brandbook.py`, `pantone_lookup.py`, `references/brand-book.md` |
 | Plugin audit — structural cleanup, pipeline renumber | v2.0.1 | `SKILL.md`, `agents/brief-constructor.md` |
 | Renamed to nano-banana-studio, detached from fork | v2.1.0 | 13+ files |
+| `/banana formats` — multi-format image converter | v2.2.0 | `multiformat.py`, `references/multi-format.md` |
+| `/banana history` — session generation history | v2.3.0 | `history.py`, `references/session-history.md` |
+| `/banana ab-test` — A/B prompt variation testing | v2.4.0 | `abtester.py`, `references/ab-testing.md` |
+| `/banana deck` — slide deck builder (.pptx) | v2.5.0 | `deckbuilder.py`, `references/deck-builder.md` |
+| `/banana analytics` — HTML analytics dashboard | v2.6.0 | `analytics.py`, `references/analytics.md` |
+| `/banana content` — multi-modal content pipeline | v2.7.0 | `content_pipeline.py`, `references/content-pipeline.md` |
+| `/video` skill — VEO 3.1 video generation (core) | v3.0.0 | `skills/video/SKILL.md`, `video_generate.py` |
+| Video domain modes + audio + agent | v3.1.0 | `video-domain-modes.md`, `video-audio.md`, `video-brief-constructor.md` |
+| Image-to-video pipeline + cross-skill integration | v3.2.0 | `image-to-video.md`, history.py + content_pipeline.py updates |
+| `/video sequence` — multi-shot production | v3.3.0 | `video_sequence.py`, `video-sequences.md` |
+| `/video extend` + `/video stitch` — FFmpeg toolkit | v3.4.0 | `video_extend.py`, `video_stitch.py` |
 
 ## Key Design Decisions
 
@@ -151,31 +162,32 @@ Both keys stored in `~/.banana/config.json`. Scripts check: CLI flag → env var
 
 **Files modified:** plugin.json, marketplace.json, SKILL.md, README.md, CHANGELOG.md, CLAUDE.md, PROGRESS.md, CITATION.cff, CODE_OF_CONDUCT.md, SECURITY.md, install.sh, setup.md, issue template config.yml
 
+### Session 6 (2026-04-09)
+**Scope:** 6 image features (v2.2.0-v2.7.0) + 5 video phases (v3.0.0-v3.4.0) + documentation overhaul
+
+1. Built and released 6 new image features: multiformat.py, history.py, abtester.py, deckbuilder.py, analytics.py, content_pipeline.py
+2. Created `/video` skill with VEO 3.1 — separate skill sharing presets/assets with `/banana`
+3. Built video_generate.py with async predictLongRunning polling pattern
+4. Created 6 video reference docs (veo-models, video-prompt-engineering, domain-modes, audio, sequences, image-to-video)
+5. Built video_sequence.py with 4-stage pipeline: shot list → storyboard → generate → stitch
+6. Built video_extend.py (clip chaining to 148s) and video_stitch.py (FFmpeg toolkit)
+7. Created video-brief-constructor agent
+8. Updated cost_tracker.py with VEO per-second pricing
+9. Updated content_pipeline.py with "video" output type
+10. Updated history.py with --type video flag
+11. Regenerated cover image for nano-banana-studio branding
+12. Comprehensive README/PROGRESS/ROADMAP documentation overhaul
+13. 17 releases total: v2.0.1 through v3.4.0
+
+**Files created:** multiformat.py, history.py, abtester.py, deckbuilder.py, analytics.py, content_pipeline.py, video_generate.py, video_sequence.py, video_extend.py, video_stitch.py, video-brief-constructor.md, 12 reference docs, cover-image.webp
+**Files modified:** SKILL.md (banana), cost_tracker.py, content_pipeline.py, history.py, README.md, CHANGELOG.md, CLAUDE.md, PROGRESS.md, ROADMAP.md, plugin.json, CITATION.cff, + many more
+
 ## Expansion Roadmap
 
 See `ROADMAP.md` for the full prioritized feature roadmap.
 
-**Architecture direction:** Split into three interlinked skills:
-1. **Brand Learning** (`/banana brand`) — Brand guide creation, asset registry, presets
-2. **Image Generation** (`/banana`, `/banana slides`, `/banana social`) — Current core, images only
-3. **Video Generation** (`/banana video`) — VEO 3.1, separate skill, shared brand/asset system
+**Architecture:** Two interlinked skills sharing brand presets and asset registry:
+1. **Image Skill** (`/banana`) — 24 commands, image generation, editing, social, slides, brand, assets, analytics
+2. **Video Skill** (`/video`) — 10 commands, VEO 3.1 video generation, sequences, extension, FFmpeg
 
-**Completed features:**
-
-| # | Feature | Version |
-|---|---------|---------|
-| 1 | `/banana slides` — batch slide deck pipeline | v1.6.0 |
-| 2 | `/banana brand` — conversational brand guide builder | v1.7.0 |
-| 3 | Pre-built brand guide library (12 presets) | v1.7.0 |
-| 4 | `/banana social` — platform-native generation (46 platforms) | v1.7.0 |
-| 5 | `/banana asset` — persistent character/product/object registry | v1.8.0 |
-| 6 | `/banana reverse` — image-to-prompt reverse engineering | v1.9.0 |
-| 7 | `/banana book` — visual brand book generator | v2.0.0 |
-
-**Planned:**
-
-| # | Feature | Status |
-|---|---------|--------|
-| 8 | `/banana video` with VEO 3.1 (separate skill) | Planned |
-| 9 | Deck builder (.pptx output) | Future |
-| 10 | Analytics dashboard | Future |
+**Remaining planned:** Replicate video model routing (Kling, Wan, PixVerse for cost optimization)

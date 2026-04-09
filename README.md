@@ -5,9 +5,9 @@
 
 # Nano Banana Studio
 
-AI image generation plugin for Claude Code where **Claude acts as Creative Director** using Google's Gemini Nano Banana models.
+AI image and video generation plugin for Claude Code where **Claude acts as Creative Director** using Google's Gemini and VEO models.
 
-Unlike simple API wrappers, Claude interprets your intent, selects domain expertise, constructs optimized prompts using Google's official 5-component formula, and orchestrates Gemini for the best possible results.
+Unlike simple API wrappers, Claude interprets your intent, selects domain expertise, constructs optimized prompts, and orchestrates generation for the best possible results — for both still images and video clips with synchronized audio.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
 [![Version](https://img.shields.io/badge/version-3.4.0-coral)](CHANGELOG.md)
@@ -22,18 +22,14 @@ Unlike simple API wrappers, Claude interprets your intent, selects domain expert
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [Commands](#commands)
+- [Commands](#commands) (Image + Video)
 - [How It Works](#how-it-works)
 - [What Makes This Different](#what-makes-this-different)
-- [The 5-Component Prompt Formula](#the-5-component-prompt-formula)
-- [Domain Modes](#domain-modes)
-- [Presentation Mode](#presentation-mode)
-- [Brand Style Guides](#brand-style-guides)
-- [Replicate Backend](#replicate-backend)
-- [Models](#models)
+- [Domain Modes](#domain-modes) (Image + Video)
+- [Models](#models) (Gemini + VEO)
 - [Architecture](#architecture)
+- [Migrating from banana-claude](#migrating-from-banana-claude)
 - [Requirements](#requirements)
-- [Upstream Tracking](#upstream-tracking)
 - [Changelog](CHANGELOG.md)
 - [License](#license)
 
@@ -43,8 +39,8 @@ Unlike simple API wrappers, Claude interprets your intent, selects domain expert
 
 Built on [AgriciDaniel/banana-claude](https://github.com/AgriciDaniel/banana-claude), extended with features driven by production use and research analysis of Google's prompting guidance:
 
-### Video Generation with VEO 3.1 (v3.0.0)
-New `/video` skill powered by Google VEO 3.1. Text-to-video, image-to-video (animate stills from `/banana`), and first/last frame keyframe interpolation. 4-8 second clips at up to 4K with native synchronized audio. Same API key as image generation. Shares brand presets and asset registry with the image skill for cross-media consistency.
+### Video Generation with VEO 3.1 (v3.0.0–v3.4.0)
+New `/video` skill powered by Google VEO 3.1. Text-to-video, image-to-video (animate stills from `/banana`), and first/last frame keyframe interpolation for seamless shot chaining. 4-8 second clips at up to 4K with native synchronized audio (dialogue, SFX, ambient). 6 video domain modes (Product Reveal, Story-Driven, Environment Reveal, Social Short, Cinematic, Tutorial/Demo). Multi-shot sequence production with storyboard approval — generate frame pairs cheaply with `/banana` before committing to video generation. Clip extension to 148 seconds. FFmpeg toolkit for concat/trim/convert. Same API key, shared brand presets and asset registry.
 
 ### Multi-Modal Content Pipeline (v2.7.0)
 One idea, complete content package. Orchestrates hero image, social media pack, email headers, and format variants from a single brief. Two-phase workflow: plan (cost estimate) then generate. Dependency handling ensures email/formats wait for the hero image.
@@ -128,7 +124,7 @@ Based on analysis of Google's official prompting guides and two research documen
 git clone https://github.com/juliandickie/nano-banana-studio.git ~/nano-banana-studio
 ```
 
-### Step 2: Get Your Google AI API Key (Free)
+### Step 2: Get Your Google AI API Key
 
 1. Go to [Google AI Studio](https://aistudio.google.com/apikey)
 2. Sign in with your Google account
@@ -136,7 +132,9 @@ git clone https://github.com/juliandickie/nano-banana-studio.git ~/nano-banana-s
 4. Select any Google Cloud project (or create one -- it's free)
 5. Copy the key (starts with `AIza...`)
 
-> **Note:** The free tier gives you ~5-15 images per minute and ~20-500 per day. No credit card required. For higher limits, enable billing in Google Cloud Console.
+> **Image generation (free tier):** ~5-15 images per minute, ~20-500 per day. No credit card required.
+>
+> **Video generation (paid):** VEO 3.1 requires billing enabled. $0.15/sec fast ($1.20 per 8s clip) or $0.40/sec standard. No free tier for video.
 
 ### Step 3: Start Claude Code with the Plugin
 
@@ -262,9 +260,26 @@ To update: `cd ~/nano-banana-studio && git pull && bash install.sh`
 /banana setup                          # configure API key (guided)
 /banana status                         # check version + keys
 /banana update                         # pull latest from GitHub
+
+# --- Video Generation (VEO 3.1) ---
+
+# Generate a video clip (8s, 16:9, with audio)
+/video generate "product reveal of wireless earbuds on dark surface"
+
+# Animate a still image from /banana
+/video animate ~/image.png "slow orbit revealing the product, SFX: soft whoosh"
+
+# Multi-shot sequence with storyboard approval
+/video sequence plan --script "30-second product launch ad" --target 30
+/video sequence storyboard --plan shot-list.json     # preview frames before video
+/video sequence generate --storyboard ~/storyboard/  # generate from approved frames
+/video sequence stitch --clips ~/clips/ --output final.mp4
+
+# Extend a clip to 30 seconds
+/video extend clip.mp4 --target-duration 30
 ```
 
-Claude will ask about your brand, select the right domain mode (Cinema, Product, Portrait, Editorial, UI, Logo, Landscape, Infographic, Abstract, Presentation), construct a detailed prompt with lighting and composition, set the right aspect ratio, and generate.
+Claude acts as Creative Director for both images and video — selecting domain modes, constructing optimized prompts with camera motion and audio, and managing brand/asset consistency across media.
 
 ![Nano Banana Studio in action](screenshots/nano-banana-studio-skillcommand.gif)
 
@@ -296,6 +311,18 @@ Claude will ask about your brand, select the right domain mode (Cinema, Product,
 | `/banana deck --images DIR --output PATH` | Assemble slide images into editable .pptx with brand styling |
 | `/banana analytics [--format html\|json]` | Usage analytics dashboard (cost trends, domain usage, quota) |
 | `/banana content <idea> --outputs hero,social,email` | Multi-modal content pipeline from a single idea |
+| | |
+| **Video Commands** | |
+| `/video generate <idea>` | Text-to-video with full Creative Director pipeline |
+| `/video animate <image> <motion>` | Animate a still image (from /banana or uploaded) |
+| `/video sequence plan --script "..." --target Ns` | Break a script into a shot list |
+| `/video sequence storyboard --plan PATH` | Generate start/end frame pairs for visual approval |
+| `/video sequence generate --storyboard PATH` | Batch-generate clips from approved storyboard frames |
+| `/video sequence stitch --clips DIR --output PATH` | Assemble clips into final sequence via FFmpeg |
+| `/video extend <clip> [--to Ns]` | Extend a clip (+7s per hop, max 148s) |
+| `/video stitch <clips...>` | Concat, trim, convert video via FFmpeg |
+| `/video cost [estimate]` | Video cost estimation |
+| `/video status` | Check VEO API access and FFmpeg availability |
 
 ## How It Works
 
@@ -450,10 +477,19 @@ An alternative API backend using `google/nano-banana-2` on Replicate. Useful whe
 
 ## Models
 
+### Image Models
+
 | Model | ID | Notes |
 |-------|----|-------|
 | Flash 3.1 (default) | `gemini-3.1-flash-image-preview` | Fastest, newest, 14 aspect ratios, up to 4K |
-| Flash 2.5 | `gemini-2.5-flash-image` | Stable fallback |
+| Flash 2.5 | `gemini-2.5-flash-image` | Stable fallback, budget/free tier |
+
+### Video Models
+
+| Model | ID | Notes |
+|-------|----|-------|
+| VEO 3.1 (default) | `veo-3.1-generate-preview` | 4-8s clips, 1080p/4K, 24fps, native audio, first/last frame |
+| VEO 3.1 Lite | `veo-3.1-generate-lite-preview` | Faster and cheaper, 720p/1080p |
 
 ## Architecture
 
@@ -513,12 +549,20 @@ nano-banana-studio/                    # Claude Code Plugin
 ├── skills/video/                      # Video generation skill (VEO 3.1)
 │   ├── SKILL.md                       # Video Creative Director orchestrator
 │   ├── scripts/
-│   │   └── video_generate.py          # Async VEO API with polling
+│   │   ├── video_generate.py          # Async VEO API with polling
+│   │   ├── video_sequence.py          # Multi-shot sequence production pipeline
+│   │   ├── video_extend.py            # Clip extension to 148s via chaining
+│   │   └── video_stitch.py            # FFmpeg concat/trim/convert/info
 │   └── references/
 │       ├── veo-models.md              # VEO model specs, pricing, rate limits
-│       └── video-prompt-engineering.md # 5-Part Video Framework, camera motion
+│       ├── video-prompt-engineering.md # 5-Part Video Framework, camera motion
+│       ├── video-domain-modes.md      # 6 domain modes + shot types for sequences
+│       ├── video-sequences.md         # Multi-shot production, storyboard approval
+│       ├── video-audio.md             # Audio prompting (dialogue/SFX/ambient)
+│       └── image-to-video.md          # Animate-a-still pipeline
 └── agents/
-    └── brief-constructor.md           # Subagent for prompt construction
+    ├── brief-constructor.md           # Image prompt subagent
+    └── video-brief-constructor.md     # Video prompt subagent
 ```
 
 ## Migrating from banana-claude
@@ -553,10 +597,11 @@ prompt engineering, brand book generator, cost tracking, Replicate fallback, and
 
 ## Requirements
 
-- [Claude Code](https://github.com/anthropics/claude-code)
+- [Claude Code](https://claude.ai/claude-code)
 - Node.js 18+ (for npx)
-- Google AI API key (free tier: ~5-15 RPM / ~20-500 RPD, cut ~92% Dec 2025)
-- ImageMagick (optional, for post-processing)
+- Google AI API key (free tier for images; billing required for video)
+- ImageMagick (optional, for image post-processing and multi-format conversion)
+- FFmpeg (optional, for video extension, stitching, and format conversion)
 
 ## Uninstall
 
@@ -584,4 +629,4 @@ MIT License -- see [LICENSE](LICENSE) for details.
 
 ---
 
-Originally built for Claude Code by [@AgriciDaniel](https://github.com/AgriciDaniel). Extended with Replicate backend, Presentation mode, Brand Style Guides, and research-driven prompt improvements.
+Originally built for Claude Code by [@AgriciDaniel](https://github.com/AgriciDaniel). Extended by [@juliandickie](https://github.com/juliandickie) with video generation (VEO 3.1), multi-shot sequence production, Replicate backend, social media generation, brand style guides, deck builder, analytics dashboard, content pipeline, and research-driven prompt improvements.
