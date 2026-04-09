@@ -4,6 +4,9 @@ type: software
 title: "Nano Banana Studio"
 abstract: "AI image generation skill for Claude Code -- Creative Director powered by Gemini"
 authors:
+  - family-names: "Dickie"
+    given-names: "Julian"
+    alias: "juliandickie"
   - family-names: "Daniel"
     given-names: "Agrici"
     alias: "AgriciDaniel"
