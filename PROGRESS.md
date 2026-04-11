@@ -7,7 +7,7 @@
 
 - **Repo:** https://github.com/juliandickie/nano-banana-studio
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
-- **Current version:** 3.6.2
+- **Current version:** 3.6.3
 - **Local path:** `/Users/juliandickie/code/nano-banana-pro/banana-claude/`
 - **Plugin layout:** `.claude-plugin/` + `skills/banana/` (image) + `skills/video/` (video) + `agents/`
 
@@ -252,6 +252,20 @@ Both keys stored in `~/.banana/config.json`. Scripts check: CLI flag → env var
 5. **What's explicitly NOT in v3.6.2** — documented in the CHANGELOG "Not in scope" section: plan hash tracking, the `update-prompts` Gemini-vision subcommand, the review-as-mandatory-gate enforcement, the audio strategy split (narration/dialogue/ambient/sfx), the `/video sequence narration` TTS subcommand, shot-type semantic effects, `/banana` skill improvements, and the v3.6.0 research batch. Each deserves its own dedicated release.
 
 **Total v3.6.2 spend:** $0.00 VEO (fixtures only). Full v3.6.x series spend today: $2.85 ($0.75 research + $0.20 v3.6.0 commit 2 smoke + $0.20 v3.6.0 commit 5 smoke + $0.20 v3.6.1 first+last frame smoke + $1.50 coffee shop demo + $0.00 v3.6.2).
+
+### Session 11 (2026-04-11, same day as v3.6.0 + v3.6.1 + v3.6.2)
+**Scope:** v3.6.3 — Review gate enforcement + smarter plans (5 items from the deferred bucket)
+
+1. **Scope negotiation:** Picked a focused 5-item subset from the 13-item remaining deferred bucket. Priorities: items that make the review gate that v3.6.2 shipped actually useful (A+B), items that reduce Claude's cognitive load when planning (C), items that pay off known TODOs cheaply (D), and cross-skill wins that make cross-shot continuity feasible (E). Explicitly deferred: `update-prompts` Gemini-vision subcommand to v3.6.4 (needs its own design), audio strategy split to v3.7.0 (needs brainstorming session), parallel execution/num-videos/object-insertion/regional-restrictions/GCS to TBD.
+2. **Item D (1080p Lite pricing probe) — $0.40 real API spend, first action.** Ran a 4-second 1080p Lite clip through `video_generate.py` to pay off the v3.5.0 TODO comment. Wall clock 73 s (vs ~38 s for 720p). Real 2.3 MB MP4 saved to `/tmp/v363-pricing-probe/`. Updated `cost_tracker.py` comment: 1080p Lite is callable, rate unchanged at $0.05/sec pending a full billing cycle, users should verify on GCP console.
+3. **Items A+B (review gate + plan hash tracking):** Added `_sha256_file`, `_build_review_manifest`, `_parse_review_manifest`, `_load_review_manifest`, `_check_review_freshness` helpers. `_build_review_sheet` now embeds a machine-readable manifest block (HTML-commented, ```json` fenced) with per-shot frame hashes. `cmd_generate` gained a freshness check that aborts on missing/unparseable/stale reviews unless `--skip-review` is set. New `--skip-review` flag documented as intentional safety-net-disable for CI.
+4. **Item C (shot-type semantic defaults):** Added `SHOT_TYPE_DEFAULTS` table with 8 types mapping to duration/camera hint/`use_veo_interpolation`. `cmd_plan` accepts `--shot-types` to pre-fill shots. Shot count determined by the list when set; durations rescale to hit `--target`. Storyboard cost estimate now accounts for shots that skip end frames.
+5. **Item E (banana `--reference-image`):** Added `_read_reference_image` helper in `skills/banana/scripts/generate.py` (PNG/JPEG/WebP/GIF, ≤3 images). `generate_image` accepts `reference_images` kwarg, attaches them as `inlineData` parts alongside the text prompt. New `--reference-image` CLI flag. Output JSON includes a resolution-downscale note.
+6. **8 new unit tests via `python3 -c` import:** shot-type defaults (all 8 + unknown fallback), SHA-256 helper (real file + missing file), review manifest round-trip (synthetic plan with interpolation + non-interpolation shots), freshness check state machine (ok → stale → missing as frames mutate), manifest parser edge cases (raw, fenced, missing, garbage).
+7. **Functional gate test — caught me $0.40 unintended.** When testing the `--skip-review` path, I set `GOOGLE_AI_API_KEY=FAKE` assuming it would block any real API call. It didn't — the child `video_generate.py` auto-routed Lite requests to the Vertex AI backend using the real `vertex_api_key` in `~/.banana/config.json` and generated one Shot 2 clip before I killed the pipeline (`~/Documents/nano-banana-sequences/sequence_clips_20260411_223403/clip-02.mp4`, 13.9 MB, 1080p Lite 8s). Root cause: non-hermetic test harness. The gate logic itself works correctly — the "missing review sheet" test before the `--skip-review` test aborted cleanly with the expected error.
+8. **Ship discipline:** documented the overspend honestly in the v3.6.3 CHANGELOG "Release-process honesty" section. Going forward, any functional test that invokes `cmd_generate` must use a fixture storyboard dir that the child process cannot successfully submit against real APIs — either with fake frames that fail file-existence checks, or with env vars that block both the Gemini API and Vertex AI paths.
+
+**Total v3.6.3 spend:** $0.80 ($0.40 intended probe + $0.40 unintended from the gate test harness). Full v3.6.x series spend today: $3.65.
 
 ## Expansion Roadmap
 

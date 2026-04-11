@@ -60,8 +60,16 @@ PRICING = {
         "4s": 0.60, "6s": 0.90, "8s": 1.20,
         "per_second": 0.15,
     },
-    # Lite supports 5-60s duration range; use per_second for variable durations.
-    # TODO: verify 1080p Lite pricing -- doc only explicitly states 720p rate.
+    # VEO 3.1 Lite: $0.05/sec at 720p. Empirically verified 2026-04-11
+    # that 1080p Lite is also callable via the Vertex AI backend, with a
+    # generation time of ~73 s for a 4-second 1080p clip (vs ~38 s for
+    # the same clip at 720p). Google's docs do not explicitly state the
+    # 1080p Lite rate; it may be billed higher than 720p. Until a full
+    # billing cycle confirms, the plugin charges Lite at a flat $0.05/sec
+    # regardless of resolution. Users running Lite at 1080p should check
+    # their GCP console for the actual billed amount and file an issue
+    # if the estimate drifts significantly. See PROGRESS.md session 11
+    # for the probe details.
     "veo-3.1-lite-generate-001": {
         "4s": 0.20, "6s": 0.30, "8s": 0.40,
         "per_second": 0.05,

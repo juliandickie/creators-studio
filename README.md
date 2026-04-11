@@ -10,7 +10,7 @@ AI image and video generation plugin for Claude Code where **Claude acts as Crea
 Unlike simple API wrappers, Claude interprets your intent, selects domain expertise, constructs optimized prompts, and orchestrates generation for the best possible results — for both still images and video clips with synchronized audio.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-3.6.2-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.6.3-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Origin](https://img.shields.io/badge/origin-AgriciDaniel%2Fbanana--claude-gray)](https://github.com/AgriciDaniel/banana-claude)
 
@@ -38,6 +38,16 @@ Unlike simple API wrappers, Claude interprets your intent, selects domain expert
 ## Features
 
 Built on [AgriciDaniel/banana-claude](https://github.com/AgriciDaniel/banana-claude), extended with features driven by production use and research analysis of Google's prompting guidance:
+
+### Review Gate Enforcement + Smarter Plans (v3.6.3)
+
+Five more deferred-bucket items — the theme is "make the review gate actually useful and pre-fill shots with cinematography defaults so Claude has less to remember."
+
+- **Review gate is now mandatory** — `video_sequence.py generate` refuses to run unless a valid `REVIEW-SHEET.md` exists in the storyboard directory AND its embedded frame SHA-256 hashes match the current storyboard state. Pass `--skip-review` to bypass for CI. The gate catches the most expensive category of mistake: generating a $12 Standard clip against a frame that was silently regenerated after the review was written.
+- **Plan hash tracking** — the review sheet now embeds a machine-readable manifest block (wrapped in HTML comments so it doesn't render in markdown previews) containing per-shot frame hashes. `generate` recomputes the hashes on every run and compares against the recorded values; mismatches produce a clear "stale review" error listing the drifted shot numbers.
+- **Shot-type semantic defaults** — `plan --shot-types establishing,medium,closeup,product` pre-fills duration, camera hints, and `use_veo_interpolation` from a built-in 8-type table. Establishing/transition/cutaway/broll default to first-frame-only (`use_veo_interpolation=true`); content/medium/closeup/product default to first+last frame interpolation. Claude can override any field after generation.
+- **1080p Lite empirically verified** as callable via the Vertex AI backend. Previous doc only listed the $0.05/sec rate for 720p; v3.6.3 removes the "720p only" caveat from `cost_tracker.py` with an honest note that 1080p billing may differ until a full cycle closes.
+- **`--reference-image` flag on banana `generate.py`** — up to 3 reference images passed as `inlineData` parts alongside the text prompt. Enables cross-shot character/product continuity: regenerate a fresh frame that matches a previous storyboard frame's character without locking the composition (which is what `edit.py` does). Different enough from `edit.py` to justify the new flag, same enough that both share the `_read_reference_image` helper.
 
 ### Sequence Production Polish (v3.6.2)
 
@@ -392,10 +402,10 @@ Claude acts as Creative Director for both images and video — selecting domain 
 | **Video Commands** | |
 | `/video generate <idea>` | Text-to-video with full Creative Director pipeline |
 | `/video animate <image> <motion>` | Animate a still image (from /banana or uploaded) |
-| `/video sequence plan --script "..." --target Ns` | Break a script into a shot list |
+| `/video sequence plan --script "..." --target Ns [--shot-types ...]` | Break a script into a shot list with shot-type defaults |
 | `/video sequence storyboard --plan PATH [--shots 1,3-5]` | Generate start/end frame pairs (optionally a subset) |
-| `/video sequence review --plan PATH --storyboard DIR` | Generate REVIEW-SHEET.md — the approval gate |
-| `/video sequence generate --storyboard PATH [--quality-tier draft]` | Batch-generate clips from approved storyboard frames |
+| `/video sequence review --plan PATH --storyboard DIR` | Generate REVIEW-SHEET.md — mandatory approval gate in v3.6.3+ |
+| `/video sequence generate --storyboard PATH [--skip-review]` | Batch-generate clips from approved storyboard frames |
 | `/video sequence stitch --clips DIR --output PATH` | Assemble clips into final sequence via FFmpeg |
 | `/video extend <clip> [--to Ns]` | Extend a clip (+7s per hop, max 148s) |
 | `/video stitch <clips...>` | Concat, trim, convert video via FFmpeg |

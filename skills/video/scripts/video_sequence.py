@@ -76,7 +76,78 @@ _VEO_PER_SECOND = {
     "veo-3.0-generate-001": 0.15,
 }
 
-SHOT_TYPES = ("establishing", "content", "closeup", "transition", "broll")
+SHOT_TYPES = (
+    "establishing", "content", "medium", "closeup",
+    "product", "transition", "cutaway", "broll",
+)
+
+# v3.6.3: shot-type semantic defaults. When cmd_plan creates a shot
+# skeleton, it looks up the type in this table and pre-fills duration,
+# camera hint, and use_veo_interpolation if the fields aren't explicitly
+# set. Claude can still override any of these downstream — the defaults
+# exist so that a bare `plan --script "..."` produces sensible output
+# without Claude having to remember cinematography conventions for
+# every shot type.
+#
+# Rationale per field:
+#   duration — cinematographer rule of thumb for how long each shot
+#              type reads on screen before the viewer loses interest
+#   camera_hint — starting-point camera move; Claude refines it
+#   use_veo_interpolation — True for shots that cut away to unrelated
+#              material, where pinning an end frame over-constrains
+#              the motion (validated by the coffee shop demo Shot 1)
+SHOT_TYPE_DEFAULTS = {
+    "establishing": {
+        "duration": 8,
+        "camera_hint": "slow dolly forward or wide aerial reveal",
+        "use_veo_interpolation": True,  # cuts to unrelated next shot
+    },
+    "content": {
+        "duration": 8,
+        "camera_hint": "static medium shot or subtle handheld",
+        "use_veo_interpolation": False,
+    },
+    "medium": {
+        "duration": 6,
+        "camera_hint": "static medium shot with gentle rack focus",
+        "use_veo_interpolation": False,
+    },
+    "closeup": {
+        "duration": 6,
+        "camera_hint": "tight close-up, shallow depth of field",
+        "use_veo_interpolation": False,
+    },
+    "product": {
+        "duration": 8,
+        "camera_hint": "slow orbit or push-in with macro framing",
+        "use_veo_interpolation": False,
+    },
+    "transition": {
+        "duration": 4,
+        "camera_hint": "whip pan, match cut, or light flare transition",
+        "use_veo_interpolation": True,  # by definition bridges two different shots
+    },
+    "cutaway": {
+        "duration": 4,
+        "camera_hint": "brief detail insert, static or slow push",
+        "use_veo_interpolation": True,
+    },
+    "broll": {
+        "duration": 6,
+        "camera_hint": "handheld or drifting observational",
+        "use_veo_interpolation": True,
+    },
+}
+
+
+def _shot_defaults(shot_type):
+    """Return the default field dict for a given shot type.
+
+    Falls back to the "content" defaults when the type is unknown so
+    that hand-edited plans with non-canonical type labels still get
+    sensible behavior instead of KeyError.
+    """
+    return SHOT_TYPE_DEFAULTS.get(shot_type, SHOT_TYPE_DEFAULTS["content"])
 
 
 def _veo_cost(model, duration_seconds):
@@ -175,6 +246,149 @@ def _default_output(suffix, project_name=None):
         return str(OUTPUT_BASE / _sanitize_project_name(project_name) / suffix)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     return str(OUTPUT_BASE / f"sequence_{suffix}_{ts}")
+
+
+def _sha256_file(path):
+    """Return SHA-256 hex digest of *path*, or None if it doesn't exist.
+
+    Used by the v3.6.3 plan-hash-tracking pipeline to detect when a frame
+    has been regenerated since the last review. Reads in 64 KB chunks so
+    large PNG files don't blow up memory.
+    """
+    import hashlib
+    p = Path(path)
+    if not p.exists():
+        return None
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+# v3.6.3: the review sheet embeds a machine-readable footer block
+# containing the plan path, the storyboard dir, and the SHA-256 of
+# each frame at the time the review was generated. cmd_generate reads
+# this block and compares against current frame hashes on disk; if
+# any differ, the review is "stale" and generate aborts unless
+# --skip-review is passed. The block is wrapped in HTML comments so
+# it doesn't render in markdown previews.
+REVIEW_SHEET_MANIFEST_START = "<!-- BEGIN REVIEW MANIFEST v1 -->"
+REVIEW_SHEET_MANIFEST_END = "<!-- END REVIEW MANIFEST v1 -->"
+
+
+def _parse_review_manifest(review_sheet_text):
+    """Extract the embedded machine-readable manifest block from a review sheet.
+
+    Returns a dict with keys `plan`, `storyboard_dir`, `frames`
+    (mapping shot number → {"start": sha256, "end": sha256|null}), or
+    None if no manifest block is found. Unknown keys are preserved so
+    future versions can add fields without breaking old parsers.
+    """
+    start = review_sheet_text.find(REVIEW_SHEET_MANIFEST_START)
+    end = review_sheet_text.find(REVIEW_SHEET_MANIFEST_END)
+    if start < 0 or end < 0 or end <= start:
+        return None
+    block = review_sheet_text[start + len(REVIEW_SHEET_MANIFEST_START):end]
+    # The block is wrapped in an HTML comment so markdown previews
+    # ignore it. Inside is a fenced code block with the JSON payload.
+    # We tolerate either a raw JSON body or one wrapped in ```json fences.
+    block = block.strip()
+    if block.startswith("```json"):
+        block = block[len("```json"):].strip()
+    if block.endswith("```"):
+        block = block[:-len("```")].strip()
+    if block.startswith("```"):
+        block = block[len("```"):].strip()
+    try:
+        return json.loads(block)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def _build_review_manifest(plan, storyboard_dir, plan_path):
+    """Build the machine-readable manifest dict embedded in REVIEW-SHEET.md.
+
+    Called by _build_review_sheet. Records the current plan path, the
+    storyboard dir, and a per-shot frame-hash map. cmd_generate compares
+    this against current disk state to detect stale reviews.
+    """
+    storyboard_path = Path(storyboard_dir).resolve()
+    frames = {}
+    for shot in plan.get("shots", []):
+        num = shot["number"]
+        start_file = storyboard_path / f"start-{num:02d}.png"
+        end_file = storyboard_path / f"end-{num:02d}.png"
+        use_interpolation = bool(shot.get("use_veo_interpolation"))
+        frames[str(num)] = {
+            "start": _sha256_file(start_file),
+            "end": None if use_interpolation else _sha256_file(end_file),
+            "use_veo_interpolation": use_interpolation,
+        }
+    return {
+        "version": 1,
+        "plan": str(Path(plan_path).resolve()),
+        "storyboard_dir": str(storyboard_path),
+        "frames": frames,
+    }
+
+
+def _load_review_manifest(storyboard_dir):
+    """Read REVIEW-SHEET.md from *storyboard_dir* and return its manifest.
+
+    Returns None if no review sheet exists or the manifest can't be parsed.
+    Callers should treat None as "no valid review" and either abort
+    (cmd_generate without --skip-review) or skip the check.
+    """
+    review_path = Path(storyboard_dir) / "REVIEW-SHEET.md"
+    if not review_path.exists():
+        return None
+    try:
+        with open(review_path) as f:
+            text = f.read()
+    except OSError:
+        return None
+    return _parse_review_manifest(text)
+
+
+def _check_review_freshness(plan, storyboard_dir):
+    """Compare the current disk state against the embedded review manifest.
+
+    Returns a dict:
+        {"status": "ok"}                  — review is fresh, proceed
+        {"status": "missing"}             — no REVIEW-SHEET.md at all
+        {"status": "unparseable"}         — review exists but manifest can't be read
+        {"status": "stale",
+         "drifted_shots": [1, 3]}         — frame hashes differ for these shots
+
+    Intended for cmd_generate's gate check. Callers translate the
+    returned status into either a progress event (ok) or an _error_exit
+    (anything else) unless --skip-review is set.
+    """
+    manifest = _load_review_manifest(storyboard_dir)
+    if manifest is None:
+        return {"status": "missing"}
+    if not isinstance(manifest, dict) or "frames" not in manifest:
+        return {"status": "unparseable"}
+
+    current = _build_review_manifest(plan, storyboard_dir, manifest.get("plan", ""))
+    drifted = []
+    for num_str, recorded in manifest.get("frames", {}).items():
+        now = current["frames"].get(num_str)
+        if now is None:
+            drifted.append(int(num_str))
+            continue
+        if recorded.get("start") != now.get("start"):
+            drifted.append(int(num_str))
+            continue
+        # end can legitimately be None (use_veo_interpolation)
+        if recorded.get("end") != now.get("end"):
+            drifted.append(int(num_str))
+            continue
+
+    if drifted:
+        return {"status": "stale", "drifted_shots": sorted(set(drifted))}
+    return {"status": "ok"}
 
 
 def _parse_shots_filter(spec):
@@ -290,25 +504,68 @@ def cmd_plan(args):
     if target < 4:
         _error_exit("Target duration must be at least 4 seconds")
 
-    shot_count = max(MIN_SHOTS, target // AVG_SHOT_DURATION)
+    # v3.6.3: parse the optional --shot-types override. The user can
+    # supply a comma-separated list of shot types that map 1:1 to the
+    # generated shots, e.g. `--shot-types establishing,medium,closeup,product`
+    # for a classic 4-beat commercial structure. Unknown types fall
+    # through to the "content" defaults in SHOT_TYPE_DEFAULTS.
+    shot_types_arg = getattr(args, "shot_types", None)
+    if shot_types_arg:
+        shot_type_list = [t.strip() for t in shot_types_arg.split(",") if t.strip()]
+    else:
+        shot_type_list = []
 
-    # Distribute duration across shots
+    shot_count = max(MIN_SHOTS, target // AVG_SHOT_DURATION)
+    # If the user supplied shot types, the shot count is determined by
+    # that list — their intent wins over the target-duration heuristic.
+    if shot_type_list:
+        shot_count = len(shot_type_list)
+
+    # Distribute duration across shots. If shot types are provided, let
+    # SHOT_TYPE_DEFAULTS suggest per-shot durations and then scale the
+    # result to match the target total. Without types, use the original
+    # even-split logic that's been in the script since v3.3.0.
     shots = []
-    remaining = target
+
+    if shot_type_list:
+        # Start with each shot's default duration, then rescale so the
+        # sum matches target. Rounding-drift absorbs into the last shot.
+        raw_durs = [_shot_defaults(t)["duration"] for t in shot_type_list]
+        raw_total = sum(raw_durs) or 1
+        scaled = [max(4, round(d * target / raw_total)) for d in raw_durs]
+        # Snap the last shot to whatever's needed to hit target exactly,
+        # clamped to the 4..MAX_SHOT_DURATION envelope.
+        drift = target - sum(scaled[:-1])
+        scaled[-1] = max(4, min(MAX_SHOT_DURATION, drift))
+        # If clamping mangled the total, accept the drift — it's a draft
+        # pass; the user can adjust durations by hand in the plan.json.
+        durations = scaled
+    else:
+        durations = []
+        remaining = target
+        for i in range(shot_count):
+            is_last = i == shot_count - 1
+            if is_last:
+                d = min(MAX_SHOT_DURATION, remaining)
+            else:
+                d = min(DEFAULT_SHOT_DURATION, remaining - (shot_count - i - 1))
+                d = max(4, d)
+            durations.append(d)
+            remaining -= d
+
     for i in range(shot_count):
-        is_last = i == shot_count - 1
-        if is_last:
-            dur = min(MAX_SHOT_DURATION, remaining)
-        else:
-            dur = min(DEFAULT_SHOT_DURATION, remaining - (shot_count - i - 1))
-            dur = max(4, dur)  # minimum 4s per shot
-        remaining -= dur
+        shot_type = shot_type_list[i] if shot_type_list else "content"
+        defaults = _shot_defaults(shot_type)
+        dur = durations[i]
 
         shots.append({
             "number": i + 1,
             "duration": dur,
-            "type": "content",
-            "camera": "",
+            "type": shot_type,
+            # v3.6.3: prefill camera hint from shot-type defaults. Claude
+            # can overwrite this in the SKILL.md plan step; the default
+            # just gives a starting point.
+            "camera": defaults.get("camera_hint", ""),
             "subject": "",
             "action": "",
             "setting": "",
@@ -325,13 +582,18 @@ def cmd_plan(args):
             # lets VEO pick its own ending. Useful for shots that cut away
             # to unrelated material (e.g. establishing → cut to interior)
             # where pinning a specific end frame over-constrains the motion.
-            # Empirically validated by the coffee shop demo where Shot 1
-            # used first-frame-only for exactly this reason.
-            "use_veo_interpolation": False,
+            # v3.6.3: default is now picked from the shot-type table —
+            # establishing/transition/cutaway/broll all default True
+            # because those shot types by definition don't have fixed
+            # endings. content/medium/closeup/product default False.
+            "use_veo_interpolation": defaults.get("use_veo_interpolation", False),
             "status": "planned",
         })
 
-    storyboard_cost = shot_count * 2 * COST_STORYBOARD_FRAME
+    # v3.6.3: storyboard cost depends on how many shots need an end frame.
+    # Shots with use_veo_interpolation skip the end frame entirely.
+    end_frames_needed = sum(1 for s in shots if not s["use_veo_interpolation"])
+    storyboard_cost = (shot_count + end_frames_needed) * COST_STORYBOARD_FRAME
     # Sequence-level model used for the estimate. May be overridden later by
     # --quality-tier at generate time.
     sequence_model = DEFAULT_SEQUENCE_MODEL
@@ -557,7 +819,7 @@ def _relpath_for_markdown(target, base):
         return str(Path(target).resolve())
 
 
-def _build_review_sheet(plan, storyboard_dir, *, override_model=None):
+def _build_review_sheet(plan, storyboard_dir, *, override_model=None, plan_path=None):
     """Return a REVIEW-SHEET.md string for *plan* against *storyboard_dir*.
 
     Layout per shot (markdown):
@@ -755,6 +1017,19 @@ def _build_review_sheet(plan, storyboard_dir, *, override_model=None):
         "final Standard render._"
     )
     lines.append("")
+
+    # v3.6.3: machine-readable manifest block for the generate gate.
+    # cmd_generate reads this to detect frame drift since the review was
+    # written. Wrapped in HTML comments so it doesn't render in markdown
+    # previews. Do not edit by hand — regenerate via `video_sequence.py
+    # review` if you change the storyboard.
+    manifest = _build_review_manifest(plan, storyboard_dir, plan_path or "")
+    lines.append(REVIEW_SHEET_MANIFEST_START)
+    lines.append("```json")
+    lines.append(json.dumps(manifest, indent=2))
+    lines.append("```")
+    lines.append(REVIEW_SHEET_MANIFEST_END)
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -779,7 +1054,12 @@ def cmd_review(args):
 
     override = QUALITY_TIER_MODELS.get(getattr(args, "quality_tier", None))
 
-    content = _build_review_sheet(plan, storyboard_dir, override_model=override)
+    content = _build_review_sheet(
+        plan,
+        storyboard_dir,
+        override_model=override,
+        plan_path=args.plan,
+    )
 
     output_path = Path(args.output) if args.output else storyboard_dir / "REVIEW-SHEET.md"
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -822,6 +1102,53 @@ def cmd_generate(args):
         )
 
     plan = _load_plan(plan_path)
+
+    # v3.6.3: mandatory review gate. cmd_generate refuses to run if
+    # REVIEW-SHEET.md is missing, unparseable, or has frame hashes that
+    # drift from the current storyboard. --skip-review bypasses the
+    # check for CI and automation paths. The gate costs nothing to run
+    # and prevents the most expensive category of mistake: generating a
+    # $12 Standard clip against a frame that was regenerated after the
+    # review was written.
+    if not getattr(args, "skip_review", False):
+        freshness = _check_review_freshness(plan, storyboard_dir)
+        status = freshness["status"]
+        if status == "missing":
+            _error_exit(
+                "No REVIEW-SHEET.md found in the storyboard directory. "
+                "v3.6.3 makes review a mandatory stage between storyboard "
+                "and generate. Run:\n"
+                f"  python3 video_sequence.py review --plan {plan_path} "
+                f"--storyboard {storyboard_dir}\n"
+                "Then re-run generate. Pass --skip-review to bypass this "
+                "check (for CI or automation only — it disables the safety "
+                "net that catches frame drift)."
+            )
+        if status == "unparseable":
+            _error_exit(
+                "REVIEW-SHEET.md exists but its embedded manifest block "
+                "cannot be parsed. Regenerate with:\n"
+                f"  python3 video_sequence.py review --plan {plan_path} "
+                f"--storyboard {storyboard_dir}\n"
+                "or pass --skip-review to bypass the check."
+            )
+        if status == "stale":
+            drifted = freshness.get("drifted_shots", [])
+            _error_exit(
+                f"REVIEW-SHEET.md is stale — shot(s) "
+                f"{', '.join(str(n) for n in drifted)} have frame hashes "
+                f"that differ from the recorded review. Someone regenerated "
+                f"one or more storyboard frames after the review was written. "
+                f"Regenerate the review sheet:\n"
+                f"  python3 video_sequence.py review --plan {plan_path} "
+                f"--storyboard {storyboard_dir}\n"
+                f"Then re-inspect and re-run generate. Pass --skip-review "
+                f"if you know what you're doing."
+            )
+        _progress({"status": "review_gate_ok", "path": str((Path(storyboard_dir) / "REVIEW-SHEET.md").resolve())})
+    else:
+        _progress({"status": "review_gate_skipped", "reason": "--skip-review"})
+
     api_key = _load_api_key(args.api_key)
     output_dir = Path(args.output or _default_output("clips"))
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1029,6 +1356,19 @@ def main():
     )
     p_plan.add_argument("--preset", default=None, help="Brand preset name")
     p_plan.add_argument("--output", default=None, help="Output path for shot-list.json")
+    p_plan.add_argument(
+        "--shot-types", default=None,
+        help=(
+            "v3.6.3+: comma-separated list of shot types for the "
+            "generated skeleton, e.g. "
+            "'establishing,medium,closeup,product' for a 4-beat "
+            "commercial. Each type pre-fills duration, camera hint, "
+            "and use_veo_interpolation defaults from SHOT_TYPE_DEFAULTS. "
+            "When set, shot count is determined by this list and "
+            "durations are rescaled to hit --target. Known types: "
+            + ", ".join(SHOT_TYPES) + "."
+        ),
+    )
 
     # -- storyboard --
     p_sb = subparsers.add_parser(
@@ -1076,6 +1416,19 @@ def main():
             "'legacy' uses VEO 3.0. Lite/Legacy/GA models auto-route through "
             "Vertex AI — requires vertex_api_key in ~/.banana/config.json. "
             "See references/video-sequences.md for the draft-then-final workflow."
+        ),
+    )
+    p_gen.add_argument(
+        "--skip-review", action="store_true",
+        help=(
+            "v3.6.3+: bypass the mandatory review gate. By default, "
+            "generate refuses to run unless a valid REVIEW-SHEET.md "
+            "exists in the storyboard dir AND its embedded frame "
+            "hashes match the current storyboard. --skip-review is "
+            "intended for CI and automation paths that know what "
+            "they're doing — it disables the safety net that catches "
+            "frame drift. Prefer running `video_sequence.py review` "
+            "first for interactive use."
         ),
     )
 

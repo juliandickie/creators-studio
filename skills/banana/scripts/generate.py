@@ -29,15 +29,86 @@ VALID_RATIOS = {"1:1", "16:9", "9:16", "4:3", "3:4", "2:3", "3:2",
                 "4:5", "5:4", "1:4", "4:1", "1:8", "8:1", "21:9"}
 VALID_RESOLUTIONS = {"512", "1K", "2K", "4K"}
 
+# v3.6.3: MIME type detection for --reference-image inputs. Gemini
+# image generation accepts PNG/JPEG/WebP/GIF reference images as
+# inlineData parts alongside the text prompt. Three images is the
+# practical limit — more than that confuses the model about which
+# reference to prioritize.
+MAX_REFERENCE_IMAGES = 3
+REFERENCE_MIME_MAP = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+}
+
+
+def _read_reference_image(path):
+    """Read a reference image and return (base64_string, mime_type).
+
+    Validates the file exists and the extension maps to a supported
+    MIME type. Raises SystemExit with a clean JSON error on failure
+    so the calling pipeline sees the same error format as other
+    validation failures in this script.
+    """
+    p = Path(path)
+    if not p.exists():
+        print(json.dumps({"error": True, "message": f"Reference image not found: {path}"}))
+        sys.exit(1)
+    ext = p.suffix.lower()
+    mime = REFERENCE_MIME_MAP.get(ext)
+    if not mime:
+        print(json.dumps({
+            "error": True,
+            "message": f"Unsupported reference-image format '{ext}'. Use: {', '.join(sorted(REFERENCE_MIME_MAP))}"
+        }))
+        sys.exit(1)
+    with open(p, "rb") as f:
+        data = base64.b64encode(f.read()).decode("ascii")
+    return data, mime
+
 
 def generate_image(prompt, model, aspect_ratio, resolution, api_key,
-                   thinking_level=None, image_only=False):
-    """Call Gemini API to generate an image."""
+                   thinking_level=None, image_only=False,
+                   reference_images=None):
+    """Call Gemini API to generate an image.
+
+    v3.6.3: `reference_images` accepts a list of image file paths (up
+    to MAX_REFERENCE_IMAGES). Each reference is attached to the request
+    as an inlineData part alongside the text prompt. Gemini uses these
+    as soft style/content guidance — they're not a strict composition
+    lock (use /banana edit for that), they're a "generate a new image
+    informed by these references" nudge. The primary use case is
+    cross-shot character/product continuity in video sequences:
+    generate a fresh frame that matches the character and wardrobe of
+    a previous storyboard frame without locking the composition.
+    """
     url = f"{API_BASE}/{model}:generateContent?key={api_key}"
 
     modalities = ["IMAGE"] if image_only else ["TEXT", "IMAGE"]
+
+    # Build the parts list. Text prompt first, then reference images.
+    # Ordering matters for Gemini: the text prompt establishes the
+    # generation intent, and the reference images provide visual
+    # anchors the model can draw from.
+    parts = [{"text": prompt}]
+    if reference_images:
+        if len(reference_images) > MAX_REFERENCE_IMAGES:
+            print(json.dumps({
+                "error": True,
+                "message": (
+                    f"Too many reference images ({len(reference_images)}). "
+                    f"Maximum is {MAX_REFERENCE_IMAGES}."
+                ),
+            }))
+            sys.exit(1)
+        for ref_path in reference_images:
+            b64, mime = _read_reference_image(ref_path)
+            parts.append({"inlineData": {"mimeType": mime, "data": b64}})
+
     body = {
-        "contents": [{"parts": [{"text": prompt}]}],
+        "contents": [{"parts": parts}],
         "generationConfig": {
             "responseModalities": modalities,
             "imageConfig": {
@@ -118,13 +189,29 @@ def generate_image(prompt, model, aspect_ratio, resolution, api_key,
     with open(output_path, "wb") as f:
         f.write(base64.b64decode(image_data))
 
-    return {
+    result_dict = {
         "path": str(output_path),
         "model": model,
         "aspect_ratio": aspect_ratio,
         "resolution": resolution,
         "text": text_response,
     }
+    if reference_images:
+        result_dict["reference_images"] = list(reference_images)
+        result_dict["reference_count"] = len(reference_images)
+        # v3.6.3 note: image-to-image (reference-guided) generation
+        # returns roughly half-resolution output vs pure text-to-image
+        # because Gemini's reference-guided path uses a different
+        # upscale ladder. A 2K request may return ~1K-ish depending
+        # on the aspect ratio. For VEO input this is acceptable (still
+        # above the 720p floor), but worth knowing for final-delivery
+        # workflows.
+        result_dict["note"] = (
+            "reference-guided generation returns ~1K-ish resolution "
+            "regardless of --resolution request; this is expected "
+            "Gemini behavior"
+        )
+    return result_dict
 
 
 def main():
@@ -136,6 +223,22 @@ def main():
     parser.add_argument("--api-key", default=None, help="Google AI API key (or set GOOGLE_AI_API_KEY env)")
     parser.add_argument("--thinking", default=None, choices=["minimal", "low", "medium", "high"], help="Thinking level")
     parser.add_argument("--image-only", action="store_true", help="Return image only (no text)")
+    parser.add_argument(
+        "--reference-image", nargs="+", default=None,
+        help=(
+            "v3.6.3+: up to 3 reference image paths that guide the "
+            "generation as soft style/content anchors. Attached as "
+            "inlineData parts alongside the text prompt. Use for "
+            "cross-shot character continuity (e.g. regenerate a "
+            "frame that matches a previous storyboard shot's "
+            "character and wardrobe). This is different from "
+            "/banana edit — use edit.py when you want to modify an "
+            "existing image; use --reference-image when you want to "
+            "generate a fresh image informed by references. Note: "
+            "reference-guided generation returns ~1K-ish output "
+            "resolution regardless of --resolution request."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -161,6 +264,18 @@ def main():
         print(json.dumps({"error": True, "message": "No API key. Run /banana setup, set GOOGLE_AI_API_KEY env, or pass --api-key"}))
         sys.exit(1)
 
+    # v3.6.3: validate reference image count early so the error fires
+    # before any API calls instead of mid-request.
+    if args.reference_image and len(args.reference_image) > MAX_REFERENCE_IMAGES:
+        print(json.dumps({
+            "error": True,
+            "message": (
+                f"Too many --reference-image paths ({len(args.reference_image)}). "
+                f"Maximum is {MAX_REFERENCE_IMAGES}."
+            ),
+        }))
+        sys.exit(1)
+
     result = generate_image(
         prompt=args.prompt,
         model=args.model,
@@ -169,6 +284,7 @@ def main():
         api_key=api_key,
         thinking_level=args.thinking,
         image_only=args.image_only,
+        reference_images=args.reference_image,
     )
     print(json.dumps(result, indent=2))
 

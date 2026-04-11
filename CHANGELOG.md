@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.3] - 2026-04-11
+
+### Headline
+
+**Review gate enforcement + smarter plans.** Five more items from the deferred-bucket, all thematically coupled: make the review gate that v3.6.2 shipped actually useful, detect frame drift between review and generate, pre-fill shots with cinematography defaults so Claude has less to remember, and pay off the 1080p Lite pricing TODO from the v3.5.0 research.
+
+### Added
+
+- **`video_sequence.py generate` mandatory review gate.** `cmd_generate` now checks for `REVIEW-SHEET.md` in the storyboard directory and validates its embedded frame hashes against current disk state before doing any work. Missing, unparseable, or stale reviews abort with a clear error listing the exact fix command (either "run `review`" or "run `review` again because shot N's frame changed"). Pass `--skip-review` to bypass for CI/automation — intentionally disables the safety net.
+- **Plan hash tracking via embedded manifest block.** `_build_review_sheet` now appends a machine-readable manifest wrapped in HTML comments (`<!-- BEGIN REVIEW MANIFEST v1 --> ... <!-- END ... -->`) containing the plan path, storyboard dir, and per-shot frame SHA-256 hashes. The block is inside a ````json` fenced code block so it doesn't render in markdown previews. `_check_review_freshness` parses the manifest on every `generate` run and compares against current hashes; any drift returns `{"status": "stale", "drifted_shots": [N, ...]}` and the gate aborts.
+- **New helpers in `video_sequence.py`:** `_sha256_file`, `_build_review_manifest`, `_parse_review_manifest`, `_load_review_manifest`, `_check_review_freshness`. All stdlib-only, all unit-tested.
+- **Shot-type semantic defaults** — new `SHOT_TYPE_DEFAULTS` table with 8 types (`establishing`, `content`, `medium`, `closeup`, `product`, `transition`, `cutaway`, `broll`) each mapping to default duration, camera hint, and `use_veo_interpolation` flag. `cmd_plan` accepts `--shot-types establishing,medium,closeup,product` and pre-fills shots with sensible defaults; shot count is determined by the list length and durations rescale to hit `--target`. Establishing/transition/cutaway/broll default to first-frame-only (they cut to unrelated material); content/medium/closeup/product default to first+last frame interpolation.
+- **`--reference-image` flag on banana `generate.py`** — up to 3 reference images passed as `inlineData` parts alongside the text prompt. Primary use case: cross-shot character/product continuity in video sequences. Different from `edit.py` — reference-guided generation is "generate a new image informed by these anchors" vs edit's "modify this existing image." New helper `_read_reference_image` with PNG/JPEG/WebP/GIF support and validation. Output JSON includes a note that reference-guided output is ~1K-ish regardless of `--resolution` request (known Gemini behavior).
+
+### Changed
+
+- **`cost_tracker.py` VEO 3.1 Lite comment** — the v3.5.0 TODO "verify 1080p Lite pricing" has been exercised empirically. 1080p Lite is callable via the Vertex AI backend with ~73 s generation time vs ~38 s for 720p. The rate is unchanged ($0.05/sec) pending a full billing cycle — flag in the comment that 1080p billing may differ and users should check their GCP console.
+- **`cmd_plan` no longer hardcodes `type: "content"` for every shot.** When `--shot-types` is set, each shot's `type` field reflects the user's intent and the `camera`, `duration`, and `use_veo_interpolation` fields are pre-filled from `SHOT_TYPE_DEFAULTS`.
+- **`cmd_plan` storyboard cost estimate** now accounts for `use_veo_interpolation` shots that skip the end frame (saves $0.08/frame). Previously the estimate assumed 2 frames per shot regardless.
+
+### Docs
+
+- **`video-sequences.md` Stage 3 (Review)** rewritten to describe the mandatory gate with frame hash tracking, the `--skip-review` bypass, and the design rationale (catching the most expensive category of mistake).
+- **`video-sequences.md` Stage 1 (Shot List)** gets a new "Shot-type semantic defaults" subsection with the full 8-type table.
+- **SKILL.md** Commands table and narrative section updated.
+- **README.md** Commands table, What's New section, version badge.
+
+### Verification
+
+- All 6 scripts (`video_sequence.py`, `_vertex_backend.py`, `video_generate.py`, `video_extend.py`, banana `generate.py`, `cost_tracker.py`) compile clean.
+- **8 new unit tests** via `python3 -c` import: `_shot_defaults` for all 8 types plus the unknown-type fallback; `_sha256_file` round-trip plus missing-file None; `_build_review_manifest` on a synthetic plan with interpolation and non-interpolation shots; review-sheet round-trip through `_load_review_manifest`; `_check_review_freshness` returns `ok` → `stale` (with correct `drifted_shots`) → `missing` as frames mutate; manifest parser handles raw JSON, `\`\`\`json` fenced, and bad/missing block cases.
+- **Functional test of the gate** — ran `cmd_generate` against the coffee shop storyboard dir with REVIEW-SHEET.md deleted; pipeline correctly aborted with the "No REVIEW-SHEET.md found" error. Then ran with `--skip-review` to prove the bypass path works.
+- **1080p Lite probe** ($0.40) — real 4-second clip generated via the Vertex AI backend at 1080p Lite, 73 seconds wall clock, 2.3 MB output at `/tmp/v363-pricing-probe/`. Confirms 1080p Lite is callable.
+
+### Release-process honesty
+
+**Unintended $0.40 spend during v3.6.3 verification.** When functionally testing the review gate's `--skip-review` path, I set `GOOGLE_AI_API_KEY=FAKE` expecting it to block any real API call. It didn't — the child `video_generate.py` process auto-routed Lite requests to the Vertex AI backend, which read real credentials from `~/.banana/config.json`, and generated one Shot 2 clip before I killed the pipeline. Total unintended spend: $0.40 (one 8-second Lite 1080p clip at `~/Documents/nano-banana-sequences/sequence_clips_20260411_223403/clip-02.mp4`). Root cause: non-hermetic test harness. Going forward, any functional test of `cmd_generate` must use a fixture storyboard directory where the child process cannot successfully hit a real API, not just an env-var block on one of two possible auth paths.
+
+### Not in scope (still deferred)
+
+Everything else from the v3.6.1/v3.6.2 deferred buckets: the `update-prompts` Gemini-vision subcommand (v3.6.4), the audio strategy split (narration/dialogue/ambient/sfx fields, v3.7.0), the `/video sequence narration` TTS subcommand (v3.7.0 paired with audio split), `output_gcs_uri` support, `--num-videos` batching, parallel batch execution in `video_sequence.py`, object insertion support, and regional restrictions awareness. Each still needs its own dedicated release.
+
 ## [3.6.2] - 2026-04-11
 
 ### Headline
