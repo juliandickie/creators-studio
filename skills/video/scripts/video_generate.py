@@ -122,10 +122,12 @@ VALID_DURATIONS_BY_MODEL = {
 }
 
 STANDARD_RATIOS = {"16:9", "9:16"}
-LITE_RATIOS = {"16:9", "9:16", "1:1"}
 VALID_RATIOS_BY_MODEL = {
-    "veo-3.1-lite-generate-001": LITE_RATIOS,
-    # All other models fall through to STANDARD_RATIOS via _valid_ratios()
+    # No model-specific overrides — all VEO 3.1 tiers use STANDARD_RATIOS.
+    # v3.5.0 documented 1:1 support for Lite but that claim was wrong on
+    # two counts: the Vertex AI reference page explicitly lists only
+    # "16:9" and "9:16" as valid aspectRatio values, and we also found
+    # _vertex_backend.py validates this at the request boundary.
 }
 
 # Lite does NOT support 4K per reference doc line 55, 274.
@@ -677,8 +679,8 @@ def main():
                              f"Scene Extension v2 (--video-input) uses 7. "
                              f"(default: {DEFAULT_DURATION})")
     parser.add_argument("--aspect-ratio", default=DEFAULT_RATIO,
-                        help=f"Aspect ratio. Standard/Fast/3.0: 16:9 or 9:16. "
-                             f"Lite also supports 1:1. (default: {DEFAULT_RATIO})")
+                        help=f"Aspect ratio. All VEO 3.1 tiers: 16:9 or 9:16. "
+                             f"(default: {DEFAULT_RATIO})")
     parser.add_argument("--resolution", default=DEFAULT_RESOLUTION,
                         help=f"Resolution: 720p, 1080p, 4K. "
                              f"Lite and 3.0 do not support 4K. (default: {DEFAULT_RESOLUTION})")
@@ -780,13 +782,12 @@ def main():
                 f"Valid: {sorted(valid_durations)}."
             )
 
-    # Model-aware aspect ratio validation (Lite supports 1:1 in addition to 16:9/9:16)
+    # Aspect ratio validation. All VEO 3.1 tiers support {16:9, 9:16}.
     valid_ratios = _valid_ratios(args.model)
     if args.aspect_ratio not in valid_ratios:
         _error_exit(
             f"Invalid aspect ratio '{args.aspect_ratio}' for {args.model}. "
-            f"Valid: {sorted(valid_ratios)}. "
-            f"Tip: for square 1:1, use --model veo-3.1-lite-generate-001."
+            f"Valid: {sorted(valid_ratios)}."
         )
 
     # Resolution validation (4K not available on Lite or Legacy)

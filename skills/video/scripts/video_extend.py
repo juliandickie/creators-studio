@@ -25,8 +25,23 @@ from pathlib import Path
 
 # ── Constants ────────────────────────────────────────────────────────
 
-HOP_DURATION = 7  # effective seconds per generation (8s with overlap)
-GENERATE_DURATION = 8  # duration passed to video_generate.py
+# Effective seconds gained per extension hop. Each hop generates a clip
+# and concatenates it onto the running result. For the keyframe path,
+# the new clip is 8s but we lose ~1s to the seam transition, so the
+# effective gain is 7s. For the Scene Extension v2 path, the API
+# generates a 7s clip directly (durationSeconds=7 is the only allowed
+# value for feature=video_extension), so the effective gain is 7s.
+# Both modes converge on the same 7-second hop length.
+HOP_DURATION = 7
+
+# Duration passed to video_generate.py for each hop, by method.
+# Keyframe mode generates a fresh 8s clip and overlaps the boundary.
+# Scene Extension v2 mode requires durationSeconds=7 (Vertex API
+# constraint, see PLAN-v3.6.0.md "Scene Extension v2 findings"). Both
+# paths produce ~7 effective seconds of new content.
+GENERATE_DURATION_KEYFRAME = 8
+GENERATE_DURATION_VIDEO = 7
+
 MAX_HOPS = 20
 MAX_DURATION = 148  # MAX_HOPS * HOP_DURATION + initial clip headroom
 DEFAULT_EXTEND_MODEL = "veo-3.1-generate-preview"
@@ -43,10 +58,21 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 GENERATE_SCRIPT = SCRIPT_DIR / "video_generate.py"
 
 
-def _hop_cost(model):
-    """Cost for one 8s extension hop at *model*'s rate."""
+def _hop_duration_for_method(method):
+    """Generation seconds passed to video_generate.py per hop."""
+    return GENERATE_DURATION_VIDEO if method == "video" else GENERATE_DURATION_KEYFRAME
+
+
+def _hop_cost(model, method):
+    """Cost for one extension hop at *model*'s rate.
+
+    Both methods produce ~7s of effective new content; the difference is
+    that keyframe mode generates a full 8s clip and overlaps the seam,
+    while Scene Extension v2 generates exactly 7s. Bill at the actual
+    generated duration so users see honest numbers.
+    """
     rate = _EXTEND_PER_SECOND.get(model, 0.15)
-    return round(rate * GENERATE_DURATION, 4)
+    return round(rate * _hop_duration_for_method(method), 4)
 
 
 def _error_exit(message):
@@ -104,7 +130,7 @@ def _extract_last_frame(video_path, output_path):
 
 
 def _generate_clip(
-    *, prompt, api_key, output_dir, model,
+    *, prompt, api_key, output_dir, model, duration,
     first_frame=None, video_input=None, resolution="1080p",
 ):
     """Call video_generate.py to produce the next extension clip.
@@ -113,13 +139,19 @@ def _generate_clip(
 
     - first_frame: classic keyframe extension. Pass the extracted last-frame
       PNG as --first-frame. Works at any resolution but loses audio continuity.
-    - video_input: Scene Extension v2 (v3.5.0+). Pass the previous clip as
-      --video-input. Preserves audio continuity but is limited to 720p.
+    - video_input: Scene Extension v2 (v3.6.0+). Pass the previous clip as
+      --video-input. Preserves audio continuity at 720p. Requires Vertex AI
+      backend (auto-routed by video_generate.py when --video-input is set).
+
+    `duration` should be passed by the caller per the method:
+      - keyframe: 8 seconds (a fresh clip; ~1s overlaps the seam)
+      - video:    7 seconds (the only durationSeconds the Vertex API
+                  accepts for feature=video_extension)
     """
     cmd = [
         sys.executable, str(GENERATE_SCRIPT),
         "--model", model,
-        "--duration", str(GENERATE_DURATION),
+        "--duration", str(duration),
         "--resolution", resolution,
         "--output", str(output_dir),
     ]
@@ -212,15 +244,14 @@ def main():
         ),
     )
     parser.add_argument(
-        "--method", choices=["video", "keyframe"], default="keyframe",
+        "--method", choices=["video", "keyframe"], default="video",
         help=(
-            "Extension method. 'keyframe' (default) uses the last-frame "
-            "extraction path — works on the Gemini API today at any "
-            "resolution but loses audio continuity at the seam. 'video' "
-            "uses Scene Extension v2 (passes the previous clip as "
-            "--video-input, preserves audio continuity, forced to 720p) "
-            "BUT requires Vertex AI, which this plugin does not yet "
-            "support — tracked as a v3.6.0 roadmap item."
+            "Extension method. 'video' (default) uses Scene Extension v2: "
+            "passes the previous clip as --video-input, preserves audio "
+            "continuity, forced to 720p. Requires Vertex AI backend "
+            "(auto-routed). 'keyframe' uses the legacy last-frame "
+            "extraction path — works at any resolution but loses audio "
+            "continuity at the seam."
         ),
     )
     args = parser.parse_args()
@@ -254,7 +285,8 @@ def main():
             f"(148s total). Reduce --target-duration."
         )
 
-    hop_cost = _hop_cost(args.model)
+    hop_cost = _hop_cost(args.model, args.method)
+    hop_duration = _hop_duration_for_method(args.method)
     extend_resolution = "720p" if args.method == "video" else "1080p"
 
     _progress({
@@ -265,6 +297,7 @@ def main():
         "model": args.model,
         "method": args.method,
         "resolution": extend_resolution,
+        "hop_duration_seconds": hop_duration,
         "estimated_cost": round(hops_needed * hop_cost, 2),
     })
 
@@ -281,11 +314,14 @@ def main():
 
             if args.method == "video":
                 # Scene Extension v2: feed the previous clip directly.
+                # video_generate.py auto-routes this through Vertex AI and
+                # enforces durationSeconds=7 (matching hop_duration above).
                 new_clip, error = _generate_clip(
                     prompt=args.prompt,
                     api_key=args.api_key,
                     output_dir=gen_dir,
                     model=args.model,
+                    duration=hop_duration,
                     video_input=current_clip,
                     resolution="720p",
                 )
@@ -298,6 +334,7 @@ def main():
                     api_key=args.api_key,
                     output_dir=gen_dir,
                     model=args.model,
+                    duration=hop_duration,
                     first_frame=last_frame,
                     resolution=extend_resolution,
                 )

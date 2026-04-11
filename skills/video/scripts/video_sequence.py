@@ -42,22 +42,20 @@ DEFAULT_SEQUENCE_RESOLUTION = "1080p"
 
 # Quality-tier CLI flag maps to concrete model IDs.
 #
-# Note: Lite (`veo-3.1-lite-generate-001`) and Legacy 3.0 are Vertex-AI
-# only as of 2026-04-10. Until the Vertex AI backend ships (v3.6.0),
-# `draft` maps to Fast — which is still an 8x discount vs Standard
-# ($0.15/sec vs $0.40/sec) and preserves the draft-then-final value
-# proposition even without true Lite access. Once the Vertex AI backend
-# lands, `draft` should be re-pointed at Lite for the full ~15x cost
-# reduction.
+# v3.6.0: `draft` is now Lite (the original v3.5.0 promise). Lite,
+# Legacy, and the GA `-001` IDs are reachable via the Vertex AI backend
+# that v3.6.0 added. video_generate.py auto-routes these models through
+# Vertex; the user only needs Vertex credentials in ~/.banana/config.json.
+#
+# Cost reduction vs Standard for the draft pass:
+#   draft (Lite, $0.05/sec) → 8× cheaper than Standard ($0.40/sec)
+#   fast  (Fast, $0.15/sec) → 2.7× cheaper than Standard
 QUALITY_TIER_MODELS = {
-    "draft": "veo-3.1-fast-generate-preview",      # Vertex-AI-free fallback
-    "fast": "veo-3.1-fast-generate-preview",
+    "draft": "veo-3.1-lite-generate-001",          # 8× cheaper than Standard
+    "fast": "veo-3.1-fast-generate-preview",       # 2.7× cheaper
     "standard": "veo-3.1-generate-preview",
-    # Legacy + real Lite are gated in video_generate.py and will fail
-    # fast with a clear message; keeping them here lets Vertex-enabled
-    # users opt in when the backend ships.
-    "lite": "veo-3.1-lite-generate-001",           # Vertex AI only
-    "legacy": "veo-3.0-generate-001",              # Vertex AI only
+    "lite": "veo-3.1-lite-generate-001",           # alias for draft
+    "legacy": "veo-3.0-generate-001",
 }
 
 # Fallback per-second rates matching cost_tracker.PRICING. Kept in sync by
@@ -694,12 +692,13 @@ def main():
         "--quality-tier", choices=["draft", "fast", "standard", "lite", "legacy"],
         default=None,
         help=(
-            "Override model for all shots. 'draft' currently maps to Fast "
-            "($0.15/sec, 2.7x cheaper than Standard) as the draft-then-final "
-            "pass. 'standard' uses the flagship Standard tier for final "
-            "renders. 'lite' and 'legacy' are Vertex-AI-only and will fail "
-            "with a clear message until the v3.6.0 backend ships. See "
-            "references/video-sequences.md for the draft-then-final workflow."
+            "Override model for all shots. 'draft' (alias 'lite') uses Lite "
+            "($0.05/sec, 8x cheaper than Standard) as the first-pass "
+            "review tier. 'fast' uses Fast ($0.15/sec, 2.7x cheaper). "
+            "'standard' uses the flagship Standard tier for final renders. "
+            "'legacy' uses VEO 3.0. Lite/Legacy/GA models auto-route through "
+            "Vertex AI — requires vertex_api_key in ~/.banana/config.json. "
+            "See references/video-sequences.md for the draft-then-final workflow."
         ),
     )
 
