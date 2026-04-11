@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.0] - 2026-04-11
+
+### Headline
+
+**Vertex AI backend with API-key auth — unblocks the full VEO 3.1 capability surface.** The Gemini API surface (`generativelanguage.googleapis.com`) the plugin had been using only serves text-to-video on two preview model IDs. v3.5.0 documented every other VEO feature as "Vertex AI only — gated until v3.6.0" — image-to-video, Lite, Legacy 3.0, GA `-001` IDs, and Scene Extension v2 all returned clear errors instead of silent HTTP 404s. v3.6.0 wires up the Vertex AI backend with a stdlib-only request translator using bound-to-service-account API key auth (no OAuth, no service account JSON, no `gcloud` install required), un-gates everything, and re-points `--quality-tier draft` from the v3.5.0 Fast stopgap back to Lite for the full **8× cost reduction**.
+
+### Fixed
+- **Image-to-video / `--first-frame` / `--last-frame` / `--reference-image`** — the Gemini API surface stopped serving image-to-video for VEO when the GA `-001` IDs shipped on Vertex AI in March 2026. v3.6.0's Vertex backend handles all of these. `video_generate.py --first-frame` works again.
+- **`video_extend.py --method video` (Scene Extension v2)** — re-enabled as the default. The Vertex API accepts inline base64 video input via `instances[0].video.bytesBase64Encoded` (despite Google's docs only showing the `gcsUri` path). Verified end-to-end with a 1.69 MB → 4.5 MB MP4 generation.
+- **Lite duration constraint** — v3.5.0 documented Lite as supporting 5–60 second durations based on unverified docs. Real-API testing during v3.6.0 showed the API explicitly rejects 5-second Lite requests with `"supported durations are [8,4,6] for feature text_to_video"`. Lite is `{4, 6, 8}` like every other tier. The error message and argparse help text are corrected.
+- **1:1 aspect ratio claim for Lite** — v3.5.0 documented `1:1` as a Lite-only special-case based on unverified docs. The Vertex docs and the official Google Veo 3 notebook both list only `16:9` and `9:16`. v3.6.0 removes the special-case from `_valid_ratios()` and `video_generate.py`, and adds defense-in-depth validation in the Vertex request body builder.
+- **`video_extend.py GENERATE_DURATION` for Scene Extension v2** — was hardcoded to `8` (correct for the keyframe path) but Vertex's `feature=video_extension` accepts only `durationSeconds=7`. Replaced with two named constants `GENERATE_DURATION_KEYFRAME=8` and `GENERATE_DURATION_VIDEO=7`, dispatched via `_hop_duration_for_method()`.
+
+### Added
+- **`skills/video/scripts/_vertex_backend.py`** (NEW, ~650 lines) — pure data translation helper module for the Vertex AI VEO surface. Handles URL composition (regional + global endpoints, hard-coded `/v1/` to avoid SDK [issue #2079](https://github.com/googleapis/python-genai/issues/2079) routing bug), request body construction (`instances`/`parameters` wrapper with `bytesBase64Encoded` image/video parts, resolution normalization `4K → 4k`, defense-in-depth aspect ratio + Scene Extension v2 duration validation), submit + poll response parsing (handles all three known response shapes including the Vertex `cloud.ai.large_models.vision.GenerateVideoResponse` payload), and a `--diagnose` CLI for verifying the auth setup against a free Gemini text-gen sanity check.
+- **`--backend {auto,gemini-api,vertex-ai}` flag** on `video_generate.py`, default `auto`. Routes Vertex-only features through Vertex automatically and keeps text-to-video on Gemini API for v3.4.x compat. Zero breaking changes for existing users.
+- **`--vertex-api-key` / `--vertex-project` / `--vertex-location` flags** on `video_generate.py` with the same precedence as `--api-key`: CLI flag → env var → `~/.banana/config.json`.
+- **`vertex_api_key` / `vertex_project_id` / `vertex_location` fields** in `~/.banana/config.json`. Backward compat: existing configs without these fields continue to work for the Gemini API path.
+- **Service-agent provisioning auto-retry** — the first Scene Extension v2 call against a fresh Vertex project returns a transient `"Service agents are being provisioned"` error (gRPC code 9) that auto-resolves in ~60-90 s. `video_generate.py` detects this specific error and retries once after a 90-second sleep, with a clear progress event explaining the wait. Subsequent failures surface to the user with a pointer to the Vertex AI service-agents doc.
+- **Scene Extension v2 duration auto-override** — `video_generate.py` auto-overrides `--duration` to `7` when `--video-input` routes to Vertex (matches the auto-720p-downgrade pattern v3.5.0 added).
+- **`backend` field in output JSON** — every successful generation now reports which backend produced it (`"backend": "gemini-api"` or `"backend": "vertex-ai"`).
+
+### Changed
+- **`--quality-tier draft` re-pointed from Fast to Lite** in `video_sequence.py`. The v3.5.0 stopgap mapped `draft` to Fast ($0.15/sec, 2.7× cheaper than Standard) because Lite was unreachable. v3.6.0 restores the original mapping to Lite ($0.05/sec, **8× cheaper**). On a 4-shot 30-second sequence, the draft pass cost drops from $4.80 to $1.60.
+- **`video_extend.py --method` default flipped from `keyframe` back to `video`** (Scene Extension v2). The legacy keyframe path remains available via `--method keyframe` for users who need 1080p extension.
+- **`download_expires_at` is now backend-scoped** — only emitted on the Gemini API path (where the 48-hour URI expiry actually applies). The Vertex AI path returns video bytes inline in the poll response, so there's no URI and no expiry. The stderr 48-hour warning is also Gemini-only.
+- **`_submit_operation`, `_poll_operation`, `_save_video`** in `video_generate.py` are now backend-aware dispatchers. The Gemini API code paths are preserved byte-identical for backward compat; the Vertex paths call into the new `_vertex_backend` module.
+
+### Docs
+- **Full rewrite of `skills/video/references/veo-models.md`** Backend Availability section. Removes the v3.5.0 "Vertex AI only — gated" warnings, documents the 3-minute auth setup, explains why API-key auth works for Vertex (bound-to-service-account keys carry a service account principal), corrects the Lite duration and aspect ratio claims, lists the canonical protobuf type names from the REST reference (`VideoGenerationModelInstance`, `VideoGenerationModelParams`, `cloud.ai.large_models.vision.GenerateVideoResponse`), and explains that video retention only applies to the Gemini API path.
+- **`skills/video/references/video-sequences.md` draft-then-final cost table** restored to the 8× story. The v3.5.0 "Gemini API today vs Vertex AI later" two-table workaround is gone — there's now one cost comparison and Lite is the default draft tier.
+- **`skills/video/SKILL.md` Model Routing table** is back to 5 rows (draft / quick social / standard / hero / image-to-video / legacy) with a Backend column showing where each routes. The "Vertex AI only — gated" callout is gone.
+- **README "What's New" section** rewritten with the v3.6.0 backend story.
+- **CLAUDE.md** updated with the new helper script in the file responsibilities table and a new key-constraint about Vertex resolution case (`4k` lowercase) vs Gemini convention (`4K` uppercase).
+- **ROADMAP** marks v3.6.0 as shipped, removes the "Vertex AI backend" line from the top, and promotes the deferred sequence production improvements to v3.6.1.
+
+### Verification
+- **Real API:** $0.55 spent across three smoke tests during research ($0.20 Lite text-to-video, $0.20 Lite image-to-video, $0.35 Lite Scene Extension v2 with retry) plus $0.20 for the commit 2 integration smoke test. Real MP4 artifacts saved to `/tmp/v360-verify/` and `/tmp/v360-commit2/` for inspection.
+- **Zero-cost:** all 4 modified scripts compile clean, 18 unit checks via import on `_vertex_backend.py`, backend routing tested for all 4 combinations (auto + Gemini path, auto + Vertex path, explicit Gemini, explicit Vertex), 1:1 aspect rejection verified, Lite duration 4 acceptance verified, draft tier cost calculation confirmed at $1.11 for the test plan (down from $2.71).
+
 ## [3.5.0] - 2026-04-10
 
 ### ⚠️ Backend Reality Check

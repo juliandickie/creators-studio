@@ -57,13 +57,13 @@ VALID_MODELS = {
 }
 
 # These model IDs return HTTP 404 from `generativelanguage.googleapis.com`
-# (the Gemini API surface this script uses). They are reachable only via
-# Vertex AI's `*-aiplatform.googleapis.com` endpoint with OAuth/service-
-# account auth, which the stdlib-only posture of this script cannot
-# currently do without pulling in `google-auth` as a dependency.
+# (the Gemini API surface) and must be served from Vertex AI. As of v3.6.0
+# the plugin's --backend auto router treats this set as "needs Vertex AI"
+# and dispatches accordingly. The legacy --backend gemini-api flag still
+# rejects them with a clear message pointing at the auto default.
 #
-# Verified empirically on 2026-04-10 — see PROGRESS.md session 7.
-# Vertex AI backend support is tracked as a v3.6.0 roadmap item.
+# Verified empirically on 2026-04-10 (the Gemini API failures) and
+# 2026-04-11 (the Vertex AI successes). See PROGRESS.md sessions 7 and 8.
 MODELS_VERTEX_ONLY = {
     "veo-3.1-generate-001",
     "veo-3.1-fast-generate-001",
@@ -71,9 +71,10 @@ MODELS_VERTEX_ONLY = {
     "veo-3.0-generate-001",
 }
 
-# Scene Extension v2 (`--video-input`) is also Vertex-only as of
-# 2026-04-10. The Gemini API rejects the inlineData video part with
-# "inlineData isn't supported by this model".
+# Scene Extension v2 (`--video-input`) is Vertex-only. The Gemini API
+# rejects the inline video part with "inlineData isn't supported by this
+# model". --backend auto routes any request with --video-input through
+# Vertex AI automatically (regardless of which model is requested).
 VIDEO_INPUT_VERTEX_ONLY = True
 
 # Backend selection for --backend auto. v3.6.0 adds a real Vertex AI

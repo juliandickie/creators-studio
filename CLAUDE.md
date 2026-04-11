@@ -82,8 +82,11 @@ This repo follows the official Claude Code plugin layout:
 | `skills/banana/references/cost-tracking.md` | Pricing table, free tier limits, usage tracking guide. |
 | `skills/banana/references/post-processing.md` | ImageMagick/FFmpeg pipelines, green screen transparency, format conversion. |
 | `skills/video/SKILL.md` | Video Creative Director orchestrator (VEO 3.1). |
-| `skills/video/scripts/video_generate.py` | Async VEO API with polling, first/last frame, reference images. |
-| `skills/video/references/veo-models.md` | VEO model specs, pricing, rate limits, Replicate alternatives. |
+| `skills/video/scripts/video_generate.py` | Async VEO API with polling, first/last frame, reference images, `--backend` dispatch. |
+| `skills/video/scripts/_vertex_backend.py` | Pure data translation helper for Vertex AI VEO surface. URL composer, request body builder, response parsers, service-agent provisioning detection, `--diagnose` CLI. Imported by `video_generate.py` when `--backend auto` routes to Vertex. Stdlib only. |
+| `skills/video/scripts/video_sequence.py` | Multi-shot sequence pipeline (plan → storyboard → generate → stitch) with `--quality-tier {draft,fast,standard,lite,legacy}` model routing. |
+| `skills/video/scripts/video_extend.py` | Clip extension via Scene Extension v2 (`--method video`, default) or legacy keyframe (`--method keyframe`). Hops chain to 148 s max. |
+| `skills/video/references/veo-models.md` | VEO model specs, pricing, rate limits, Backend Availability (Gemini API vs Vertex AI), auth setup. |
 | `skills/video/references/video-prompt-engineering.md` | 5-Part Video Framework, templates, camera motion vocabulary. |
 | `agents/brief-constructor.md` | Subagent for prompt construction. |
 
@@ -96,7 +99,8 @@ ensures the skill works on any system with Python 3.6+.
 
 ## Key constraints
 
-- `imageSize` parameter values must be UPPERCASE: "1K", "2K", "4K". Lowercase fails silently.
+- `imageSize` parameter values must be UPPERCASE on the Gemini API: "1K", "2K", "4K". Lowercase fails silently.
+- **Vertex AI uses lowercase `"4k"` for VEO `resolution`**, while the Gemini API and the plugin's existing image-gen scripts use uppercase `"4K"`. `_vertex_backend.build_vertex_request_body()` normalizes `"4K" → "4k"` at the request boundary so callers can keep using the uppercase convention. Don't change the plugin convention.
 - Gemini generates ONE image per API call. There is no batch parameter.
 - No negative prompt parameter exists. Use semantic reframing in the prompt.
 - `responseModalities` must explicitly include "IMAGE" or the API returns text only.

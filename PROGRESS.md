@@ -7,7 +7,7 @@
 
 - **Repo:** https://github.com/juliandickie/nano-banana-studio
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
-- **Current version:** 3.5.0
+- **Current version:** 3.6.0
 - **Local path:** `/Users/juliandickie/code/nano-banana-pro/banana-claude/`
 - **Plugin layout:** `.claude-plugin/` + `skills/banana/` (image) + `skills/video/` (video) + `agents/`
 
@@ -195,6 +195,24 @@ Both keys stored in `~/.banana/config.json`. Scripts check: CLI flag → env var
 **🔴 Reality check during verification:** Real-API tests revealed that Lite (`veo-3.1-lite-generate-001`), Legacy 3.0, all GA `-001` IDs for Standard and Fast, and Scene Extension v2 (`--video-input`) are **Vertex AI only** — the Gemini API returns HTTP 404 for every `-001` ID and rejects the video `inlineData` part with "inlineData isn't supported by this model." Only the two preview IDs (`veo-3.1-generate-preview` and `veo-3.1-fast-generate-preview`) actually work on the backend this plugin uses.
 
 **Reality-check commit (5/4):** Gated Vertex-only model IDs and `--video-input` with a clear error pointing at the v3.6.0 Vertex AI roadmap item. Remapped `--quality-tier draft` from Lite → Fast (2.7× cheaper than Standard on the Gemini API). Flipped `video_extend.py` default method back to `keyframe` (v2 `--method video` stays documented but errors). Added a "⚠️ Backend Availability" section to `veo-models.md` explaining the two-backend split. Updated SKILL.md routing table, README What's New, video-sequences.md cost tables, and CHANGELOG to honestly reflect what works today vs what needs v3.6.0. Promoted Vertex AI backend to the top v3.6.0 ROADMAP priority with full scope notes.
+
+### Session 8 (2026-04-11)
+**Scope:** v3.6.0 — Vertex AI backend with API-key auth (the unblock for v3.5.0's gated features)
+
+1. **Research phase:** Re-read 9 Google docs pages plus 1 official notebook plus 1 GitHub issue plus the Vertex REST `endpoints.predict` reference. Discovered that bound-to-service-account API keys (the `AQ.*` format from Express Mode signup) work for `predictLongRunning` even though Express Mode docs only list 3 methods. Docs-level confirmation: the `endpoints.predict` reference omits the "Authorization scopes" section, which per Google's docs convention indicates API key auth is supported. The Express Mode 3-method allowlist applies only to anonymous keys.
+2. **Real-API verification ($0.75 spent across 3 smoke tests):** Lite text-to-video 4s ($0.20), Lite image-to-video 4s with first-frame seed ($0.20), Lite Scene Extension v2 7s with inline base64 video ($0.35 including a service-agent retry). All three produced real MP4s saved to `/tmp/v360-verify/`. Critical findings: Vertex's `feature=video_extension` accepts only `durationSeconds=7` (not 8); Lite duration is `{4,6,8}` not 5-60 (v3.5.0 docs were wrong); aspect ratio is `16:9`/`9:16` only (v3.5.0 1:1 claim was wrong); the first Scene Extension v2 call on a cold project hits a transient "Service agents are being provisioned" error that auto-resolves in ~60-90s.
+3. **Saved Vertex credentials** to `~/.banana/config.json` (atomic write, file mode 0600): `vertex_api_key`, `vertex_project_id` (`vertex-ai-492906`), `vertex_location` (`us-central1`).
+4. **Wrote `PLAN-v3.6.0.md`** with full execution plan, decisions, known risks, and verification budget. Amended twice during research as new findings landed.
+5. **Commit 1 (a5cb6a4):** New `_vertex_backend.py` helper module (~650 lines, stdlib only) with URL composer, request body builder (resolution normalization, defense-in-depth aspect ratio + Scene Extension v2 duration validation), submit/poll response parsers, service-agent provisioning detection, and a `--diagnose` CLI. 18 unit checks via import all pass.
+6. **Commit 2 (472b7e3):** Wired `--backend {auto,gemini-api,vertex-ai}` flag into `video_generate.py` with auto-routing rules. New `--vertex-api-key`/`--vertex-project`/`--vertex-location` CLI flags, service-agent retry loop in `main()`, Scene Extension v2 duration auto-override, backend-aware `_save_video` (Vertex path uses inline bytes; no `download_expires_at`). Folded in the Lite duration fix from commit 3 because the smoke test couldn't pass without it. Real-API smoke test ($0.20): Lite 4s end-to-end through the integrated code path, 38.7s wall clock, real MP4 saved to `/tmp/v360-commit2/`.
+7. **Commit 3 (13a2ab7):** Removed the v3.5.0 1:1 aspect special-case (`LITE_RATIOS`), re-pointed `--quality-tier draft` from Fast back to Lite in `video_sequence.py` (8× cost reduction restored), flipped `video_extend.py --method` default from `keyframe` back to `video`, fixed `GENERATE_DURATION` to be method-aware (8 for keyframe, 7 for Scene Extension v2). Verified with zero-cost tests: draft tier now maps to Lite ($1.11 on test plan, was $2.71 with Fast).
+8. **Commit 4:** Full docs rewrite — `veo-models.md` Backend Availability section now describes the working two-backend split with auth setup, Lite duration corrected from 5-60s to 4/6/8s, 1:1 aspect claim removed, response retention scoped to Gemini API only. `video-sequences.md` draft-then-final cost table restored to the 8× story. `SKILL.md` Model Routing table back to 5 rows with Backend column. `README.md` "What's New" rewritten. `CHANGELOG.md` new `[3.6.0]` section. `ROADMAP.md` marks v3.6.0 shipped, deferred sequence improvements moved to v3.6.1. `CLAUDE.md` updated with new file responsibilities and the Vertex-vs-Gemini resolution case constraint. Version bump 3.5.0 → 3.6.0 across `plugin.json`, `README.md` badge, `CITATION.cff`, `PROGRESS.md`, memory file.
+9. **Commit 5:** Final verification + tag v3.6.0 + build distribution zips + GitHub release.
+
+**Critical files created:** `_vertex_backend.py` (650 lines)
+**Critical files modified:** `video_generate.py` (+484 / -83), `video_sequence.py`, `video_extend.py`, `veo-models.md`, `video-sequences.md`, `SKILL.md`, `README.md`, `CHANGELOG.md`, `ROADMAP.md`, `CLAUDE.md`, `PROGRESS.md`, `plugin.json`, `CITATION.cff`
+
+**Total v3.6.0 spend:** ~$0.95 ($0.75 research + $0.20 commit 2 smoke test). Coffee shop demo at Lite draft pending after release (~$1.60).
 
 ## Expansion Roadmap
 

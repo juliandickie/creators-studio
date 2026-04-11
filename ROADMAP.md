@@ -30,7 +30,8 @@ Nano Banana Studio v3.4.0 is a comprehensive Creative Director plugin for AI ima
 | 14 | `/video` — VEO 3.1 video generation (core) | v3.0.0 | Text-to-video, image-to-video, first/last frame |
 | 15 | `/video sequence` — multi-shot production | v3.3.0 | Storyboard approval, first/last frame chaining |
 | 16 | `/video extend` + `/video stitch` — extension + FFmpeg toolkit | v3.4.0 | Clip chaining to 148s, concat/trim/convert |
-| 17 | VEO 3.1 model variants + draft workflow + Scene Extension v2 | v3.5.0 | Lite/Fast/Standard tiers, `--quality-tier` flag, pricing fixes |
+| 17 | VEO 3.1 model variants + draft workflow + pricing fixes | v3.5.0 | Lite/Fast/Standard tiers, `--quality-tier` flag, model routing |
+| 18 | Vertex AI backend (API-key auth) — unblocks Lite, image-to-video, Scene Ext v2, GA `-001` IDs | v3.6.0 | `_vertex_backend.py` helper, `--backend auto`, service agent retry |
 
 ---
 
@@ -49,49 +50,48 @@ hash tracking, audio strategy split, etc.) originally slated for v3.5.0
 are **deferred to v3.6.0** — the coffee shop demo surfaced the model
 variant gap as a higher-priority blocker, so that work landed first.
 
-### v3.6.0 — Vertex AI Backend + Deferred Sequence Features
+### v3.6.0 — Vertex AI Backend (SHIPPED 2026-04-11)
 
-**🔴 Top priority: Vertex AI backend for VEO.** Real-API verification
-during v3.5.0 release surfaced that VEO 3.1's Lite tier
-(`veo-3.1-lite-generate-001`), Legacy 3.0, GA `-001` IDs for Standard
-and Fast, and Scene Extension v2 (`--video-input`) are all served only
-via Vertex AI (`*-aiplatform.googleapis.com`), not the Gemini API
-(`generativelanguage.googleapis.com`) the plugin currently uses. The
-Gemini API returns HTTP 404 for every `-001` ID and rejects the video
-`inlineData` part for `--video-input`. v3.5.0 ships these features
-documented and gated with clear error messages, but they need a real
-backend to become callable.
+v3.6.0 shipped the Vertex AI backend that v3.5.0's reality check
+revealed was needed. The auth approach turned out to be much simpler
+than the original plan anticipated: bound-to-service-account API keys
+(the `AQ.*` format from Vertex Express Mode signup) work for
+`predictLongRunning` even though Google's Express Mode docs only list
+3 methods. No OAuth, no service account JSON, no `gcloud` install.
 
-**Scope of the Vertex AI backend work:**
+**What shipped:**
 
-- **Auth path:** OAuth via Application Default Credentials (ADC) or a
-  service account JSON. This requires `google-auth` as a dependency,
-  which contradicts the script's stdlib-only posture. Options: (a)
-  accept `google-auth` as a narrow video-only dependency with
-  clear gate-on-import handling, (b) implement OAuth2 token refresh
-  manually against Google's token endpoint using stdlib `urllib`
-  (harder, but preserves the zero-dependency property), (c) shell out
-  to `gcloud auth print-access-token` if installed and fall back.
-- **Endpoint:** `https://{region}-aiplatform.googleapis.com/v1/projects/{project}/locations/{region}/publishers/google/models/{model}:predictLongRunning`
-  — different from the Gemini API pattern, requires a project ID and
-  a region.
-- **Request shape:** slightly different from Gemini API. Image parts
-  use `bytesBase64Encoded` instead of `inlineData.data` (this is the
-  same landmine v3.4.1 fixed in the other direction).
-- **Config:** add `vertex_project_id` and `vertex_region` to
-  `~/.banana/config.json`. Prompt for them in `/banana setup` when
-  the user opts into Vertex.
-- **Backend selection:** new `--backend {gemini-api,vertex-ai,auto}`
-  flag on `video_generate.py`. `auto` picks Vertex when the model ID
-  is in `MODELS_VERTEX_ONLY`, otherwise stays on the Gemini API.
-- **Once shipped:** remove the gates in `video_generate.py`, re-point
-  `--quality-tier draft` back to Lite (from its current Fast fallback),
-  and update the draft-then-final workflow tables in
-  `video-sequences.md` to show the full 15× cost reduction.
+- `_vertex_backend.py` helper module (~650 lines, stdlib only) with
+  request body builder, URL composer, response parser, and a
+  `--diagnose` CLI for free auth verification.
+- `--backend {auto,gemini-api,vertex-ai}` flag on `video_generate.py`
+  with auto-routing rules: text-only on preview IDs → Gemini API
+  (v3.4.x compat), Vertex-only models or any image/video input →
+  Vertex AI.
+- `vertex_api_key` / `vertex_project_id` / `vertex_location` in
+  `~/.banana/config.json`.
+- Service-agent provisioning auto-retry (90 s sleep + retry once on
+  the transient cold-start error).
+- Scene Extension v2 `durationSeconds=7` auto-override.
+- `--quality-tier draft` re-pointed from Fast back to Lite (the
+  original v3.5.0 promise — 8× cost reduction restored).
+- `video_extend.py --method` default flipped back to `video`.
+- 1:1 aspect ratio special-case removed (was wrong in v3.5.0 docs).
+- Lite duration constraint corrected to {4, 6, 8} (was wrong as 5-60
+  in v3.5.0 docs).
+- Doc rewrites in `veo-models.md`, `video-sequences.md`, `SKILL.md`,
+  `README.md`, `CHANGELOG.md`.
 
-**Carry-over from v3.5.0 plan (original sequence production scope):**
+**Carry-over from v3.5.0 plan still deferred to v3.6.1:**
 
-These learnings came from producing the first real 30-second multi-shot sequence (the coffee shop demo for the README). The theoretical pipeline shipped in v3.3.0 works, but these specific gaps surfaced during actual use:
+The v3.6.0 implementation focused on the backend unblock; the
+sequence-production-improvements scope from the original v3.5.0 plan
+(review gate, plan hash tracking, audio strategy split, etc.) is
+still pending. These items are documented below as v3.6.1 priorities.
+
+### v3.6.1 — Deferred Sequence Production Improvements
+
+These learnings came from producing the first real 30-second multi-shot sequence (the coffee shop demo for the README). The theoretical pipeline shipped in v3.3.0 works, but these specific gaps surfaced during actual use. They were originally scoped to v3.5.0, deferred to v3.6.0 because the model variant unblock landed first, then deferred again to v3.6.1 because v3.6.0's scope was the Vertex AI backend:
 
 #### Process & UX — Make the approval gate impossible to skip
 
@@ -214,6 +214,6 @@ These worked well and should be documented in the video-sequences reference so f
 | # | Feature | Effort | Impact | Status |
 |---|---------|--------|--------|--------|
 | 1 | v3.5.0 — VEO 3.1 model variants + draft workflow + pricing fixes | Medium | Very High | **Shipped 2026-04-10** |
-| 2 | v3.6.0 — Vertex AI backend (unblocks Lite, Scene Extension v2, GA `-001` IDs) | Large | Very High | **Next** |
-| 3 | v3.6.0 — Deferred sequence production improvements + batch/parallel features | Medium | High | Next (alongside Vertex) |
+| 2 | v3.6.0 — Vertex AI backend (unblocks Lite, image-to-video, Scene Ext v2, GA `-001` IDs) | Large | Very High | **Shipped 2026-04-11** |
+| 3 | v3.6.1 — Deferred sequence production improvements (review gate, plan hash tracking, audio strategy split) + batch/parallel features | Medium | High | **Next** |
 | 4 | Replicate video model routing (Kling, Wan, PixVerse) for character consistency | Medium | High | Future |

@@ -3,27 +3,43 @@
 > Load this when selecting a model for video generation or when the user
 > asks about VEO capabilities, pricing, rate limits, or known limitations.
 
-## ⚠️ Backend Availability (as of 2026-04-10)
+## Backend Availability (v3.6.0+)
 
 VEO 3.1 is served via two different Google API backends with **different
-model coverage**:
+model coverage**. The plugin supports both, with `--backend auto`
+(default) routing each request to the right one.
 
 | Backend | Auth | Plugin support | Available models |
 |---|---|---|---|
-| **Gemini API** (`generativelanguage.googleapis.com`) | API key | ✅ Shipped since v3.0.0 | Standard preview (`veo-3.1-generate-preview`), Fast preview (`veo-3.1-fast-generate-preview`) |
-| **Vertex AI** (`*-aiplatform.googleapis.com`) | OAuth / service account | ❌ **Not yet** — tracked as v3.6.0 ROADMAP item | All of the above **plus** Lite (`veo-3.1-lite-generate-001`), Legacy 3.0 (`veo-3.0-generate-001`), GA `-001` IDs for Standard/Fast, and Scene Extension v2 (`--video-input`) |
+| **Gemini API** (`generativelanguage.googleapis.com`) | `google_ai_api_key` in `~/.banana/config.json` | ✅ Since v3.0.0 | Standard preview (`veo-3.1-generate-preview`), Fast preview (`veo-3.1-fast-generate-preview`) — text-to-video only |
+| **Vertex AI** (`*-aiplatform.googleapis.com`) | `vertex_api_key` (bound to a service account) + `vertex_project_id` + `vertex_location` in `~/.banana/config.json` | ✅ **Since v3.6.0** | All of the above **plus** Lite (`veo-3.1-lite-generate-001`), Legacy 3.0 (`veo-3.0-generate-001`), GA `-001` IDs for Standard/Fast, image-to-video (first-frame, last-frame, reference images), and Scene Extension v2 (`--video-input`) |
 
 **What this means in practice:**
 
-- **Standard and Fast preview IDs work today** through the plugin's existing API key path.
-- **Lite, Legacy, GA `-001` IDs, and `--video-input`** are documented here for completeness and will be callable through the plugin **once the Vertex AI backend ships in v3.6.0**. Requesting them today returns a clear error pointing at this limitation.
-- **`--quality-tier draft` currently maps to Fast** (`$0.15/sec`, 2.7× cheaper than Standard) instead of Lite (`$0.05/sec`, 8×). The draft-then-final workflow still pays off; the savings are just 2.7× instead of 8× until Vertex support lands.
+- **Text-to-video on Standard or Fast preview** stays on the Gemini API path. No new credentials needed if you already had the plugin working in v3.4.x.
+- **Everything else** (Lite, GA IDs, image-to-video, Scene Extension v2) auto-routes through Vertex AI. Requires Vertex credentials in `~/.banana/config.json` (see "Auth setup" below).
+- **`--quality-tier draft`** in `video_sequence.py` maps to Lite via the Vertex backend — **8× cheaper than Standard**.
 
-This was discovered during v3.5.0 real-API verification: the Gemini API
-returned HTTP 404 for every `-001` ID and rejected `--video-input` with
-"inlineData isn't supported by this model." Google's documentation
-describes the unified VEO 3.1 surface, but the Gemini API surface is a
-subset.
+### Auth setup (3 minutes, one-time)
+
+1. Open https://console.cloud.google.com/ and select (or create) a project with billing enabled and the Vertex AI API enabled.
+2. Visit https://console.cloud.google.com/apis/credentials → **Create Credentials** → **API key**.
+3. **Restrict the key**: in the key's settings page, **bind it to a service account** that has the `Vertex AI User` (`roles/aiplatform.user`) role on the project. The bound-to-service-account format starts with `AQ.*` and is the only API key format that works with `predictLongRunning`.
+4. Add three fields to `~/.banana/config.json` (alongside the existing `google_ai_api_key`):
+   ```json
+   {
+     "vertex_api_key": "AQ.Ab8...",
+     "vertex_project_id": "your-gcp-project-id",
+     "vertex_location": "us-central1"
+   }
+   ```
+5. Verify with `python3 skills/video/scripts/_vertex_backend.py diagnose` — runs a free Gemini text-gen sanity check against the same auth path.
+
+**Why API key auth works for Vertex AI** (despite many older docs saying it doesn't): bound-to-service-account API keys carry a service account principal as their identity, so they pass Vertex's `roles/aiplatform.user` IAM check. Anonymous API keys do not. This was an undocumented capability when v3.6.0 shipped — confirmed empirically and per Google's own docs convention that omits the "Authorization scopes" section on methods that accept API keys.
+
+### Architectural history
+
+The Gemini API VEO surface used to support image-to-video and `--video-input` in earlier preview cycles, then quietly dropped support for both when the GA `-001` IDs shipped on Vertex AI in March 2026. v3.5.0 was the last release that tried to use the Gemini API path for everything; v3.6.0's Vertex backend is the long-term home for the full feature surface.
 
 ## Release Timeline
 
@@ -43,18 +59,24 @@ plugin; use GA IDs for new work.
 
 | Property | Standard | Fast | Lite |
 |---|---|---|---|
-| **Plugin callable today** | ✅ (preview ID) | ✅ (preview ID) | ❌ **Vertex AI only** |
-| **GA ID** | `veo-3.1-generate-001` (Vertex) | `veo-3.1-fast-generate-001` (Vertex) | `veo-3.1-lite-generate-001` (Vertex) |
-| **Preview ID** | `veo-3.1-generate-preview` ✅ | `veo-3.1-fast-generate-preview` ✅ | (no preview ID) |
+| **Plugin callable** | ✅ Both backends | ✅ Both backends | ✅ Vertex only (auto-routed since v3.6.0) |
+| **GA ID** (Vertex) | `veo-3.1-generate-001` | `veo-3.1-fast-generate-001` | `veo-3.1-lite-generate-001` |
+| **Preview ID** (Gemini API) | `veo-3.1-generate-preview` | `veo-3.1-fast-generate-preview` | (no preview ID) |
 | **Status** | GA + preview | GA + preview | GA |
-| **Duration** | 4, 6, 8 s | 4, 6, 8 s | **5–60 s** (extended range) |
+| **Duration** | 4, 6, 8 s | 4, 6, 8 s | 4, 6, 8 s |
 | **Resolution** | 720p / 1080p / **4K** | 720p / 1080p / 4K | 720p / 1080p |
-| **Aspect ratios** | 16:9, 9:16 | 16:9, 9:16 | 16:9, 9:16, **1:1** |
+| **Aspect ratios** | 16:9, 9:16 | 16:9, 9:16 | 16:9, 9:16 |
 | **Audio** | 48 kHz stereo, AAC 192 kbps | 48 kHz stereo (lower bitrate) | 48 kHz stereo (lower bitrate) |
-| **Price / sec** | **$0.40** | **$0.15** | **$0.05** (720p) |
+| **Price / sec** | **$0.40** | **$0.15** | **$0.05** |
 | **Price / 8 s** | $3.20 | $1.20 | $0.40 |
-| **Typical latency** | 30–90 s | 15–45 s | 10–30 s |
-| **Best for** | Hero shots, brand film, 4K | Social, quick turns | Drafts, iteration, long cuts |
+| **Typical latency** | 30–90 s | 15–45 s | 25–40 s |
+| **Best for** | Hero shots, brand film, 4K | Social, quick turns | Drafts, iteration, draft-then-final |
+
+**Doc corrections from v3.5.0 → v3.6.0** (real-API testing surfaced these):
+
+- **Lite duration is 4, 6, or 8 s** — same as Standard and Fast. v3.5.0 documented 5–60 s based on unverified docs; the API explicitly rejects 5-second Lite requests with `"supported durations are [8,4,6] for feature text_to_video"`.
+- **Aspect ratio is 16:9 or 9:16 only — no 1:1.** v3.5.0 claimed Lite supported 1:1 but the Vertex docs and the SDK enum both list only the two landscape/portrait ratios. The plugin now rejects 1:1 for all tiers.
+- **Lite latency is ~25–40 s** (not 10–30 s as v3.5.0 estimated) per real-API smoke tests on us-central1.
 
 ### Legacy: VEO 3.0
 
@@ -79,16 +101,17 @@ Lite/Fast.
 
 ## Pricing Table
 
-| Tier | 4 s | 6 s | 8 s | Variable (Lite only) |
+| Tier | 4 s | 6 s | 7 s (extension) | 8 s |
 |---|---|---|---|---|
-| Standard | $1.60 | $2.40 | $3.20 | — |
-| Fast | $0.60 | $0.90 | $1.20 | — |
-| Lite | $0.20 | $0.30 | $0.40 | $0.05/sec up to 60 s |
-| Legacy 3.0 | $0.60 | $0.90 | $1.20 | — |
+| Standard | $1.60 | $2.40 | $2.80 | $3.20 |
+| Fast | $0.60 | $0.90 | $1.05 | $1.20 |
+| Lite | $0.20 | $0.30 | **$0.35** | $0.40 |
+| Legacy 3.0 | $0.60 | $0.90 | $1.05 | $1.20 |
 
 **No free tier.** Every API call is billed. Google Cloud's $300 new-user
-credit can offset initial costs. Lite 1080p pricing is not explicitly
-documented; the $0.05/sec rate is the attested 720p rate.
+credit can offset initial costs. The 7-second column applies to Scene
+Extension v2 hops (`video_extend.py --method video`) — Vertex AI's
+`feature=video_extension` accepts only `durationSeconds=7`.
 
 ## Cost Comparison: Image vs Video
 
@@ -114,24 +137,38 @@ Lite as a $1.60 review pass before committing to the final render.
 | Feature | Standard | Fast | Lite | Legacy 3.0 |
 |---|---|---|---|---|
 | 4K output | ✅ (AI upscale) | ✅ (AI upscale) | ❌ | ❌ |
-| Reference images (up to 3) | ✅ | ✅ | ✅ | ✅ |
-| First/last frame keyframing | ✅ | ✅ | ✅ | ✅ |
-| Scene Extension v2 (video input) | ✅ (720p) | ✅ (720p) | ✅ (720p) | ✅ (720p) |
+| Text-to-video | ✅ both backends | ✅ both backends | ✅ Vertex | ✅ Vertex |
+| Image-to-video (`--first-frame`) | ✅ Vertex | ✅ Vertex | ✅ Vertex | ✅ Vertex |
+| Reference images (up to 3) | planned v3.6.1 | planned v3.6.1 | planned v3.6.1 | planned v3.6.1 |
+| First+last frame interpolation | planned v3.6.1 | planned v3.6.1 | planned v3.6.1 | planned v3.6.1 |
+| Scene Extension v2 (video input) | ✅ Vertex (720p, 7 s) | ✅ Vertex (720p, 7 s) | ✅ Vertex (720p, 7 s) | ✅ Vertex (720p, 7 s) |
 | Native audio | ✅ 192 kbps | ✅ (lower) | ✅ (lower) | ✅ |
-| Square 1:1 aspect | ❌ | ❌ | ✅ | ❌ |
-| 5–60 s variable duration | ❌ | ❌ | ✅ | ❌ |
-| Object insertion (future) | planned | planned | planned | — |
+| Object insertion | planned | planned | planned | — |
 
-## Scene Extension v2 — ⚠️ Vertex AI only
+**Why image-to-video and Scene Extension v2 are Vertex-only:** the
+Gemini API surface (`generativelanguage.googleapis.com`) used to accept
+the `inlineData` image and video parts in earlier preview cycles, then
+quietly dropped support when the GA `-001` IDs shipped on Vertex AI in
+March 2026. v3.6.0's `--backend auto` routes any request that needs
+these features through Vertex automatically.
+
+## Scene Extension v2
 
 VEO 3.1 supports extending a clip by passing the previous clip itself
 (not just its last frame) as the input, preserving audio continuity
-across the seam (capped at 720p). **This feature is Vertex-AI-only as
-of 2026-04-10** — the Gemini API rejects the video inlineData part.
-`video_generate.py --video-input <clip.mp4>` returns a clear error
-pointing at this limitation; use `video_extend.py --method keyframe`
-(the legacy last-frame path) for extension today. Vertex AI support is
-tracked as a v3.6.0 roadmap item.
+across the seam at 720p. Use `video_generate.py --video-input <clip.mp4>`
+or `video_extend.py --method video` (the v3.6.0 default).
+
+**Constraints:**
+
+- `durationSeconds=7` is the only allowed value (`video_extend.py`
+  enforces this; `video_generate.py` auto-overrides from the default 8).
+- Resolution is forced to 720p.
+- Source video is passed as inline base64 (~1-5 MB clips work fine; the
+  plugin enforces a 15 MB cap to stay under any reasonable inline limit).
+- First call on a fresh GCP project may return a transient "Service
+  agents are being provisioned" error that auto-resolves in ~60-90 s.
+  `video_generate.py` retries automatically once after a 90 s sleep.
 
 ## Known Limitations
 
@@ -146,26 +183,29 @@ tracked as a v3.6.0 roadmap item.
   and UI elements render as plausible-looking gibberish. Never rely on
   the model for readable text — describe the area as "blank" or "out of
   frame" and composite text in post-production.
-- **8-second clip ceiling** (Standard/Fast). Longer cuts require
-  extension or the Lite tier's 5–60 s range.
+- **8-second clip ceiling** for all VEO 3.1 tiers. Longer cuts require
+  extension via `video_extend.py` (max 148 s total).
 - **Occasional silent-output failures.** A small fraction of generations
   return without audio. Retry with a new seed or a slightly rephrased
   prompt.
-- **48-hour retention** on the source download URI (see below).
+- **48-hour retention** on Gemini API download URIs (Vertex AI returns
+  inline bytes — no expiry).
 
 ## Video Retention
 
-Generated video URIs persist on Google's servers for only **48 hours**.
-After that, the download URI expires and re-fetching fails. The plugin's
-`video_generate.py` downloads the MP4 immediately on successful
-generation, so runtime is safe, but **JSON manifests that store URIs
-become stale after 48 hours.** The output manifest now includes a
-`download_expires_at` timestamp so downstream tools can warn users
-trying to act on an expired URI.
+**Gemini API path:** generated video URIs persist on Google's servers
+for only **48 hours**. After that, the download URI expires and
+re-fetching fails. The plugin's `video_generate.py` downloads the MP4
+immediately on successful generation, so runtime is safe, but JSON
+manifests that store URIs become stale after 48 hours. The output
+manifest includes a `download_expires_at` timestamp so downstream tools
+can warn users trying to act on an expired URI.
 
-For long-lived workflows, prefer the Vertex AI `output_gcs_uri` path
-that writes directly to Cloud Storage (not yet wrapped by the plugin as
-of v3.5.0 — tracked in ROADMAP).
+**Vertex AI path:** the API returns video bytes inline as base64 in the
+poll response — there is no URI, no separate download, and no expiry.
+Output manifests for Vertex generations omit the `download_expires_at`
+field entirely. Long-lived workflows benefit from this automatically;
+no GCS bucket setup is required.
 
 ## Rate Limits
 
