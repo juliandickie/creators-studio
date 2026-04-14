@@ -41,37 +41,15 @@ Built on [AgriciDaniel/banana-claude](https://github.com/AgriciDaniel/banana-cla
 
 ### Gemini 3.1 Prompt Guidance Refresh (v3.7.3)
 
-Corrects two pieces of prompt-engineering guidance that spike 6 (2026-04-15) showed were wrong for Gemini 3.1 Flash Image.
-
-**The old "banned keywords" rule is retired.** `"8K"`, `"masterpiece"`, `"ultra-realistic"`, `"high resolution"` don't degrade Gemini 3.1 output — they're just useless tokens. Empirical test: file-size variance within conditions exceeded variance between conditions. They're still worth cutting to save tokens, but don't panic if a user's source prompt contains them.
-
-**The old "prestigious context anchors" replacement is actively harmful.** Naming publication formats — `"Vanity Fair magazine cover style"`, `"National Geographic cover story"`, `"Wallpaper* editorial"` — causes Gemini 3.1 to render the output as a literal magazine cover, complete with masthead typography, headline text overlays, and gibberish cover-lines. The model's text-rendering strength works against you here.
-
-**New guidance aligned with Google's official Gemini 3.1 prompting docs**: *"Describe the scene, don't just list keywords."* `skills/banana/references/prompt-engineering.md` now leads with this principle, includes Google's official use-case templates (photorealistic, stylised, text-in-image, product, minimalist, comic, reference-grounded), and the "Prompt Patterns That Don't Help" section documents the spike 6 findings with a replacement table for common publication-name anchors.
+The prompt-engineering reference now leads with Google's official Gemini 3.1 principle — *"describe the scene, don't just list keywords"* — and ships the seven official use-case templates (photorealistic, stylised, text-in-image, product, minimalist, comic, reference-grounded). Legacy Stable-Diffusion-era prompt rules have been retired after empirical testing on Gemini 3.1 Flash Image.
 
 ### Google Lyria 2 Music + Multi-Provider Audio Pipeline (v3.7.2)
 
-The audio replacement pipeline now defaults to **Google Lyria 2** for background music — broadcast-quality 48 kHz / 16-bit stereo with a unique negative-prompt control to actively exclude things like vocals, dissonance, or harsh percussion. ElevenLabs Music remains as the alternative via `--music-source elevenlabs`.
-
-**Why Lyria as default**: highest audio fidelity available, predictable $0.06 per call, reuses your existing Vertex AI credentials from VEO setup (no new keys), and supports `--music-negative-prompt` for explicit exclusions that ElevenLabs Music doesn't have.
-
-**Dual output**: every Lyria call saves both the lossless 48 kHz WAV master (~6 MB) AND a 256 kbps MP3 preview (~1 MB). The WAV is your editing master; the MP3 is for sharing and the audio pipeline mix stage. Pass `--no-wav` to skip the WAV if you're tight on disk.
-
-**Use ElevenLabs Music when** you need clip durations longer than Lyria's 32.768s cap, or when you have a Creator+ ElevenLabs subscription and want subscription-billed cost over per-call.
-
-**Behind the scenes**: the script formerly known as `elevenlabs_audio.py` (v3.7.1) is renamed to `audio_pipeline.py` (v3.7.2) to reflect its new multi-provider scope. CLI gains `--music-source {lyria,elevenlabs}` and `--music-negative-prompt` flags.
+Google Lyria 2 is now the default music source — broadcast-quality 48 kHz stereo with unique `negative_prompt` support to exclude vocals, dissonance, or harsh percussion. Reuses your existing Vertex AI credentials from VEO setup at a predictable $0.06 per call, and saves both a lossless WAV master and a 256 kbps MP3 preview per generation. ElevenLabs Music remains available via `--music-source elevenlabs` for clips longer than Lyria's 32.768s cap.
 
 ### ElevenLabs Audio Replacement Pipeline + Custom Voice Design (v3.7.1)
 
-The first non-VEO audio capability — solves the multi-clip music seam problem in stitched VEO sequences and lets you design and save custom narrator voices for branded reels.
-
-**One command takes a stitched VEO video and replaces its audio bed end-to-end**: parallel ElevenLabs TTS narration + ElevenLabs music + FFmpeg side-chain ducked mix + lossless audio swap into the source video. The TTS and music API calls run concurrently for ~12 seconds total wall clock. Output is a ship-ready MP4.
-
-**Custom voice design**: describe a voice in plain English (e.g. *"warm baritone with a slight British accent, BBC documentary register"*), pick from three generated candidates, save the winner to your config under a semantic role name like `narrator` or `brand_voice`. v3.7.1's nested `custom_voices` schema supports multiple voices and roles for future expansion.
-
-**Eleven v3 audio tags work for emotional control**: ellipses for contemplative pauses, `[exhales]` for breath, selective CAPS for emphasis. The documented tag list is non-exhaustive — undocumented tags like `[reverent]` also work via the model's semantic interpretation.
-
-**Setup**: add `elevenlabs_api_key` to `~/.banana/config.json` (alongside your existing Google/Vertex keys), then `python3 skills/video/scripts/audio_pipeline.py status` to verify. Creator tier or above recommended for the music API. See `references/audio-pipeline.md` for the architecture, voice design walkthrough, and prompt engineering tips.
+Stitched VEO sequences often have audible music seams at clip boundaries. One command now replaces the entire audio bed end-to-end — parallel ElevenLabs narration + music + FFmpeg ducked mix + lossless audio swap — and outputs a ship-ready MP4 in about 12 seconds. Plus a custom voice designer: describe a voice in plain English (*"warm baritone with a slight British accent, BBC documentary register"*), pick from three candidates, and save it under a semantic role name like `narrator` or `brand_voice`.
 
 ### Review Gate Enforcement + Smarter Plans (v3.6.3)
 
