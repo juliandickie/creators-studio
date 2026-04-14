@@ -7,7 +7,7 @@
 
 - **Repo:** https://github.com/juliandickie/nano-banana-studio
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
-- **Current version:** 3.7.3
+- **Current version:** 3.7.4
 - **Local path:** `/Users/juliandickie/code/nano-banana-pro/nano-banana-studio/`
 - **Plugin layout:** `.claude-plugin/` + `skills/banana/` (image) + `skills/video/` (video) + `agents/`
 
@@ -418,6 +418,33 @@ Final spike from the strategic-reset research budget. This was the only empirica
 **Session 14 spend:** $0.70 (spike 6). Cumulative strategic-reset spike spend (sessions 12+13+14): ~$5.53 of the approved ~$20-25 budget. Spike 5 (character-consistency bake-off, ~$15-20) remains deferred to v3.8.0 planning.
 
 **Cumulative v3.6.x + v3.7.x spend:** $9.18.
+
+### Session 15 (2026-04-15, afternoon of sessions 13+14)
+**Scope:** v3.7.4 — audio polish bundle (stereo mix fix, named-creator stripping, multi-call Lyria, Instant Voice Cloning, auto-measured WPM)
+
+This was the scheduled post-v3.7.3 polish release closing the known-issues debt from v3.7.1 and v3.7.2 before the v3.8.0 provider-abstraction work begins. The user requested all five items bundled together: stereo mix, auto-WPM, pre-flight named-creator stripping, multi-call Lyria, and voice cloning. Five features, one file (`audio_pipeline.py`), one reference doc, one release.
+
+**Implementation order and how each landed:**
+
+1. **Explore subagents for context efficiency.** The script is 1256 lines — reading it all into context would have eaten ~30% of the window before any edits started. Dispatched two parallel Explore subagents: (a) mapped the existing `audio_pipeline.py` structure with line-number-accurate ranges for SIDECHAIN_FILTER, Lyria/Eleven Music generators, mix function, voice-promote, config helpers, HTTP helpers, and main() argparse; (b) researched the ElevenLabs IVC endpoint in the pinned `dev-docs/elevenlabs-llms-full.txt` (10 MB). Both subagents returned structured reports under 800 words each, which kept the total exploration cost around 2,500 tokens instead of the ~12,000 a direct read would have consumed. This is exactly the pattern the new workspace CLAUDE.md directive is supposed to encourage.
+
+2. **Stereo mix fix (the small one).** The v3.7.1 `SIDECHAIN_FILTER` used `[0:a]aformat=channel_layouts=stereo,apad=...` on the narration branch. FFmpeg's `aformat` filter sets stream metadata — it does NOT upmix a mono signal to stereo. The ElevenLabs TTS output is truly mono (one channel), so the v3.7.1 result was "stereo container with silent right channel" that sounded like "speaker-left-only narration" on headphones. The canonical upmix is `pan=stereo|c0=c0|c1=c0` (explicit L=c0, R=c0). v3.7.4 injects the pan filter BEFORE the apad filter and adds `-ac 2` to the `mix_narration_with_music()` ffmpeg invocation to lock the container channel count. One ~10-line edit.
+
+3. **Named-creator stripping (the shared helper).** Added `strip_named_creators()` + a module-level `NAMED_CREATOR_TRIGGERS` list covering 20+ empirically-confirmed or high-profile trigger terms (Annie Leibovitz from spike 6, BBC Earth from spike 3 v1, Hans Zimmer / John Williams / etc. from the dev-docs best-practices guide, publication names from the spike 6 prestigious-anchor failure mode). Case-insensitive substring match with longer-phrase precedence. Called at the top of both `generate_music_lyria()` and `generate_music_elevenlabs()` so both providers behave consistently. Result dicts gained a `stripped_terms` field so callers can see what was removed. CLI surface: new `--allow-creators` flag on `music` and `pipeline` for bypass. **Unit-tested via a quick Python one-liner with 5 input cases.** Known limitation: leaves dangling phrases like "in the style of , warm strings" — non-issue because the music providers ignore dangling phrases.
+
+4. **Multi-call Lyria + FFmpeg acrossfade (`generate_music_lyria_extended()`).** Lyria has a hard 32.768s clip cap. v3.7.4 wraps the single-call primitive with a multi-call loop: compute N = `ceil((target - crossfade) / (32.768 - crossfade))`, generate N clips with the same prompt, chain pairwise via `ffmpeg -filter_complex "[0][1]acrossfade=d=2:c1=tri:c2=tri[a]"` (equal-power curves), trim to exact target duration, transcode to MP3. Uses intermediate WAVs through the chain for lossless pipeline, only transcoding at the end. Staging directory is cleaned up in a `finally` block. Auto-routed by `generate_music()` when `source=lyria` and requested length > 32.768s + 500ms grace. Result dict includes `clip_count`, `crossfade_sec`, `cost_usd_estimate`. For 90s requests that's 3 calls = $0.18.
+
+5. **Instant Voice Cloning (`voice-clone` subcommand + `_http_post_multipart()` helper).** IVC is ElevenLabs' instant-create path (30+ seconds of audio, vs PVC's 30+ minutes + fine-tuning + Creator+ plan). Implementation needed two new primitives: (a) a stdlib multipart/form-data POST helper since the existing `_http_post_json()` only handles JSON bodies, (b) a `_collect_audio_files()` helper that accepts either a single file OR a directory of audio files and filters to supported extensions. The new `clone_voice()` function reads all audio file bytes into memory, builds the multipart payload with a UUID boundary, POSTs to `/v1/voices/add`, extracts `voice_id` + `requires_verification` from the response, persists to `custom_voices.{role}` with `source_type=cloned` + `design_method=ivc` + source audio metadata (count, total bytes, total probed duration). The response's `requires_verification: true` case is surfaced to the user as a `verification_note` telling them to complete the ElevenLabs voice captcha. CLI surface: `--audio`, `--name`, `--role`, `--description`, `--label-{language,accent,gender,age}`, `--remove-background-noise`, `--notes`, `--no-auto-wpm`.
+
+6. **Auto-measured per-voice WPM (`measure_voice_wpm()` + `voice-measure` subcommand).** The line-length calibration rule (F8 in video-audio.md) needs a per-voice WPM value. v3.7.1 hardcoded the rule at "~120 wpm" and documented empirical values for Daniel (~137) and Nano Banana Narrator (~159) in the reference docs. v3.7.4 measures WPM empirically: generate a 38-word neutral reference phrase (`WPM_REFERENCE_PHRASE`) via `generate_narration()`, probe the resulting MP3 duration with ffprobe, compute `word_count / (duration_sec / 60)`, return to 1 decimal place. Auto-triggered on `voice-promote` (after promoting a designed voice) and `voice-clone` (after cloning). The `voice-measure --role ROLE` subcommand is the retroactive path for voices that pre-date v3.7.4 and don't have a `wpm` field yet. Result persists to `custom_voices.{role}.wpm` + `wpm_measured_at`. Cost: one TTS call per measurement, ~fraction of a cent. Auto-measure is SKIPPED when `requires_verification: true` on clone (the voice captcha must be completed first) — the user is told to re-run `voice-measure` after verification.
+
+7. **Smoke test.** `py_compile` clean. All 11 subcommands registered (up from 9 — added `voice-clone` and `voice-measure`). Status check reports all 6 green (Lyria/Vertex ✅, ElevenLabs API key ✅, ElevenLabs auth ✅, ffmpeg ✅, ffprobe ✅, custom_voices: 1 role). Unit test of `strip_named_creators()` on 5 prompt cases passed: clean prompts untouched, triggers removed, multi-trigger cases (Vanity Fair + Hans Zimmer) handled.
+
+8. **Reference doc update.** `skills/video/references/audio-pipeline.md` header bumped to "v3.7.1 + v3.7.2 + v3.7.4" with the 5-item summary at top. New sections: voice cloning (quick-start, requirements, verification flow, IVC-vs-PVC delta, consent caveat), per-voice WPM measurement (how it works, when it runs, limitations). Existing "Banned content" and "TOS guardrails" sections updated to reference the new client-side strip. Trigger list documented in full.
+
+**What v3.7.4 is NOT:** no empirical spike (everything was implementation), no new external dependencies (still stdlib-only for HTTP, concurrent.futures, subprocess), no breaking changes (all new flags default to v3.7.2 behaviour), no API calls during build except the smoke-test status check (which doesn't cost anything). The $0 session-cost result is a nice contrast to the v3.7.1/v3.7.2/v3.7.3 releases which each had empirical spike spend.
+
+**Session 15 spend:** $0.00 (implementation-only release, no empirical spike). Cumulative v3.6.x + v3.7.x spend stays at $9.18.
 
 ## Expansion Roadmap
 

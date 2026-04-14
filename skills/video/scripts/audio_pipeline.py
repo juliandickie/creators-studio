@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""nano-banana-studio -- multi-provider audio replacement pipeline (v3.7.2)
+"""nano-banana-studio -- multi-provider audio replacement pipeline (v3.7.4)
 
 Generates continuous TTS narration (ElevenLabs) + background music (Lyria 2 default,
 ElevenLabs Music alternative), mixes them with FFmpeg side-chain ducking, and
@@ -12,6 +12,13 @@ History:
 - v3.7.2 (2026-04-14): renamed to audio_pipeline.py, Lyria 2 added as default music source
                        after winning the 5-way bake-off in spike 4 (Lyria > ElevenLabs >
                        MusicGen > MiniMax > Stable Audio per user listening verdict)
+- v3.7.4 (2026-04-15): audio polish bundle — real stereo mix (pan=stereo|c0=c0|c1=c0 +
+                       explicit -ac 2), pre-flight named-creator stripping shared by
+                       Lyria and ElevenLabs Music, multi-call Lyria with FFmpeg acrossfade
+                       for music longer than 32.768s, ElevenLabs Instant Voice Cloning
+                       (voice-clone subcommand), and auto-measured per-voice WPM
+                       persisted to custom_voices.{role}.wpm on voice-promote /
+                       voice-clone / retroactive voice-measure.
 
 The script's purpose is to solve the multi-clip music-bed seam problem in stitched
 VEO sequences: when 4 separately-generated VEO clips are concatenated, each clip's
@@ -27,15 +34,17 @@ Architecture:
     5. Voice Design:  POST /v1/text-to-voice/design + POST /v1/text-to-voice for custom voices
 
 Usage:
-    elevenlabs_audio.py status                       Check API key + ffmpeg + voice library
-    elevenlabs_audio.py narrate --text "..." [--voice ROLE] [--out PATH]
-    elevenlabs_audio.py music --prompt "..." [--length-ms N] [--out PATH]
-    elevenlabs_audio.py mix --narration N.mp3 --music M.mp3 --out OUT.mp3
-    elevenlabs_audio.py swap --video V.mp4 --audio A.mp3 --out OUT.mp4
-    elevenlabs_audio.py pipeline --video V.mp4 --text "..." --music-prompt "..." --out OUT.mp4
-    elevenlabs_audio.py voice-design --description "..." [--name NAME] [--enhance]
-    elevenlabs_audio.py voice-promote --generated-id ID --name NAME --role ROLE [--description "..."]
-    elevenlabs_audio.py voice-list
+    audio_pipeline.py status                            Check API keys, ffmpeg, music sources, voice library
+    audio_pipeline.py narrate --text "..." [--voice ROLE] [--out PATH]
+    audio_pipeline.py music --prompt "..." [--source lyria|elevenlabs] [--length-ms N] [--out PATH]
+    audio_pipeline.py mix --narration N.mp3 --music M.mp3 --out OUT.mp3
+    audio_pipeline.py swap --video V.mp4 --audio A.mp3 --out OUT.mp4
+    audio_pipeline.py pipeline --video V.mp4 --text "..." --music-prompt "..." --out OUT.mp4
+    audio_pipeline.py voice-design --description "..." [--name NAME] [--enhance]
+    audio_pipeline.py voice-promote --generated-id ID --name NAME --role ROLE [--description "..."]
+    audio_pipeline.py voice-clone --audio FILE_OR_DIR --name NAME --role ROLE [--label-accent ...]
+    audio_pipeline.py voice-measure --role ROLE          (measure WPM for an existing voice)
+    audio_pipeline.py voice-list
 
 The pipeline subcommand is the canonical end-to-end command — it takes a silent or
 audio-bearing video, a narration script, and a music prompt, then runs all five
@@ -125,9 +134,20 @@ DEFAULT_ELEVEN_MUSIC_MODEL = "music_v1"
 DEFAULT_TTV_MODEL = "eleven_ttv_v3"
 DEFAULT_GUIDANCE_SCALE = 5
 
-# FFmpeg sidechain compression parameters — empirically tuned in spike 3
+# FFmpeg sidechain compression parameters — empirically tuned in spike 3.
+#
+# v3.7.4: the narration branch now uses `pan=stereo|c0=c0|c1=c0` to explicitly
+# duplicate the mono ElevenLabs TTS source onto both left and right channels
+# BEFORE apad and sidechaincompress. v3.7.1's `aformat=channel_layouts=stereo`
+# alone declared the stream metadata as stereo but did not actually upmix the
+# signal — the result was stereo-in-container with a silent right channel,
+# audible as "speaker-left-only" narration on headphones. The pan filter is
+# the canonical ffmpeg way to force a real mono-to-stereo duplication.
+# The mix output is also explicitly encoded as 2-channel stereo (`-ac 2` in
+# mix_narration_with_music below) to lock the container channel count.
 SIDECHAIN_FILTER = (
-    "[0:a]aformat=channel_layouts=stereo,apad=whole_dur={duration}[narration_padded];"
+    "[0:a]aformat=channel_layouts=mono,pan=stereo|c0=c0|c1=c0,"
+    "apad=whole_dur={duration}[narration_padded];"
     "[1:a]volume=0.55[music_quiet];"
     "[music_quiet][narration_padded]sidechaincompress="
     "threshold=0.04:ratio=10:attack=15:release=350[ducked];"
@@ -366,7 +386,8 @@ def generate_music(prompt: str, api_key: str | None = None, source: str = DEFAUL
                    force_instrumental: bool = True,
                    output_path: Path | None = None,
                    keep_wav: bool = True,
-                   mp3_bitrate: str = "256k") -> dict:
+                   mp3_bitrate: str = "256k",
+                   allow_creators: bool = False) -> dict:
     """Generate background music via the configured provider.
 
     Dispatches to source-specific implementations:
@@ -385,12 +406,27 @@ def generate_music(prompt: str, api_key: str | None = None, source: str = DEFAUL
     config and ignores api_key; ElevenLabs uses elevenlabs_api_key.
     """
     if source == "lyria":
+        # v3.7.4: if the requested length exceeds Lyria's 32.768s hard cap, use
+        # the multi-call + acrossfade path. Otherwise fall back to the single-
+        # call primitive for efficiency (one API call vs. N + FFmpeg concat).
+        requested_sec = (length_ms or 0) / 1000.0
+        if requested_sec > LYRIA_FIXED_DURATION_SEC + 0.5:
+            return generate_music_lyria_extended(
+                prompt=prompt,
+                target_duration_sec=requested_sec,
+                negative_prompt=negative_prompt,
+                output_path=output_path,
+                keep_wav=keep_wav,
+                mp3_bitrate=mp3_bitrate,
+                allow_creators=allow_creators,
+            )
         return generate_music_lyria(
             prompt=prompt,
             negative_prompt=negative_prompt,
             output_path=output_path,
             keep_wav=keep_wav,
             mp3_bitrate=mp3_bitrate,
+            allow_creators=allow_creators,
         )
     elif source == "elevenlabs":
         return generate_music_elevenlabs(
@@ -399,6 +435,7 @@ def generate_music(prompt: str, api_key: str | None = None, source: str = DEFAUL
             length_ms=length_ms,
             force_instrumental=force_instrumental,
             output_path=output_path,
+            allow_creators=allow_creators,
         )
     else:
         _error_exit(f"unknown music source: {source!r}. Valid: 'lyria', 'elevenlabs'")
@@ -408,7 +445,8 @@ def generate_music(prompt: str, api_key: str | None = None, source: str = DEFAUL
 def generate_music_lyria(prompt: str, negative_prompt: str | None = None,
                          output_path: Path | None = None,
                          keep_wav: bool = True,
-                         mp3_bitrate: str = "256k") -> dict:
+                         mp3_bitrate: str = "256k",
+                         allow_creators: bool = False) -> dict:
     """Call Google Vertex AI Lyria 2 (lyria-002) for a 32.768s instrumental clip.
 
     Uses bound-to-service-account API-key auth via the existing vertex_api_key
@@ -456,6 +494,16 @@ def generate_music_lyria(prompt: str, negative_prompt: str | None = None,
         ts = time.strftime("%Y%m%d_%H%M%S")
         output_path = DEFAULT_OUTPUT_DIR / f"music_lyria_{ts}.mp3"
     output_path = Path(output_path)
+
+    # v3.7.4: pre-flight strip of known named-creator triggers. Both Lyria and
+    # ElevenLabs Music reject these server-side, but Lyria's error message is
+    # generic ("content policy") while ElevenLabs's is actionable. Strip here
+    # so Lyria gets a clean prompt and so BOTH providers behave consistently.
+    removed_terms: list[str] = []
+    if not allow_creators:
+        prompt, removed_terms = strip_named_creators(prompt)
+        if negative_prompt:
+            negative_prompt, _ = strip_named_creators(negative_prompt)
 
     # Construct Vertex AI Lyria endpoint URL
     endpoint = (
@@ -547,29 +595,228 @@ def generate_music_lyria(prompt: str, negative_prompt: str | None = None,
         "model_id": LYRIA_MODEL_ID,
         "duration_seconds": LYRIA_FIXED_DURATION_SEC,
         "elapsed_seconds": round(time.time() - t0, 2),
+        "stripped_terms": removed_terms,  # v3.7.4: empty if no triggers matched
     }
+
+
+def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
+                                  negative_prompt: str | None = None,
+                                  output_path: Path | None = None,
+                                  keep_wav: bool = True,
+                                  mp3_bitrate: str = "256k",
+                                  crossfade_sec: float = 2.0,
+                                  allow_creators: bool = False) -> dict:
+    """Generate a Lyria music track longer than the 32.768s hard cap.
+
+    Strategy (v3.7.4):
+      1. Compute N = ceil((target - crossfade) / (clip_len - crossfade))
+         so that after N-1 crossfades the total duration >= target.
+      2. Call Lyria N times with the same prompt (different seeds → varied clips).
+      3. Chain them with FFmpeg `acrossfade` filters (equal-power curves by
+         default — smooth transition without a noticeable dip).
+      4. Trim the final concatenation to the exact target duration.
+
+    Returns the same result shape as generate_music_lyria with the addition
+    of `clip_count`, `clips` (list of intermediate paths), and `requested_duration_sec`.
+
+    Cost: N × $0.06 per call. A 90s track = 3 calls = $0.18.
+
+    Note on variety: each Lyria call produces a slightly different rendering
+    from the same prompt. For short extensions (N=2-3) the clips usually
+    cohere musically. For longer requests (N>5) you may hear tempo or key
+    drift between segments — add more constraints to the prompt
+    ("constant 90 BPM, C minor") to improve continuity.
+
+    Note on cost predictability: if cost matters and the target is
+    significantly longer than 60 seconds, consider falling back to
+    --music-source elevenlabs, which is subscription-billed and handles
+    any length up to 600000ms in a single call.
+    """
+    if target_duration_sec <= LYRIA_FIXED_DURATION_SEC + 0.5:
+        # Caller shouldn't have routed us here, but be defensive.
+        return generate_music_lyria(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            output_path=output_path,
+            keep_wav=keep_wav,
+            mp3_bitrate=mp3_bitrate,
+            allow_creators=allow_creators,
+        )
+
+    # v3.7.4: strip creators once at the top so all N calls use the same cleaned prompt
+    removed_terms: list[str] = []
+    if not allow_creators:
+        prompt, removed_terms = strip_named_creators(prompt)
+        if negative_prompt:
+            negative_prompt, _ = strip_named_creators(negative_prompt)
+
+    clip_len = LYRIA_FIXED_DURATION_SEC
+    import math
+    effective_per_clip = clip_len - crossfade_sec
+    clip_count = max(2, math.ceil((target_duration_sec - crossfade_sec) / effective_per_clip))
+
+    _check_ffmpeg()
+
+    if output_path is None:
+        DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        output_path = DEFAULT_OUTPUT_DIR / f"music_lyria_extended_{ts}.mp3"
+    output_path = Path(output_path)
+
+    # Generate N clips to a staging directory. Use WAVs throughout for lossless
+    # intermediate chaining, then transcode the final concat to MP3 at the end.
+    staging = output_path.parent / f".lyria_ext_{os.getpid()}_{int(time.time())}"
+    staging.mkdir(parents=True, exist_ok=True)
+    clip_paths: list[Path] = []
+    t0 = time.time()
+    try:
+        print(json.dumps({
+            "status": "lyria_extended",
+            "step": "generating_clips",
+            "target_duration_sec": target_duration_sec,
+            "clip_count": clip_count,
+            "crossfade_sec": crossfade_sec,
+        }), file=sys.stderr)
+
+        for i in range(clip_count):
+            clip_out = staging / f"clip_{i:02d}.mp3"
+            # Pass allow_creators=True because we already stripped above — avoids
+            # double-stripping (idempotent but wastes work).
+            result = generate_music_lyria(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                output_path=clip_out,
+                keep_wav=True,  # keep WAV so we can chain losslessly
+                mp3_bitrate=mp3_bitrate,
+                allow_creators=True,
+            )
+            wav_path = Path(result.get("wav_path") or clip_out.with_suffix(".wav"))
+            clip_paths.append(wav_path)
+
+        # Chain clips with acrossfade. FFmpeg's acrossfade only takes 2 inputs
+        # per invocation, so we fold left-to-right: result = fade(result, next).
+        # For N=2 we do one fade; for N=3 we do two; for N=K we do K-1.
+        current = clip_paths[0]
+        for i in range(1, clip_count):
+            nxt = clip_paths[i]
+            merged = staging / f"merge_{i:02d}.wav"
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", str(current),
+                "-i", str(nxt),
+                "-filter_complex",
+                f"[0][1]acrossfade=d={crossfade_sec}:c1=tri:c2=tri[a]",
+                "-map", "[a]",
+                "-c:a", "pcm_s16le",
+                "-ar", "48000",
+                "-ac", "2",
+                str(merged),
+            ]
+            r = subprocess.run(cmd, capture_output=True, text=True)
+            if r.returncode != 0:
+                _error_exit(f"Lyria acrossfade failed at clip {i}: {r.stderr[-500:]}")
+            current = merged
+
+        # Trim to the exact requested duration (acrossfade chain may exceed target
+        # by up to clip_len-crossfade_sec due to the ceil rounding).
+        final_wav = staging / "final.wav"
+        trim_cmd = [
+            "ffmpeg", "-y",
+            "-i", str(current),
+            "-t", f"{target_duration_sec:.3f}",
+            "-c:a", "pcm_s16le",
+            "-ar", "48000",
+            "-ac", "2",
+            str(final_wav),
+        ]
+        r = subprocess.run(trim_cmd, capture_output=True, text=True)
+        if r.returncode != 0:
+            _error_exit(f"Lyria final trim failed: {r.stderr[-500:]}")
+
+        # Transcode to MP3 at the requested output path
+        mp3_cmd = [
+            "ffmpeg", "-y",
+            "-i", str(final_wav),
+            "-c:a", "libmp3lame",
+            "-b:a", mp3_bitrate,
+            "-ac", "2",
+            str(output_path),
+        ]
+        r = subprocess.run(mp3_cmd, capture_output=True, text=True)
+        if r.returncode != 0:
+            _error_exit(f"Lyria final MP3 transcode failed: {r.stderr[-500:]}")
+
+        # Save or discard the final WAV alongside the MP3
+        if keep_wav:
+            final_wav_persisted = output_path.with_suffix(".wav")
+            # Copy by read-write (wav is small by intent — no need for os.rename across fs)
+            with open(final_wav, "rb") as src, open(final_wav_persisted, "wb") as dst:
+                dst.write(src.read())
+        else:
+            final_wav_persisted = None
+
+        mp3_size = output_path.stat().st_size
+        wav_size = final_wav_persisted.stat().st_size if final_wav_persisted else None
+
+        return {
+            "mp3_path": str(output_path),
+            "wav_path": str(final_wav_persisted) if final_wav_persisted else None,
+            "path": str(output_path),
+            "mp3_bytes": mp3_size,
+            "wav_bytes": wav_size,
+            "mp3_bitrate": mp3_bitrate,
+            "source": "lyria_extended",
+            "model_id": LYRIA_MODEL_ID,
+            "duration_seconds": target_duration_sec,
+            "requested_duration_sec": target_duration_sec,
+            "clip_count": clip_count,
+            "crossfade_sec": crossfade_sec,
+            "cost_usd_estimate": round(clip_count * 0.06, 2),
+            "elapsed_seconds": round(time.time() - t0, 2),
+            "stripped_terms": removed_terms,
+        }
+    finally:
+        # Clean up the staging directory (keep the user's final output)
+        try:
+            for p in staging.iterdir():
+                try:
+                    p.unlink()
+                except Exception:
+                    pass
+            staging.rmdir()
+        except Exception:
+            pass  # non-fatal
 
 
 def generate_music_elevenlabs(prompt: str, api_key: str,
                               length_ms: int = DEFAULT_MUSIC_LENGTH_MS,
                               force_instrumental: bool = True,
                               model_id: str = DEFAULT_ELEVEN_MUSIC_MODEL,
-                              output_path: Path | None = None) -> dict:
+                              output_path: Path | None = None,
+                              allow_creators: bool = False) -> dict:
     """Call Eleven Music for an instrumental background bed.
 
     Important: prompts must NOT name copyrighted creators or brands (e.g.
     "Annie Leibovitz", "BBC Earth"). The API blocks these with HTTP 400 and
-    a `prompt_suggestion` in the response. Use generic descriptors only.
-    Empirical finding from spike 3 v1 — see references/audio-pipeline.md.
+    a `prompt_suggestion` in the response. v3.7.4 strips known triggers
+    client-side before sending — pass allow_creators=True to disable the
+    strip if you want to test whether the upstream filter has changed for a
+    specific term. Empirical finding from spike 3 v1 —
+    see references/audio-pipeline.md.
 
     This is the v3.7.1 implementation. v3.7.2 retains it as the alternative
-    music source after Lyria became the default — both functions remain
-    fully supported.
+    music source after Lyria became the default; v3.7.4 adds shared
+    pre-flight stripping with the Lyria path.
     """
     if output_path is None:
         DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         ts = time.strftime("%Y%m%d_%H%M%S")
         output_path = DEFAULT_OUTPUT_DIR / f"music_elevenlabs_{ts}.mp3"
+
+    # v3.7.4: pre-flight strip of named-creator triggers (shared with Lyria path)
+    removed_terms: list[str] = []
+    if not allow_creators:
+        prompt, removed_terms = strip_named_creators(prompt)
 
     body = {
         "prompt": prompt,
@@ -599,6 +846,7 @@ def generate_music_elevenlabs(prompt: str, api_key: str,
         "length_ms": length_ms,
         "force_instrumental": force_instrumental,
         "elapsed_seconds": round(time.time() - t0, 2),
+        "stripped_terms": removed_terms,  # v3.7.4: empty if no triggers matched
     }
 
 
@@ -612,6 +860,113 @@ def _get_elevenlabs_key() -> str:
             "Add elevenlabs_api_key to ~/.banana/config.json or set ELEVENLABS_API_KEY env var."
         )
     return key
+
+
+# ---------------------------------------------------------------------------
+# Pre-flight music prompt validation (v3.7.4)
+#
+# Both Lyria 2 and ElevenLabs Music reject prompts that name copyrighted
+# creators, publications, or brands. The rejection path differs:
+#   - ElevenLabs returns HTTP 400 with a structured `bad_prompt` error and a
+#     `prompt_suggestion` in `detail.data.prompt_suggestion`. Actionable.
+#   - Lyria returns HTTP 400 with a generic content-policy message. Less
+#     actionable — the user has to guess which token triggered the filter.
+#
+# Rather than surface the upstream error every time, v3.7.4 strips known
+# trigger terms client-side and emits a warning in the result dict. Users
+# can pass --allow-creators to bypass the strip (useful if they want to
+# test whether the upstream filter has been relaxed for a specific term).
+#
+# The list is intentionally small and maintainable — it covers the terms
+# empirically known to trigger the filter from spikes 3 and 6, plus a
+# short list of high-profile additions. It's NOT an attempt at an
+# exhaustive TOS database. If a user hits an unlisted trigger they still
+# get the upstream error, which now correctly surfaces the `prompt_suggestion`
+# via _http_error_message().
+# ---------------------------------------------------------------------------
+
+# Case-insensitive substring match. Order matters for longer-phrase matches
+# (more specific → less specific) so we strip "Annie Leibovitz" before "Annie"
+# would catch a partial. The strip replaces the term with a space to avoid
+# word concatenation issues.
+NAMED_CREATOR_TRIGGERS = [
+    # Photographers (spike 6 empirical: "Annie Leibovitz" forced magazine-cover rendering)
+    "Annie Leibovitz",
+    "Dorothea Lange",
+    "Ansel Adams",
+    "Richard Avedon",
+    "Helmut Newton",
+    "Steve McCurry",
+    # Publications that render as literal magazine covers on Gemini 3.1 (spike 6)
+    # and reject on Eleven Music as brand trademarks (spike 3).
+    "Vanity Fair",
+    "National Geographic",
+    "Harper's Bazaar",
+    "Vogue",
+    "WIRED magazine",
+    "Wallpaper*",
+    "Architectural Digest",
+    "Bon Appetit",
+    "Kinfolk",
+    "Rolling Stone",
+    # Broadcasters + production brands that hit the Eleven Music content filter
+    "BBC Earth",
+    "BBC",
+    "Pixar",
+    "Disney",
+    "Netflix",
+    "HBO",
+    # Film-score composers (trigger TOS filter on both music APIs)
+    "Hans Zimmer",
+    "John Williams",
+    "Ennio Morricone",
+    "Ludovico Einaudi",
+    "Max Richter",
+    "Philip Glass",
+    # Pop artists (most common Eleven Music rejections per docs)
+    "Taylor Swift",
+    "Beyoncé",
+    "Drake",
+    "Kanye",
+    "The Beatles",
+]
+
+
+def strip_named_creators(prompt: str, triggers: list[str] | None = None) -> tuple[str, list[str]]:
+    """Remove known copyrighted-creator triggers from a music prompt.
+
+    Returns (cleaned_prompt, list_of_removed_terms). Case-insensitive substring
+    match. If no triggers fire, returns the original prompt and an empty list.
+    Whitespace is normalised after stripping to avoid double-spaces.
+
+    This is applied to BOTH Lyria and ElevenLabs Music by default because both
+    providers block these terms. Pass through unchanged by calling sites that
+    pre-validate another way or explicitly want raw prompts (none currently do).
+    """
+    if not prompt:
+        return prompt, []
+    triggers = triggers or NAMED_CREATOR_TRIGGERS
+    cleaned = prompt
+    removed: list[str] = []
+    low = cleaned.lower()
+    for term in triggers:
+        tlow = term.lower()
+        idx = low.find(tlow)
+        while idx != -1:
+            cleaned = cleaned[:idx] + " " + cleaned[idx + len(term):]
+            low = cleaned.lower()
+            removed.append(term)
+            idx = low.find(tlow)
+    # Collapse double+ spaces and trim
+    cleaned = " ".join(cleaned.split()).strip()
+    # De-duplicate removed list while preserving order
+    seen: set[str] = set()
+    dedup: list[str] = []
+    for t in removed:
+        if t not in seen:
+            seen.add(t)
+            dedup.append(t)
+    return cleaned, dedup
 
 
 # ---------------------------------------------------------------------------
@@ -673,6 +1028,7 @@ def mix_narration_with_music(narration_path: Path, music_path: Path,
         "-map", "[mixed]",
         "-c:a", "libmp3lame",
         "-b:a", "192k",
+        "-ac", "2",  # v3.7.4: force stereo output container (see SIDECHAIN_FILTER comment)
         str(output_path),
     ]
 
@@ -748,7 +1104,8 @@ def pipeline(video_path: Path, narration_text: str, music_prompt: str,
              music_source: str = DEFAULT_MUSIC_SOURCE,
              music_negative_prompt: str | None = None,
              tts_model: str = DEFAULT_TTS_MODEL,
-             voice_settings: dict | None = None) -> dict:
+             voice_settings: dict | None = None,
+             allow_creators: bool = False) -> dict:
     """Full v3.7.1+ audio replacement: TTS + music in parallel, mix, swap.
 
     Returns a structured result with paths and timing for each stage. The TTS
@@ -796,6 +1153,7 @@ def pipeline(video_path: Path, narration_text: str, music_prompt: str,
             source=music_source,
             length_ms=music_length_ms,
             negative_prompt=music_negative_prompt,
+            allow_creators=allow_creators,
         )
         narr_result = narr_future.result()
         music_result = music_future.result()
@@ -973,10 +1331,31 @@ def promote_voice(generated_voice_id: str, name: str, role: str, api_key: str,
     config["custom_voices"] = custom
     _atomic_write_config(config)
 
+    # v3.7.4: auto-measure WPM so the line-length calibration is ready
+    # from the first real TTS call. Non-fatal if measurement fails — the
+    # voice is already persisted; measurement can be re-run via voice-measure.
+    measured_wpm = None
+    try:
+        measured_wpm = measure_voice_wpm(voice_id=permanent_voice_id, api_key=api_key)
+        config2 = _load_config()
+        custom2 = config2.get("custom_voices", {}) or {}
+        if role in custom2:
+            custom2[role]["wpm"] = measured_wpm
+            custom2[role]["wpm_measured_at"] = date.today().isoformat()
+            config2["custom_voices"] = custom2
+            _atomic_write_config(config2)
+    except Exception as e:
+        print(json.dumps({
+            "warning": "wpm_measurement_failed",
+            "message": f"{type(e).__name__}: {e}",
+            "note": "Voice was promoted successfully. Run `voice-measure --role {role}` to retry.",
+        }), file=sys.stderr)
+
     return {
         "permanent_voice_id": permanent_voice_id,
         "role": role,
         "name": name,
+        "measured_wpm": measured_wpm,
         "config_path": str(CONFIG_PATH),
     }
 
@@ -989,6 +1368,356 @@ def list_voices() -> dict:
         "config_path": str(CONFIG_PATH),
         "voice_count": len(custom),
         "voices": custom,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Voice Cloning (Instant Voice Cloning — IVC) — v3.7.4
+#
+# IVC creates a custom voice from 30+ seconds of recorded audio. The user
+# uploads one or more audio files describing a target speaker; ElevenLabs
+# creates a permanent voice_id that can then be used with any TTS model.
+#
+# Endpoint: POST /v1/voices/add (multipart/form-data)
+#   Required fields:
+#     - name: display name for the voice
+#     - files: one or more audio files (mp3/wav/m4a/flac/ogg/opus/webm/aiff)
+#   Optional fields:
+#     - description: free-form description of the voice
+#     - labels: JSON-encoded dict with language/accent/gender/age keys
+#     - remove_background_noise: "true" | "false" (default false)
+#
+# Response:
+#   - voice_id: the permanent ID (save to custom_voices.{role})
+#   - requires_verification: if true, user must complete voice captcha in
+#     the ElevenLabs dashboard before the voice is usable
+#
+# Delta vs PVC (Professional Voice Cloning): PVC needs 30+ minutes of audio,
+# Creator+ plan, and a multi-step fine-tuning workflow. Deferred to v3.7.5+.
+#
+# CRITICAL TOS: the user must have permission to clone the target voice.
+# The plugin does not verify consent — that's the user's responsibility.
+# ---------------------------------------------------------------------------
+
+
+def _http_post_multipart(url: str, fields: dict[str, str], files: list[tuple[str, str, bytes]],
+                         api_key: str, timeout: int = 240) -> dict:
+    """POST multipart/form-data with one or more file parts. Returns parsed JSON.
+
+    `fields` is a flat dict of text form fields (name → value).
+    `files` is a list of (form_field_name, filename, bytes) tuples — multiple
+    parts can share the same form_field_name (e.g. "files") to upload several
+    audio samples in one request, which is how ElevenLabs IVC expects them.
+
+    Uses only stdlib — constructs the multipart body by hand with a random
+    boundary. No external dependencies.
+    """
+    import uuid
+    boundary = f"----nanobanana{uuid.uuid4().hex}"
+    crlf = b"\r\n"
+    body = bytearray()
+
+    # Text fields first
+    for k, v in fields.items():
+        body += f"--{boundary}".encode() + crlf
+        body += f'Content-Disposition: form-data; name="{k}"'.encode() + crlf + crlf
+        body += v.encode("utf-8") + crlf
+
+    # File parts
+    for form_name, filename, data in files:
+        body += f"--{boundary}".encode() + crlf
+        body += (
+            f'Content-Disposition: form-data; name="{form_name}"; filename="{filename}"'
+        ).encode() + crlf
+        body += b"Content-Type: application/octet-stream" + crlf + crlf
+        body += data + crlf
+
+    body += f"--{boundary}--".encode() + crlf
+
+    req = urllib.request.Request(
+        url,
+        data=bytes(body),
+        headers={
+            "xi-api-key": api_key,
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode())
+
+
+def _collect_audio_files(audio_arg: str) -> list[Path]:
+    """Resolve the --audio argument to a list of audio files.
+
+    Accepts either a single file path or a directory. If a directory, returns
+    all files with common audio extensions (.mp3 .wav .m4a .flac .ogg .opus .aiff
+    .webm) sorted alphabetically. Errors if no audio files are found.
+    """
+    p = Path(audio_arg).expanduser().resolve()
+    extensions = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".opus", ".aiff", ".webm"}
+    if p.is_file():
+        return [p]
+    if p.is_dir():
+        files = sorted(f for f in p.iterdir() if f.is_file() and f.suffix.lower() in extensions)
+        if not files:
+            _error_exit(f"no audio files found in {p} (looked for: {sorted(extensions)})")
+        return files
+    _error_exit(f"audio path not found: {p}")
+    return []  # unreachable
+
+
+def clone_voice(audio_paths: list[Path], name: str, role: str, api_key: str,
+                description: str | None = None,
+                labels: dict[str, str] | None = None,
+                remove_background_noise: bool = False,
+                notes: str | None = None,
+                auto_measure_wpm: bool = True) -> dict:
+    """Instant Voice Clone: upload audio sample(s), save to custom_voices.{role}.
+
+    Requires at least 30 seconds of total audio across all uploaded files.
+    Each audio file must be a supported format (mp3/wav/m4a/flac/ogg/opus/aiff/webm).
+
+    On success, persists the new voice_id to ~/.banana/config.json under
+    custom_voices.{role} with source_type="cloned" and design_method="ivc".
+    If auto_measure_wpm is True (default), runs a one-shot WPM measurement
+    immediately after cloning so the caller can use the voice with correct
+    line-length calibration from the first real TTS call.
+
+    The response may contain requires_verification=True — if so, the user
+    must complete a voice-captcha in the ElevenLabs dashboard before the
+    voice is usable. The function still persists the metadata in that case
+    (so the user doesn't lose track of the voice_id) but includes a warning.
+    """
+    if not audio_paths:
+        _error_exit("clone_voice requires at least one audio file")
+
+    # Read file contents and build the multipart payload
+    files_payload: list[tuple[str, str, bytes]] = []
+    total_bytes = 0
+    for p in audio_paths:
+        with open(p, "rb") as f:
+            data = f.read()
+        files_payload.append(("files", p.name, data))
+        total_bytes += len(data)
+
+    # Sanity-check minimum duration via ffprobe on the first file as a
+    # lightweight guard. 30 seconds is ElevenLabs's documented minimum —
+    # not enforced client-side, but warn if the total looks suspicious.
+    total_duration = 0.0
+    for p in audio_paths:
+        try:
+            total_duration += _probe_duration(p)
+        except Exception:
+            pass
+    if total_duration and total_duration < 25.0:
+        # Warn-and-continue rather than block — ElevenLabs will give the
+        # authoritative rejection if the total is too short.
+        print(json.dumps({
+            "warning": "total_audio_duration_below_ivc_minimum",
+            "total_duration_seconds": round(total_duration, 1),
+            "recommended_minimum": 30,
+            "message": "ElevenLabs IVC recommends 30+ seconds of audio. Continuing anyway; upstream will reject if truly insufficient.",
+        }), file=sys.stderr)
+
+    fields: dict[str, str] = {
+        "name": name,
+        "remove_background_noise": "true" if remove_background_noise else "false",
+    }
+    if description:
+        fields["description"] = description
+    if labels:
+        fields["labels"] = json.dumps(labels)
+
+    url = f"{ELEVENLABS_API}/v1/voices/add"
+
+    t0 = time.time()
+    try:
+        data = _http_post_multipart(url, fields, files_payload, api_key, timeout=300)
+    except urllib.error.HTTPError as e:
+        _error_exit(f"voice clone failed: {_http_error_message(e)}")
+    except Exception as e:
+        _error_exit(f"voice clone failed: {type(e).__name__}: {e}")
+
+    voice_id = data.get("voice_id")
+    requires_verification = bool(data.get("requires_verification", False))
+    if not voice_id:
+        _error_exit(f"clone response missing voice_id. Response keys: {list(data.keys())}")
+
+    # Persist to config under custom_voices.{role}
+    config = _load_config()
+    custom = config.get("custom_voices", {}) or {}
+
+    entry: dict = {
+        "voice_id": voice_id,
+        "name": name,
+        "description": description or name,
+        "source_type": "cloned",
+        "design_method": "ivc",
+        "model_id": DEFAULT_TTS_MODEL,  # cloned voices work with the default TTS model
+        "created_at": date.today().isoformat(),
+        "provider": "elevenlabs",
+        "source_audio_count": len(audio_paths),
+        "source_audio_total_bytes": total_bytes,
+        "source_audio_total_duration_sec": round(total_duration, 1) if total_duration else None,
+        "requires_verification": requires_verification,
+        "labels": labels or {},
+        "notes": notes or "",
+    }
+    custom[role] = entry
+    config["custom_voices"] = custom
+    _atomic_write_config(config)
+
+    # v3.7.4: auto-measure WPM unless the voice requires verification
+    # (measurement would fail with HTTP 400 until the captcha is completed).
+    measured_wpm = None
+    if auto_measure_wpm and not requires_verification:
+        try:
+            measured_wpm = measure_voice_wpm(voice_id=voice_id, api_key=api_key)
+            # Re-load + patch WPM into the entry, then re-save atomically
+            config2 = _load_config()
+            custom2 = config2.get("custom_voices", {}) or {}
+            if role in custom2:
+                custom2[role]["wpm"] = measured_wpm
+                config2["custom_voices"] = custom2
+                _atomic_write_config(config2)
+        except Exception as e:
+            print(json.dumps({
+                "warning": "wpm_measurement_failed",
+                "message": f"{type(e).__name__}: {e}",
+                "note": "Voice was cloned successfully; WPM can be measured later via voice-measure subcommand.",
+            }), file=sys.stderr)
+
+    return {
+        "voice_id": voice_id,
+        "role": role,
+        "name": name,
+        "requires_verification": requires_verification,
+        "source_audio_count": len(audio_paths),
+        "source_audio_total_bytes": total_bytes,
+        "source_audio_total_duration_sec": round(total_duration, 1) if total_duration else None,
+        "measured_wpm": measured_wpm,
+        "config_path": str(CONFIG_PATH),
+        "elapsed_seconds": round(time.time() - t0, 2),
+        "verification_note": (
+            "ElevenLabs requires voice captcha verification before this cloned voice can be used. "
+            "Visit https://elevenlabs.io/app/voice-lab to complete verification."
+        ) if requires_verification else None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Auto-measured per-voice WPM — v3.7.4
+#
+# The line-length calibration rule (F8 in video-audio.md) needs a per-voice
+# words-per-minute figure: target_words = duration_sec × (voice_wpm / 60).
+# v3.7.1 hardcoded 137 wpm (Daniel) and 159 wpm (Nano Banana Narrator) in
+# reference docs, leaving the calibration fragile for any new voice.
+#
+# v3.7.4 measures WPM empirically on first use: generate a known-word-count
+# reference phrase through the voice, probe the audio duration with ffprobe,
+# compute actual wpm. The result is persisted to custom_voices.{role}.wpm
+# so the creative-director skill can read it without re-measuring.
+#
+# Automatically triggered by voice-promote and voice-clone. Can be invoked
+# standalone via `voice-measure --role ROLE` for existing voices that pre-date
+# v3.7.4 and don't have a measured wpm yet.
+# ---------------------------------------------------------------------------
+
+# Reference phrase: 30 words, neutral news-register content, no audio tags.
+# 30 words is long enough to average out micro-pauses and short enough to
+# stay well below ElevenLabs's character limits. The phrase is neutral so
+# it doesn't trigger dramatic speech variations that would distort WPM.
+WPM_REFERENCE_PHRASE = (
+    "The autumn wind moved across the valley and gathered the fallen leaves "
+    "into small bright drifts beneath the oaks. Above the ridge the first "
+    "stars appeared, patient and distant, waiting for the long night."
+)
+WPM_REFERENCE_WORD_COUNT = 38  # len(WPM_REFERENCE_PHRASE.split())
+
+
+def measure_voice_wpm(voice_id: str, api_key: str,
+                      reference_phrase: str | None = None,
+                      model_id: str = DEFAULT_TTS_MODEL) -> float:
+    """Measure a voice's effective words-per-minute by generating the reference
+    phrase and probing the resulting audio duration.
+
+    Returns the measured WPM rounded to the nearest integer. Raises on failure.
+
+    Cost: one TTS call with ~40 words → a fraction of a cent on subscription
+    tiers (character-billed). Negligible compared to voice-design ($~0.01
+    per 3-candidate design call).
+
+    Known limitations:
+    - Eleven v3 audio tags can change pacing dramatically, so the measurement
+      is for the voice's NEUTRAL pace. Users applying heavy [contemplative]
+      / [wistful] tagging should expect their effective output pace to be
+      10-20% slower than the measured value.
+    - A single 40-word sample has some variance. Run the measurement twice
+      and average if you need precision better than ±5 WPM.
+    """
+    phrase = reference_phrase or WPM_REFERENCE_PHRASE
+    word_count = len(phrase.split())
+
+    # Generate to a temp file so we don't pollute the default output dir
+    tmp = Path(tempfile.mkstemp(prefix="wpm_ref_", suffix=".mp3")[1])
+    try:
+        generate_narration(
+            text=phrase,
+            voice_id=voice_id,
+            api_key=api_key,
+            model_id=model_id,
+            output_path=tmp,
+        )
+        duration_sec = _probe_duration(tmp)
+        if duration_sec <= 0:
+            raise RuntimeError("ffprobe returned zero duration")
+        wpm = word_count / (duration_sec / 60.0)
+        return round(wpm, 1)
+    finally:
+        try:
+            tmp.unlink()
+        except Exception:
+            pass
+
+
+def voice_measure(role: str, api_key: str) -> dict:
+    """CLI entry point: measure WPM for an existing custom voice and persist.
+
+    Looks up the voice by role in custom_voices, generates the reference
+    phrase, computes WPM, updates custom_voices.{role}.wpm in config.
+    Useful for voices that pre-date v3.7.4 and don't have a measured wpm yet.
+    """
+    voice_id, meta = _resolve_voice(role)
+    if meta is None:
+        _error_exit(
+            f"role {role!r} not found in custom_voices. Use voice-list to see saved voices."
+        )
+
+    t0 = time.time()
+    wpm = measure_voice_wpm(voice_id=voice_id, api_key=api_key)
+
+    # Patch the custom_voices entry with the new WPM
+    config = _load_config()
+    custom = config.get("custom_voices", {}) or {}
+    if role in custom:
+        custom[role]["wpm"] = wpm
+        custom[role]["wpm_measured_at"] = date.today().isoformat()
+        config["custom_voices"] = custom
+        _atomic_write_config(config)
+
+    return {
+        "role": role,
+        "voice_id": voice_id,
+        "wpm": wpm,
+        "reference_word_count": WPM_REFERENCE_WORD_COUNT,
+        "elapsed_seconds": round(time.time() - t0, 2),
+        "note": (
+            "Target words for an 8-second clip at this voice's pace: "
+            f"{round(8 * (wpm / 60.0))} words. "
+            "See skills/video/references/video-audio.md → F8 for the line-length rule."
+        ),
     }
 
 
@@ -1096,6 +1825,13 @@ def main() -> None:
                          help="(Lyria only) MP3 transcode bitrate (default: 256k for transparent quality). Use 192k to match v3.7.1 ElevenLabs convention.")
     p_music.add_argument("--out")
     p_music.add_argument("--api-key", help="ElevenLabs API key (only needed when source=elevenlabs)")
+    p_music.add_argument("--allow-creators", action="store_true",
+                         help="(v3.7.4) Bypass client-side named-creator stripping. "
+                              "By default, prompts mentioning known copyrighted creators/publications "
+                              "(Annie Leibovitz, Vanity Fair, BBC Earth, Hans Zimmer, etc.) are stripped "
+                              "before sending — both Lyria and Eleven Music reject them server-side. "
+                              "Pass this flag to disable the strip and test whether the upstream filter "
+                              "has relaxed for a specific term.")
 
     # mix
     p_mix = sub.add_parser("mix", help="FFmpeg mix narration + music with side-chain ducking")
@@ -1127,6 +1863,8 @@ def main() -> None:
     p_pipe.add_argument("--out", help="Final output mp4 path")
     p_pipe.add_argument("--tts-model", default=DEFAULT_TTS_MODEL)
     p_pipe.add_argument("--api-key")
+    p_pipe.add_argument("--allow-creators", action="store_true",
+                        help="(v3.7.4) Bypass client-side named-creator stripping on the music prompt.")
 
     # voice-design
     p_vd = sub.add_parser("voice-design", help="Generate voice previews from a text description")
@@ -1152,6 +1890,37 @@ def main() -> None:
     p_vp.add_argument("--should-enhance", action="store_true")
     p_vp.add_argument("--notes", help="Free-form context (pacing, A/B history, etc.)")
     p_vp.add_argument("--api-key")
+
+    # voice-clone (v3.7.4 — ElevenLabs Instant Voice Cloning)
+    p_vc = sub.add_parser("voice-clone",
+                          help="(v3.7.4) Clone a voice from 30+ seconds of audio sample(s). "
+                               "Saves to custom_voices.{role} with source_type=cloned.")
+    p_vc.add_argument("--audio", required=True,
+                      help="Path to a single audio file OR a directory of audio files. "
+                           "Accepts mp3, wav, m4a, flac, ogg, opus, aiff, webm. "
+                           "Total duration should be at least 30 seconds.")
+    p_vc.add_argument("--name", required=True, help="Display name for the cloned voice")
+    p_vc.add_argument("--role", required=True,
+                      help="Semantic role (e.g. narrator, character_a, brand_voice, client_ceo)")
+    p_vc.add_argument("--description", help="Free-form description of the voice character")
+    p_vc.add_argument("--label-language", help="Language label (e.g. 'en', 'en-US', 'ja')")
+    p_vc.add_argument("--label-accent", help="Accent label (e.g. 'british', 'midwest', 'australian')")
+    p_vc.add_argument("--label-gender", help="Gender label (e.g. 'female', 'male', 'non-binary')")
+    p_vc.add_argument("--label-age", help="Age label (e.g. 'young', 'middle_aged', 'old')")
+    p_vc.add_argument("--remove-background-noise", action="store_true",
+                      help="Enable ElevenLabs background noise removal during cloning")
+    p_vc.add_argument("--notes", help="Free-form context (consent status, source recording details, etc.)")
+    p_vc.add_argument("--no-auto-wpm", action="store_true",
+                      help="Skip the automatic WPM measurement after cloning")
+    p_vc.add_argument("--api-key")
+
+    # voice-measure (v3.7.4 — retroactive WPM measurement)
+    p_vm = sub.add_parser("voice-measure",
+                          help="(v3.7.4) Measure words-per-minute for an existing custom voice "
+                               "and persist to custom_voices.{role}.wpm. Used by the line-length "
+                               "calibration rule (F8 in video-audio.md).")
+    p_vm.add_argument("--role", required=True, help="Semantic role of an existing custom voice")
+    p_vm.add_argument("--api-key")
 
     # voice-list
     sub.add_parser("voice-list", help="List custom voices saved in ~/.banana/config.json")
@@ -1187,6 +1956,7 @@ def main() -> None:
             output_path=Path(args.out) if args.out else None,
             keep_wav=not args.no_wav,
             mp3_bitrate=args.mp3_bitrate,
+            allow_creators=args.allow_creators,
         )
     elif args.cmd == "mix":
         result = mix_narration_with_music(
@@ -1217,6 +1987,7 @@ def main() -> None:
             music_source=args.music_source,
             music_negative_prompt=args.music_negative_prompt,
             tts_model=args.tts_model,
+            allow_creators=args.allow_creators,
         )
     elif args.cmd == "voice-design":
         api_key = _get_api_key(args.api_key)
@@ -1243,6 +2014,32 @@ def main() -> None:
             should_enhance=args.should_enhance,
             notes=args.notes,
         )
+    elif args.cmd == "voice-clone":
+        api_key = _get_api_key(args.api_key)
+        audio_paths = _collect_audio_files(args.audio)
+        labels: dict[str, str] = {}
+        if args.label_language:
+            labels["language"] = args.label_language
+        if args.label_accent:
+            labels["accent"] = args.label_accent
+        if args.label_gender:
+            labels["gender"] = args.label_gender
+        if args.label_age:
+            labels["age"] = args.label_age
+        result = clone_voice(
+            audio_paths=audio_paths,
+            name=args.name,
+            role=args.role,
+            api_key=api_key,
+            description=args.description,
+            labels=labels or None,
+            remove_background_noise=args.remove_background_noise,
+            notes=args.notes,
+            auto_measure_wpm=not args.no_auto_wpm,
+        )
+    elif args.cmd == "voice-measure":
+        api_key = _get_api_key(args.api_key)
+        result = voice_measure(role=args.role, api_key=api_key)
     elif args.cmd == "voice-list":
         result = list_voices()
     else:

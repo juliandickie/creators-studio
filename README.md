@@ -10,7 +10,7 @@ AI image and video generation plugin for Claude Code where **Claude acts as Crea
 Unlike simple API wrappers, Claude interprets your intent, selects domain expertise, constructs optimized prompts, and orchestrates generation for the best possible results — for both still images and video clips with synchronized audio.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-3.7.3-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.7.4-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Origin](https://img.shields.io/badge/origin-AgriciDaniel%2Fbanana--claude-gray)](https://github.com/AgriciDaniel/banana-claude)
 
@@ -38,6 +38,10 @@ Unlike simple API wrappers, Claude interprets your intent, selects domain expert
 ## Features
 
 Built on [AgriciDaniel/banana-claude](https://github.com/AgriciDaniel/banana-claude), extended with features driven by production use and research analysis of Google's prompting guidance:
+
+### Audio Polish + Voice Cloning (v3.7.4)
+
+Five audio-pipeline upgrades in one release: real stereo narration mix (the previous mono-in-stereo-container bug is gone), ElevenLabs **Instant Voice Cloning** via a new `voice-clone` subcommand, automatic per-voice WPM measurement for accurate line-length calibration, automatic multi-call Lyria with FFmpeg crossfade when you ask for music longer than the 32.768s single-clip cap, and shared client-side stripping of named copyrighted creators (Annie Leibovitz, Vanity Fair, Hans Zimmer, BBC Earth, etc.) so Lyria and ElevenLabs Music behave consistently.
 
 ### Gemini 3.1 Prompt Guidance Refresh (v3.7.3)
 

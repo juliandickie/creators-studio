@@ -225,7 +225,8 @@ These worked well and should be documented in the video-sequences reference so f
 | 7 | v3.7.2 — Lyria 2 as new default music source after 5-way bake-off (Lyria > ElevenLabs > MusicGen > MiniMax > Stable Audio); script renamed elevenlabs_audio.py → audio_pipeline.py; F13 spec-vs-quality finding | Medium | High | **Shipped 2026-04-14** |
 | 8 | v3.6.4 — `update-prompts` Gemini-vision subcommand (closes the prompt-drift loop from v3.6.3) | Medium | High | Deferred — superseded in priority by v3.7.x |
 | 9 | v3.7.3 — Spike 6 (banned-keywords re-validation, $0.70 actual) + prompt-engineering.md refresh aligned to Google's official Gemini 3.1 docs; documents the "publication-format anchors render literal magazine covers" failure mode | Small | Medium | **Shipped 2026-04-15** |
-| 9 | v3.7.x — Audio polish: stereo mix, auto-measured per-voice WPM, voice cloning subcommands (IVC + PVC), pre-flight music prompt validation | Medium | Medium | After v3.7.2 |
+| 9 | v3.7.4 — Audio polish bundle: real stereo mix, auto-measured per-voice WPM, ElevenLabs Instant Voice Cloning, multi-call Lyria with FFmpeg acrossfade for > 32.768s, shared client-side named-creator stripping across Lyria + Eleven Music | Medium | Medium | **Shipped 2026-04-15** |
+| 9a | v3.7.5+ — Professional Voice Cloning (PVC) subcommand, Lyria long-music cost warning, strip-list extensibility via config file | Medium | Low | After v3.8.0 |
 | 10 | v3.8.0 — Provider abstraction layer (Vertex Model Garden + Replicate via MCP server) — informed by spike 5 character consistency bake-off | Large | High | After v3.7.x |
 | 11 | Replicate video model routing (Kling, Wan, PixVerse) for character consistency | Medium | High | Folded into v3.8.0 (Replicate side) |
 | 12 | Backlog cherry-picks — `output_gcs_uri`, `--num-videos`, parallel batch execution, object insertion, regional restrictions awareness | Various | Low-Medium | Cherry-pick as needed |

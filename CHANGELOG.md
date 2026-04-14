@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.4] - 2026-04-15
+
+### Headline
+
+**Audio polish + voice cloning bundle.** Five changes close the v3.7.1/v3.7.2 polish debt before the v3.8.0 provider-abstraction work starts: real stereo FFmpeg mix (the v3.7.1 narration was mono-in-stereo-container on headphones, fixed with `pan=stereo|c0=c0|c1=c0` + explicit `-ac 2`), ElevenLabs Instant Voice Cloning via a new `voice-clone` subcommand (30+ seconds of audio → permanent `custom_voices.{role}` entry with `source_type=cloned`), auto-measured per-voice WPM persisted to `custom_voices.{role}.wpm` on promote/clone/retroactive-measure, multi-call Lyria with FFmpeg `acrossfade` for music longer than the 32.768s hard cap (auto-routed when `length_ms > 32768` and `source=lyria`), and shared client-side stripping of named copyrighted creators from both Lyria and ElevenLabs Music prompts (20+ triggers — photographers, publications, composers, broadcasters, pop artists — with `--allow-creators` bypass).
+
+Pure documentation-plus-polish release on top of the v3.7.x audio foundation. No new external dependencies, no breaking changes, no API calls during build (just a syntax + help + status smoke test — `py_compile` clean, all 11 subcommands registered, status passes all 6 checks).
+
+### Added
+
+- **`voice-clone` subcommand** wrapping ElevenLabs IVC (`POST /v1/voices/add`). Accepts a single audio file OR a directory of audio files (`--audio`) and uploads them together as multipart/form-data via a new `_http_post_multipart()` stdlib helper. CLI surface: `--name`, `--role`, `--description`, `--label-{language,accent,gender,age}`, `--remove-background-noise`, `--notes`, `--no-auto-wpm`, `--api-key`. Supported input formats: mp3, wav, m4a, flac, ogg, opus, aiff, webm. Persists to `custom_voices.{role}` with `source_type=cloned`, `design_method=ivc`, plus `source_audio_count` / `source_audio_total_bytes` / `source_audio_total_duration_sec` / `requires_verification` / `labels`.
+- **`voice-measure` subcommand** for retroactively measuring WPM on voices that pre-date v3.7.4. Runs the same 38-word reference phrase → duration probe → WPM calculation as the auto-measure path, persists to `custom_voices.{role}.wpm` + `.wpm_measured_at`.
+- **`generate_music_lyria_extended()` function** — multi-call Lyria with FFmpeg acrossfade for music durations longer than 32.768s. Computes N = `ceil((target - crossfade) / (32.768 - crossfade))`, generates N clips via `generate_music_lyria()`, chains them with equal-power `acrossfade=d=2:c1=tri:c2=tri`, trims to exact target duration, transcodes to MP3 at the requested bitrate. Result dict includes `clip_count`, `cost_usd_estimate`, `crossfade_sec`. Auto-routed by `generate_music()` when `source=lyria` and `length_ms > 32768 + 500ms` grace.
+- **`strip_named_creators()` helper + `NAMED_CREATOR_TRIGGERS` list** (20+ entries: Annie Leibovitz, Dorothea Lange, Ansel Adams, Richard Avedon, Helmut Newton, Steve McCurry, Vanity Fair, National Geographic, Harper's Bazaar, Vogue, WIRED, Wallpaper*, Architectural Digest, Bon Appetit, Kinfolk, Rolling Stone, BBC Earth, BBC, Pixar, Disney, Netflix, HBO, Hans Zimmer, John Williams, Ennio Morricone, Ludovico Einaudi, Max Richter, Philip Glass, Taylor Swift, Beyoncé, Drake, Kanye, The Beatles). Case-insensitive substring match with longer-phrase precedence and whitespace normalisation. Called on both `generate_music_lyria()` and `generate_music_elevenlabs()` entry points so both providers behave consistently.
+- **`_http_post_multipart()` stdlib helper** for `multipart/form-data` file uploads. Constructs the body by hand with a UUID-based boundary, supports multiple file parts sharing the same form field name (ElevenLabs IVC expects multiple `files` parts in one request). Used by `clone_voice()`; reusable for future multipart endpoints.
+- **`_collect_audio_files()` helper** that resolves the `--audio` argument to a list of Path objects — accepts a single file or a directory, filters directories to audio extensions, errors if no files found.
+- **`measure_voice_wpm()` function** generating a 38-word neutral reference phrase via `generate_narration()`, probing duration with ffprobe, returning `word_count / (duration_sec / 60)`. Cost: one TTS call (~fraction of a cent on subscription tiers). Persists to `custom_voices.{role}.wpm` on voice-promote and voice-clone.
+- **`voice_measure()` function** — CLI entry point for retroactive WPM measurement on existing voices.
+- **`--allow-creators` flag** on both `music` and `pipeline` subcommands. Bypasses the client-side named-creator strip when users want to test whether the upstream filter has relaxed for a specific term or when they hit a false positive (e.g. "Drake" in a duck-themed prompt).
+- **`stripped_terms` field** in the `generate_music_lyria()` and `generate_music_elevenlabs()` result dicts — a list of triggers removed by the pre-flight strip (empty if none matched).
+- **`source_audio_total_duration_sec` sanity check** in `clone_voice()` that warns (but does not block) when total audio is under 25 seconds — ElevenLabs documents 30s as the minimum, and the upstream API is the authoritative rejection.
+- **`voice-clone` / `voice-measure` / `voice-clone` sections** in `skills/video/references/audio-pipeline.md` documenting the new subcommands, the strip behaviour, the WPM calibration model, IVC vs PVC delta (PVC deferred to v3.7.5+), voice captcha verification flow, and the consent caveat.
+
+### Changed
+
+- **`SIDECHAIN_FILTER` in `audio_pipeline.py` rewritten** to use `aformat=channel_layouts=mono,pan=stereo|c0=c0|c1=c0` on the narration branch, explicitly duplicating the mono ElevenLabs TTS source onto both L+R channels before `apad` and `sidechaincompress`. The v3.7.1 `aformat=channel_layouts=stereo` alone declared stereo metadata but did not upmix the actual signal — the result was "stereo in container, silent right channel" that presented as speaker-left-only narration on headphones. The `mix_narration_with_music()` ffmpeg invocation also gains `-ac 2` to lock the output container channel count.
+- **`generate_music()` dispatcher** auto-routes to `generate_music_lyria_extended()` when `source="lyria"` and requested length exceeds 32.768s (with a 500ms grace). Single-call Lyria path preserved for efficiency when the duration fits in one clip.
+- **`promote_voice()` now auto-measures WPM** immediately after promoting a designed voice. Non-fatal if measurement fails — the voice is persisted with base metadata first, WPM is patched in a second atomic write. User can retry via `voice-measure --role ROLE`.
+- **`clone_voice()` auto-measures WPM** on successful clone (skipped when `requires_verification=true` is returned, since the voice isn't usable until captcha completion). Disable with `--no-auto-wpm`.
+- **`skills/video/references/audio-pipeline.md`** header bumped to "v3.7.1 + v3.7.2 + v3.7.4" with a 5-item summary of the v3.7.4 changes at the top. Existing "Banned content" and "TOS guardrails" sections updated to reference the new client-side strip. New sections for voice cloning and WPM measurement.
+- **`pipeline()` Python function signature** gained `allow_creators: bool = False` parameter, passed through to `generate_music()` for the music generation stage.
+
+### Fixed
+
+- **Mono narration on headphones** (v3.7.1 regression): the sidechain mix declared stereo but the signal was mono-on-left-only. Users reported narration "coming from the left speaker" on headphones. Root cause was `aformat=channel_layouts=stereo` acting as metadata-only declaration rather than an actual upmix — verified by reading the FFmpeg filter documentation after the bug was noticed in spike 3 session notes. `pan=stereo|c0=c0|c1=c0` is the canonical mono-to-stereo upmix filter and produces real two-channel audio.
+
+### Deferred to later v3.7.x / v3.8.0
+
+- **Professional Voice Cloning (PVC)** — separate `/v1/voices/pvc/*` endpoint family, requires 30+ minutes of audio, Creator+ plan, multi-step fine-tuning workflow. Reserved as `design_method="pvc"` under the existing `source_type="cloned"` enum. Targets v3.7.5+.
+- **Lyria long-music cost warning** — when `generate_music_lyria_extended` would issue more than 5 calls (~$0.30 per request), emit a pre-flight confirmation prompt or require a `--confirm-extended-cost` flag. Not implemented in v3.7.4; the `cost_usd_estimate` field in the result is the only signal.
+- **Stripping of "in the style of X" compound phrases** — current behaviour leaves `"in the style of , warm strings"` after stripping X. The providers ignore the dangling phrase, but a future polish pass could match the containing `in the style of NAME` pattern as a unit. Tracked as a small polish item.
+- **Strip-list extensibility** — the `NAMED_CREATOR_TRIGGERS` list is hardcoded. A future release could move it to `~/.banana/config.json` so users can add their own terms without editing the script.
+- Spike 5 (character-consistency bake-off) still deferred to v3.8.0 planning.
+
 ## [3.7.3] - 2026-04-15
 
 ### Headline
@@ -760,6 +804,7 @@ Real-API verification during the v3.5.0 release surfaced a critical distinction:
 - Batch variations, multi-turn chat, prompt inspiration
 - Install script with validation
 
+[3.7.4]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v3.7.4
 [3.7.3]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v3.7.3
 [3.4.1]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v3.4.1
 [3.4.0]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v3.4.0

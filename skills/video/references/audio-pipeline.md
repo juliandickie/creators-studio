@@ -1,16 +1,24 @@
-# Audio Replacement Pipeline (v3.7.1 + v3.7.2)
+# Audio Replacement Pipeline (v3.7.1 + v3.7.2 + v3.7.4)
 
 This reference covers the multi-provider audio replacement architecture: why it
 exists, how to use it, and the empirical findings from spikes 3 and 4 of the
 strategic reset session that informed its design.
 
 **Quick links:**
-- Script: `skills/video/scripts/audio_pipeline.py` (renamed from `audio_pipeline.py` in v3.7.2)
-- Slash commands: `/video audio narrate|music|mix|swap|pipeline`, `/video voice design|promote|list`
+- Script: `skills/video/scripts/audio_pipeline.py` (renamed from `elevenlabs_audio.py` in v3.7.2)
+- Slash commands: `/video audio narrate|music|mix|swap|pipeline`, `/video voice design|promote|clone|measure|list`
 - Companion reference: `skills/video/references/video-audio.md` (VEO native audio)
 - Findings: spike 3 + spike 4 results in `~/Desktop/spike3-elevenlabs-audio/` and `~/Desktop/spike4-lyria/`
 
 **v3.7.2 update**: Google Lyria 2 is now the default music source after winning the 5-way bake-off in spike 4 (Lyria > ElevenLabs > MusicGen > MiniMax > Stable Audio per user listening verdict). ElevenLabs Music remains as the alternative via `--music-source elevenlabs`. Both are first-class providers.
+
+**v3.7.4 update**: audio polish bundle. Five changes land in one release:
+
+1. **Real stereo FFmpeg mix.** v3.7.1's `aformat=channel_layouts=stereo` declared stereo metadata but did not actually duplicate the mono ElevenLabs TTS onto both channels — the effect was "stereo container, silent right channel" that sounded like speaker-left-only narration on headphones. v3.7.4 injects `pan=stereo|c0=c0|c1=c0` before the apad filter and adds `-ac 2` to the output encoder, forcing a real mono-to-stereo duplication.
+2. **Pre-flight named-creator stripping** (`strip_named_creators()` + `NAMED_CREATOR_TRIGGERS` list). Both Lyria and ElevenLabs Music reject prompts containing copyrighted creators, publications, or brands ("Annie Leibovitz", "BBC Earth", "Hans Zimmer", "Vanity Fair" etc.). v3.7.4 strips known triggers client-side before sending, so both providers behave consistently. Pass `--allow-creators` to bypass the strip if you want to test whether the upstream filter has relaxed for a specific term.
+3. **Multi-call Lyria with FFmpeg acrossfade** (`generate_music_lyria_extended()`). Lyria has a hard 32.768s clip cap. For longer music, v3.7.4 auto-loops N Lyria calls and chains them with `acrossfade` filters (2-second equal-power crossfades by default), then trims to the exact requested duration. A 90-second track costs 3 × $0.06 = $0.18. Routed automatically when `length_ms > 32768` and `source=lyria`.
+4. **ElevenLabs Instant Voice Cloning** (`voice-clone` subcommand). Upload 30+ seconds of audio (single file or directory), get a permanent cloned voice saved to `custom_voices.{role}` with `source_type=cloned` and `design_method=ivc`. Supports optional language/accent/gender/age labels and background noise removal. The response's `requires_verification` field is surfaced to the user so they know when to complete the ElevenLabs voice captcha.
+5. **Auto-measured per-voice WPM** (`measure_voice_wpm()` + `voice-measure` subcommand). On `voice-promote` and `voice-clone`, the script now generates a 38-word reference phrase through the new voice, probes the audio duration with ffprobe, and persists the measured words-per-minute to `custom_voices.{role}.wpm`. Replaces the hardcoded `Daniel ~137, Nano Banana Narrator ~159` values in the line-length calibration rule (F8 in `video-audio.md`). Existing pre-v3.7.4 voices can be retroactively measured with `voice-measure --role ROLE`.
 
 ---
 
@@ -369,6 +377,99 @@ Lyria honors both fields independently. The negative prompt is particularly valu
 
 ### Both providers — TOS guardrails on named creators
 
+Lyria and ElevenLabs Music both reject prompts that name copyrighted creators, publications, composers, or broadcast brands. The rejection shapes differ:
+
+- **ElevenLabs Music**: HTTP 400 with `detail.code=bad_prompt` and a `detail.data.prompt_suggestion` showing a sanitised alternative. Actionable.
+- **Lyria**: HTTP 400 with a generic content-policy message. Less actionable — the user has to guess which token triggered the filter.
+
+**v3.7.4 strips known triggers client-side** before sending to either provider, so both behave consistently and the user never sees the upstream rejection for terms we already know about. The trigger list (`NAMED_CREATOR_TRIGGERS` in `audio_pipeline.py`) covers:
+
+- Photographers: Annie Leibovitz, Dorothea Lange, Ansel Adams, Richard Avedon, Helmut Newton, Steve McCurry
+- Publications: Vanity Fair, National Geographic, Harper's Bazaar, Vogue, WIRED, Wallpaper*, Architectural Digest, Bon Appetit, Kinfolk, Rolling Stone
+- Broadcasters: BBC Earth, BBC, Pixar, Disney, Netflix, HBO
+- Film-score composers: Hans Zimmer, John Williams, Ennio Morricone, Ludovico Einaudi, Max Richter, Philip Glass
+- Pop artists: Taylor Swift, Beyoncé, Drake, Kanye, The Beatles
+
+The list is intentionally curated and small — it covers empirically confirmed triggers plus high-profile additions, not an exhaustive TOS database. If a user's prompt hits an unlisted trigger, they still get the upstream error (now surfaced with the `prompt_suggestion` via `_http_error_message()`).
+
+**Bypass the strip** with `--allow-creators` if you want to test whether the upstream filter has relaxed for a specific term, or if your prompt's use of a name is actually a false positive (e.g. the word "Drake" in a duck-themed prompt).
+
+**Known limitation**: the strip is a substring replacement. Structures like `"in the style of Hans Zimmer, warm strings"` leave a dangling `"in the style of , warm strings"` after stripping. The music providers ignore the dangling phrase. A future polish item could match and strip the containing "in the style of X" pattern as a unit, but the current behaviour is a reasonable cost-vs-complexity trade.
+
+## Voice cloning — Instant Voice Cloning (IVC, v3.7.4)
+
+`voice-clone` wraps ElevenLabs' IVC endpoint (`POST /v1/voices/add`) and persists the resulting `voice_id` to `~/.banana/config.json` under `custom_voices.{role}` with `source_type=cloned` and `design_method=ivc`.
+
+### Quick start
+
+```bash
+# Clone from a single audio file
+python3 skills/video/scripts/audio_pipeline.py voice-clone \
+    --audio ~/recordings/my-voice-30s.wav \
+    --name "My Voice" \
+    --role me \
+    --description "Medium-pitch male, neutral American accent" \
+    --label-language en \
+    --label-accent american \
+    --label-gender male \
+    --label-age middle_aged
+
+# Clone from a directory of multiple samples (better quality, more consistent)
+python3 skills/video/scripts/audio_pipeline.py voice-clone \
+    --audio ~/recordings/brand-voice-samples/ \
+    --name "Brand Voice" \
+    --role brand_voice \
+    --remove-background-noise
+```
+
+### Requirements and defaults
+
+- **Minimum audio**: ElevenLabs documents 30 seconds. The script warns (but does not block) if the total is under 25s — the upstream API will reject with an authoritative error if too short.
+- **Accepted formats**: mp3, wav, m4a, flac, ogg, opus, aiff, webm. If `--audio` points to a directory, all files with these extensions are uploaded together (sorted alphabetically).
+- **Background noise removal**: disabled by default. Pass `--remove-background-noise` to enable ElevenLabs' server-side noise reduction during cloning. Recommended when sources are field recordings with ambient noise; skip when sources are already studio-quality (noise removal can audibly soften the voice's high-frequency presence).
+- **Labels**: all four (`language`, `accent`, `gender`, `age`) are optional free-form strings. They help ElevenLabs' voice library organisation but don't affect the cloned voice's behaviour.
+- **Auto WPM measurement**: the script runs a one-shot WPM measurement immediately after cloning (unless `--no-auto-wpm` is passed or `requires_verification: true` is returned). The measured value persists to `custom_voices.{role}.wpm` for line-length calibration.
+
+### Voice captcha verification
+
+ElevenLabs' API response may contain `requires_verification: true`. If so, the voice is persisted in your config (so you don't lose the `voice_id`) but cannot be used for TTS until you complete a voice captcha in the dashboard at `https://elevenlabs.io/app/voice-lab`. The auto-WPM step is skipped in this case and can be re-run via `voice-measure --role ROLE` after verification.
+
+### IVC vs PVC
+
+**IVC (Instant Voice Cloning)** — what v3.7.4 implements. 30+ seconds of audio, instant creation, voice works at inference time via conditioning. Available on all paid tiers. Quality bounded by source audio — works well for well-recorded samples, degrades with noisy or compressed sources.
+
+**PVC (Professional Voice Cloning)** — NOT implemented in v3.7.4. Needs 30+ minutes of audio, requires Creator+ plan, involves a multi-step fine-tuning workflow with speaker selection and training triggers. Produces higher-quality, more emotionally consistent voices than IVC. Deferred to v3.7.5+ as a separate subcommand (`voice-clone-pro`). The `source_type: "cloned"` enum value in the custom_voices schema is shared between IVC and the future PVC implementation.
+
+### ⚠️ Voice cloning consent
+
+The plugin does not verify consent. Cloning someone's voice without their permission may violate your local laws and the ElevenLabs Terms of Service. You are responsible for ensuring you have authorization from the voice's owner. ElevenLabs' voice captcha is an ethical safeguard, not a substitute for consent. Keep notes on consent status in the `custom_voices.{role}.notes` field if helpful for audit trails.
+
+## Per-voice WPM measurement (v3.7.4)
+
+The line-length calibration rule (F8 in `video-audio.md`) needs a per-voice words-per-minute value: `target_words = duration_sec × (voice_wpm / 60)`. v3.7.1 hardcoded the rule at "~120 wpm" and added empirical values for Daniel (~137) and Nano Banana Narrator (~159) in the reference docs. v3.7.4 measures WPM empirically and persists the result.
+
+### How it works
+
+`measure_voice_wpm()` generates a 38-word neutral reference phrase through the voice, probes the resulting MP3 duration with ffprobe, and computes:
+
+```
+wpm = word_count / (duration_sec / 60)
+```
+
+The reference phrase (`WPM_REFERENCE_PHRASE` in the script) is neutral news-register content with no audio tags, no ellipses, no ALL-CAPS — it measures the voice's NEUTRAL pace. Users who apply heavy `[contemplative]` / `[wistful]` / `[reverent]` tagging or multiple ellipses should expect their effective output pace to be 10-20% slower than the measured value.
+
+### When it runs
+
+- **`voice-promote`**: auto-measures immediately after promoting a designed voice. The measured WPM is patched into the same `custom_voices.{role}` entry.
+- **`voice-clone`**: auto-measures immediately after cloning (unless `requires_verification: true` is returned, in which case the measurement is deferred until after captcha completion). Disable with `--no-auto-wpm`.
+- **`voice-measure --role ROLE`**: retroactive measurement for voices that pre-date v3.7.4 and don't have a `wpm` field yet. Cost is negligible (one TTS call of ~40 words — fraction of a cent on subscription tiers).
+
+### Limitations
+
+- Single 40-word sample has some variance. Run the measurement twice and average if you need precision better than ±5 WPM.
+- eleven_v3 audio tags can change pacing dramatically — the stored value is for NEUTRAL speech. Tag-heavy narration will be slower.
+- The stored WPM is read by the Creative Director skill (not by `audio_pipeline.py` itself) when computing target line lengths for VEO clips. It appears in `voice-list` output for quick reference.
+
 ## Prompt engineering — Eleven Music (alternative provider)
 
 ### Default model and settings
@@ -394,7 +495,7 @@ The Eleven Music API **blocks prompts that name copyrighted creators or brands**
 
 **This is music-API-specific.** Image generation prompts welcome creator names (`prompt-engineering.md` has many examples). Music prompts do not. Don't reuse image-gen prompt patterns for music.
 
-**For v3.7.x prompt-construction logic:** strip named-creator references from music prompts before sending. Keep generic descriptors only (genre, mood, instrumentation, tempo).
+**v3.7.4 implements this client-side automatically.** The `strip_named_creators()` helper scans every music prompt against `NAMED_CREATOR_TRIGGERS` before sending to Lyria or ElevenLabs Music and emits the removed terms in the result dict's `stripped_terms` field. See the "Both providers — TOS guardrails on named creators" section above for the trigger list and `--allow-creators` bypass.
 
 ### Audio bed continuity
 
