@@ -117,7 +117,9 @@ ensures the skill works on any system with Python 3.6+.
 - Gemini generates ONE image per API call. There is no batch parameter.
 - No negative prompt parameter exists. Use semantic reframing in the prompt.
 - `responseModalities` must explicitly include "IMAGE" or the API returns text only.
-- NEVER use banned keywords in prompts: "8K", "masterpiece", "ultra-realistic", "high resolution" -- these degrade output quality. Use prestigious context anchors instead (see prompt-engineering.md).
+- **Describe the scene, don't list keywords.** Gemini 3.1's core strength is narrative understanding — prose beats tag lists. (Google's official Gemini 3.1 Flash Image prompting guide, verified 2026-04-15.)
+- **Don't name publication formats** in prompts: `"Vanity Fair magazine cover style"`, `"National Geographic cover story"`, `"Wallpaper* editorial"`, etc. Gemini 3.1 renders the output as a literal magazine cover with masthead typography and headline text overlays. This supersedes the v3.6.x "use prestigious context anchors" rule, which was empirically shown to be harmful in spike 6 (2026-04-15). See `skills/banana/references/prompt-engineering.md` → "Prompt Patterns That Don't Help".
+- The old "banned keywords" list (`"8K"`, `"masterpiece"`, `"ultra-realistic"`, `"high resolution"`) is useless on Gemini 3.1 but not harmful. Cut them to save tokens; don't panic if a user's source prompt contains them.
 - NEVER mention "logo" in Presentation mode prompts -- the model generates unwanted logo artifacts. Describe the area as "clean negative space" instead. Logos are composited in presentation software.
 - Brand Style Guide fields in presets are optional -- old presets without them continue to work.
 - Fallback chain: MCP (primary) -> Direct Gemini API -> Replicate.

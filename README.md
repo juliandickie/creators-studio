@@ -10,7 +10,7 @@ AI image and video generation plugin for Claude Code where **Claude acts as Crea
 Unlike simple API wrappers, Claude interprets your intent, selects domain expertise, constructs optimized prompts, and orchestrates generation for the best possible results — for both still images and video clips with synchronized audio.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-3.7.2-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.7.3-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Origin](https://img.shields.io/badge/origin-AgriciDaniel%2Fbanana--claude-gray)](https://github.com/AgriciDaniel/banana-claude)
 
@@ -38,6 +38,16 @@ Unlike simple API wrappers, Claude interprets your intent, selects domain expert
 ## Features
 
 Built on [AgriciDaniel/banana-claude](https://github.com/AgriciDaniel/banana-claude), extended with features driven by production use and research analysis of Google's prompting guidance:
+
+### Gemini 3.1 Prompt Guidance Refresh (v3.7.3)
+
+Corrects two pieces of prompt-engineering guidance that spike 6 (2026-04-15) showed were wrong for Gemini 3.1 Flash Image.
+
+**The old "banned keywords" rule is retired.** `"8K"`, `"masterpiece"`, `"ultra-realistic"`, `"high resolution"` don't degrade Gemini 3.1 output — they're just useless tokens. Empirical test: file-size variance within conditions exceeded variance between conditions. They're still worth cutting to save tokens, but don't panic if a user's source prompt contains them.
+
+**The old "prestigious context anchors" replacement is actively harmful.** Naming publication formats — `"Vanity Fair magazine cover style"`, `"National Geographic cover story"`, `"Wallpaper* editorial"` — causes Gemini 3.1 to render the output as a literal magazine cover, complete with masthead typography, headline text overlays, and gibberish cover-lines. The model's text-rendering strength works against you here.
+
+**New guidance aligned with Google's official Gemini 3.1 prompting docs**: *"Describe the scene, don't just list keywords."* `skills/banana/references/prompt-engineering.md` now leads with this principle, includes Google's official use-case templates (photorealistic, stylised, text-in-image, product, minimalist, comic, reference-grounded), and the "Prompt Patterns That Don't Help" section documents the spike 6 findings with a replacement table for common publication-name anchors.
 
 ### Google Lyria 2 Music + Multi-Provider Audio Pipeline (v3.7.2)
 

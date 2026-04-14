@@ -1,9 +1,34 @@
-# Prompt Engineering Reference -- Banana Claude
+# Prompt Engineering Reference -- Nano Banana Studio
 
 > Load this on-demand when constructing complex prompts or when the user
 > asks about prompt techniques. Do NOT load at startup.
 >
-> Aligned with Google's March 2026 "Ultimate Prompting Guide" for Gemini image generation.
+> Aligned with Google's official Gemini 3.1 Flash Image prompting guide
+> (`ai.google.dev/gemini-api/docs/image-generation`, verified 2026-04-15).
+
+## Core Principle (Gemini 3.1)
+
+> **Describe the scene, don't just list keywords.** Gemini 3.1's core strength
+> is deep language understanding. A narrative, descriptive paragraph will
+> almost always produce a better, more coherent image than a list of
+> disconnected words.
+>
+> — Google, official Gemini 3.1 Flash Image prompting guide
+
+This single principle supersedes the older Stable-Diffusion-era
+"tag list + quality modifiers" pattern. Everything below flows from it:
+
+- **Prose > tags.** Natural narrative sentences beat comma-separated keywords.
+- **Context > ornament.** Specifying *why* a shot looks the way it does
+  ("shot from below to convey authority") beats decorating with quality words.
+- **Iterate > one-shot.** Use conversational editing to refine; don't try to
+  stuff every constraint into a single turn.
+- **Semantic, not negative.** Gemini has no negative-prompt parameter —
+  describe what you want, not what you don't.
+
+See "Prompt Patterns That Don't Help" below for the Gemini-3.1-era correction
+to the previous "banned keywords + prestigious anchors" rule (both parts of
+that rule are now obsolete — spike 6, 2026-04-15).
 
 ## The 5-Component Prompt Formula
 
@@ -54,15 +79,25 @@ soft bokeh of the workshop behind"
 
 ### Component 5 -- STYLE (includes lighting)
 The visual register, aesthetic, medium, and lighting combined. Reference real
-cameras, film stock, photographers, publications, or art movements. Lighting
-lives here as a sub-element, not a separate component.
+cameras, film stock, art movements, or (softly) named photographers. Describe
+lighting direction, quality, and colour temperature directly. Lighting lives
+here as a sub-element, not a separate component.
 
-**Good:** "shot on a Fujifilm X-T4 with warm color science and natural
+**Good:** "shot on a Fujifilm X-T4 with warm colour science and natural
 bokeh, warm directional light from a single high window camera-left
 creating gentle Rembrandt lighting on the face with deep warm shadows.
-Reminiscent of Dorothea Lange's documentary portraiture"
+Documentary-portrait register, reminiscent of Dorothea Lange's
+Depression-era fieldwork."
 
-**Bad:** "photorealistic, 8K, masterpiece" (see Banned Keywords below)
+**Bad:** "photorealistic, 8K, masterpiece" — keyword stuffing, not a
+description. Harmless on Gemini 3.1 (they don't degrade output) but useless.
+Cut them.
+
+**Also bad:** "Vanity Fair magazine cover style," "National Geographic cover
+story." Naming a *publication format* triggers a documented failure mode —
+Gemini 3.1 renders the output as a literal magazine cover, complete with
+masthead typography, headline text, and gibberish cover-line overlays. See
+"Prompt Patterns That Don't Help" below.
 
 ## Domain Mode Modifier Libraries
 
@@ -87,7 +122,10 @@ Reminiscent of Dorothea Lange's documentary portraiture"
 **Skin/texture:** freckles visible, pores at macro distance, catch light in eyes, subsurface scattering
 
 ### Editorial/Fashion Mode
-**Publication refs:** Vogue Italia, Harper's Bazaar, GQ, National Geographic, Kinfolk
+**Visual register (describe directly, do NOT name magazines — see "Prompt Patterns That Don't Help"):**
+  high-contrast studio editorial, natural-light documentary fashion, muted
+  minimalist lifestyle register, bold colour-block fashion, gritty street-style
+  reportage, ethereal diffused beauty, stark monochrome architectural fashion
 **Styling notes:** layered textures, statement accessories, monochromatic palette, contrast patterns
 **Locations:** marble staircase, rooftop at golden hour, industrial loft, desert dunes, neon-lit alley
 **Poses:** power stance, relaxed editorial lean, movement blur, fabric in wind
@@ -343,28 +381,174 @@ infographics as drafts requiring human verification.
 **API configuration:** Add `"tools": [{"googleSearch": {}}]` to the generation config.
 On Replicate, use the `google_search: true` parameter for `google/nano-banana-2`.
 
-## ❌ BANNED PROMPT KEYWORDS -- NEVER USE THESE
+## Prompt Patterns That Don't Help (Gemini 3.1 Flash Image)
 
-The Nano Banana model's internal system prompt explicitly penalizes these
-Stable Diffusion-era terms. Using them degrades output quality.
+<!-- verified: 2026-04-15 via spike 6 — 9 test images, 3 conditions × 3 samples -->
 
-NEVER include:
-- "4k" / "8k" / "ultra HD" / "high resolution" (use the `imageSize` parameter instead)
-- "masterpiece"
+The guidance in this section supersedes the v3.6.x "banned keywords + use
+prestigious anchors instead" rule. Spike 6 (2026-04-15) empirically tested
+both parts of the old rule on `gemini-3.1-flash-image-preview` and found:
+
+- **The "banned keywords" don't actually degrade quality.** File size variance
+  *within* conditions (213 KB) exceeded variance *between* conditions (66 KB).
+  Visual quality was indistinguishable with or without `"8K ultra-realistic
+  masterpiece high resolution"` modifiers.
+- **The "prestigious anchors" actively fail.** The prompt `"Annie Leibovitz
+  editorial portrait, Vanity Fair magazine cover style, dramatic studio
+  lighting"` caused Gemini 3.1 to render all 3 samples as literal magazine
+  covers — with masthead typography (`"VAVANITY FAIR"`), headline text
+  overlays, gibberish cover lines, and magazine-layout framing — rather than
+  as the intended standalone portrait.
+
+The right guidance is Google's official principle: **describe the scene,
+don't just list keywords.**
+
+### Useless quality modifiers (cut them to save tokens)
+
+These don't degrade Gemini 3.1 output, but they don't improve it either.
+They're Stable-Diffusion-era muscle memory. If the user's source prompt has
+them, trim them — they just waste tokens and model attention.
+
+- "4K" / "8K" / "ultra HD" / "high resolution" — use the `imageSize` API parameter
+- "masterpiece" / "best quality" / "award winning"
 - "highly detailed" / "ultra detailed"
-- "trending on artstation"
 - "hyperrealistic" / "ultra realistic"
-- "photorealistic" (describe the camera/film instead)
-- "best quality"
-- "award winning" (use specific publication names instead)
+- "trending on artstation"
+- "photorealistic" — describe the camera and film stock directly instead
 
-USE THESE INSTEAD (prestigious context anchors that actively improve composition):
-- "Pulitzer Prize-winning cover photograph"
-- "Vanity Fair editorial portrait"
-- "National Geographic cover story"
-- "WIRED magazine feature spread"
-- "Architectural Digest interior"
-- "Magnum Photos documentary"
+### Patterns that ACTIVELY FAIL (avoid)
+
+**1. Naming a publication format.** Words like `"Vanity Fair magazine cover
+style"`, `"National Geographic cover story"`, `"WIRED magazine feature
+spread"`, `"Wallpaper* editorial"`, `"Architectural Digest interior"`,
+`"Bon Appetit cover aesthetic"` all trigger the same failure: Gemini 3.1
+renders the output as a literal magazine cover with masthead, headline text,
+and cover-line gibberish. The model's text-rendering strength works against
+you here — it's *good enough* at rendering "Vanity Fair" that when you name
+it, you get Vanity Fair (layout + typography), not a portrait.
+
+**Use instead:** describe the visual register *directly*.
+
+| ❌ Avoid | ✅ Use instead |
+|---|---|
+| "Vanity Fair editorial portrait" | "dramatic studio portrait, single hard key light, deep shadow side, formal composition, muted colour palette" |
+| "National Geographic cover story" | "documentary-style natural-light portrait, environmental context, unposed reportage moment" |
+| "WIRED magazine feature spread" | "high-contrast tech editorial, clean studio backdrop, bold directional lighting, saturated accent colour" |
+| "Wallpaper* design editorial" | "minimalist product still-life on a clean seamless backdrop, hard directional light, architectural composition" |
+| "Bon Appetit cover aesthetic" | "commercial food photography, overhead flat-lay on a linen backdrop, warm window light, steam and condensation details" |
+
+**2. Combining a named photographer with a named publication.** `"Annie
+Leibovitz, Vanity Fair cover"` is the worst case in spike 6 — both signals
+compound. A soft photographer reference (`"reminiscent of Dorothea Lange's
+documentary fieldwork"`) is OK when it biases composition and light. A hard
+photographer-plus-publication reference biases *layout and typography* and
+should be avoided.
+
+**3. Keyword stuffing.** Pre-3.1 Stable-Diffusion prompts often stacked
+20+ comma-separated modifiers. Gemini 3.1 isn't harmed by this, but it's
+working *against* the model's narrative-understanding strength. Rewrite
+as prose.
+
+❌ `"portrait, old man, ceramicist, workshop, warm light, 85mm, f/1.4, shallow dof, cinematic, dramatic, 8K, masterpiece, award winning"`
+
+✅ `"A weathered Japanese ceramicist in his 70s leans over a spinning wheel,
+shaping a tea bowl with deeply calloused hands. Shot on an 85mm f/1.4 at
+shallow depth of field, warm afternoon light filtering through a single high
+window camera-left, casting soft Rembrandt shadows across the workshop."`
+
+## Google's Official Use-Case Templates (Gemini 3.1)
+
+<!-- verified: 2026-04-15 from ai.google.dev/gemini-api/docs/image-generation -->
+
+These templates come directly from Google's official Gemini 3.1 Flash Image
+prompting guide. Use them as starting points and adapt the bracketed variables.
+
+### Photorealistic scene
+
+> `A photorealistic [shot type] of [subject], [action or expression], set in
+> [environment]. The scene is illuminated by [lighting description], creating
+> a [mood] atmosphere. Captured with a [camera/lens details], emphasizing
+> [key textures and details]. The image should be in a [aspect ratio] format.`
+
+Works because every bracket forces a concrete decision — no vague
+"photorealistic" on its own, no bare "masterpiece."
+
+### Stylised illustration / sticker
+
+> `A [style] sticker of a [subject], featuring [key characteristics] and a
+> [color palette]. The design should have [line style] and [shading style].
+> The background must be white.`
+
+"The background must be white" is the recommended way to get a stamp-ready
+asset on Gemini 3.1 — it's literal and reliable.
+
+### Accurate text in image
+
+> `Create a [image type] for [brand/concept] with the text "[text to render]"
+> in a [font style]. The design should be [style description], with a
+> [color scheme].`
+
+Text in quotation marks is the official way to lock the exact string.
+Keep it short (≤25 chars, ≤2-3 distinct phrases) for reliability.
+
+### Product mockup / commercial photograph
+
+> `A high-resolution, studio-lit product photograph of a [product description]
+> on a [background surface/description]. The lighting is a [lighting setup,
+> e.g., three-point softbox setup] to [lighting purpose]. The camera angle
+> is a [angle type] to showcase [specific feature]. Ultra-realistic, with
+> sharp focus on [key detail]. [Aspect ratio].`
+
+Note: `"high-resolution"` is OK *inside* Google's own template because it's
+embedded in a descriptive sentence, not standing alone as a quality-modifier
+tag. The principle is always "describe, don't label."
+
+### Minimalist / negative-space composition
+
+> `A minimalist composition featuring a single [subject] positioned in the
+> [bottom-right/top-left/etc.] of the frame. The background is a vast,
+> empty [color] canvas, creating significant negative space. Soft, subtle
+> lighting. [Aspect ratio].`
+
+The most reliable way to get a layout-driven image — explicit placement +
+explicit negative space + no decorative clutter.
+
+### Sequential art / comic panel
+
+> `A single comic book panel in a [art style] style. In the foreground,
+> [character description and action]. In the background, [setting details].
+> The panel has a [dialogue/caption box] with the text "[text]". The lighting
+> creates a [mood] mood. [Aspect ratio].`
+
+### Grounded in a reference image
+
+When providing an image, use it as the *primary* source and describe only
+what changes:
+
+> `Using the provided image of [subject], please [describe the
+> modification]. Keep the [elements to preserve] unchanged, but update
+> [elements to change] to [desired state].`
+
+One reference image replaces paragraphs of description. Prefer this to
+exhaustive verbal style transfer when you can.
+
+### Google's best-practice checklist
+
+From the same official guide, applied to every template above:
+
+1. **Be hyper-specific.** Specify materials, lighting, camera, emotion.
+2. **Provide context and intent.** Tell the model *why* the image looks a
+   certain way ("shot from below to convey authority"). This helps it
+   prioritise conflicting requirements.
+3. **Iterate and refine.** Use conversational turns rather than a single
+   mega-prompt. Each turn preserves successful elements.
+4. **Use step-by-step instructions** when you need layout control — e.g.
+   `"First, create the background... Then, add the subject in the
+   foreground... Finally, add the rim light from camera-left."`
+5. **Semantic negative prompts.** Not "no cars" but "an empty, deserted
+   street with no signs of traffic."
+6. **Camera-control language.** `"wide-angle"`, `"macro"`, `"low-angle"`,
+   `"shallow depth of field"` all work as expected.
 
 ## ⚠️ NEGATIVE PROMPTS -- No API parameter exists
 
@@ -423,13 +607,13 @@ to Gemini's natural language format:
 | `--chaos 50` | Describe variety: "unexpected, surreal composition" |
 | `--no trees` | Positive framing: "open clearing with no vegetation" |
 | `(word:1.5)` weight | Descriptive emphasis: "prominently featuring [word]" |
-| `8K, masterpiece, ultra-detailed` | Remove ALL of these -- they are banned. Use prestigious context anchors instead (see Banned Keywords section) |
+| `8K, masterpiece, ultra-detailed` | Cut them — they're useless tokens on Gemini 3.1 (see "Prompt Patterns That Don't Help"). Do NOT replace with magazine/publication names either — that's a separate failure mode. Describe the visual register directly. |
 | Comma-separated tags | Expand into descriptive narrative paragraphs |
 | `shot on Hasselblad` | Keep -- camera specs work well in Gemini |
 
 ## Common Prompt Mistakes
 
-1. **Keyword stuffing** -- stacking generic quality terms ("8K, masterpiece, best quality, ultra-realistic") actively degrades output. Use prestigious context anchors instead (see Banned Keywords section)
+1. **Keyword stuffing** -- stacking generic quality terms ("8K, masterpiece, best quality, ultra-realistic") wastes tokens on Gemini 3.1 without improving output. Rewrite as narrative prose. Do NOT replace with magazine/publication names — that's a separate failure mode (see "Prompt Patterns That Don't Help")
 2. **Tag lists** -- Gemini wants prose, not "red car, sunset, mountain, cinematic"
 3. **Missing lighting** -- The single biggest quality differentiator
 4. **No composition direction** -- Results in generic centered framing
@@ -473,7 +657,7 @@ front-facing portrait mode capturing sweat droplets on collarbones, hazel
 eyes enhanced by gym LED lighting. Mirror reflection shows perfect form,
 golden morning light through floor-to-ceiling windows. Frayed chestnut
 ponytail with baby hairs, visible skin texture with natural erythema from
-workout. Vanity Fair wellness editorial aesthetic.
+workout. High-contrast wellness editorial register with a muted warm palette.
 ```
 
 **Example (Lifestyle Ad):**
@@ -484,7 +668,8 @@ and black shorts, playful smile and sparkling blue eyes exuding vitality.
 Bottle of the drink held in hand, waves crashing in background. Shot on
 Nikon D850 with 70-200mm f/2.8 lens, natural light, fast shutter speed
 capturing motion. Visible skin texture, water droplets, product label
-clearly visible. National Geographic fitness feature aesthetic.
+clearly visible. Documentary-style outdoor fitness register, natural
+colour grading, environmental context.
 ```
 
 **Example (Luxury Lifestyle):**
@@ -497,15 +682,16 @@ field, warm color grading.
 
 ### Product / Commercial Photography
 
-**Pattern:** `[Product with brand/detail] + [dynamic elements] + [surface/setting] + "commercial photography for advertising campaign" + [lighting] + [prestigious publication reference]`
+**Pattern:** `[Product with brand/detail] + [dynamic elements] + [surface/setting] + "commercial photography for advertising campaign" + [lighting] + [direct visual-register description — NOT a magazine name]`
 
 **Example (Beverage):**
 ```
 Gatorade bottle with condensation dripping down the sides, surrounded by
 lightning bolts and a burst of vibrant blue and orange light rays. The
 Gatorade logo is prominently displayed on the bottle, with splashes of
-water frozen in mid-air. Commercial food photography for an advertising
-campaign, vibrant complementary colors. Bon Appetit magazine cover aesthetic.
+water frozen in mid-air. Commercial beverage photography for an advertising
+campaign, vibrant complementary colours, studio-lit with hard rim light
+separating the bottle from the background.
 ```
 
 **Example (Food):**
@@ -514,7 +700,8 @@ In and Out burger with layers of fresh lettuce, melted cheese, and pretzel
 bun, placed on a white surface with the In and Out logo subtly glowing in
 the background. Falling french fries and golden light, warm scene.
 Commercial food photography for an advertising campaign, vibrant
-complementary colors. Shot in the style of a Bon Appetit feature spread.
+complementary colours, overhead hero framing with warm window light
+and visible steam.
 ```
 
 ### Fashion / Editorial
@@ -582,7 +769,7 @@ vertical dividing line separates chaos from clarity.
 
 ### Logo / Branding
 
-**Pattern:** `[Product/bottle/item] + "with [brand element] prominently displayed" + [dynamic visual elements] + "commercial photography" + [lighting style] + [prestigious publication reference]`
+**Pattern:** `[Product/bottle/item] + "with [brand element] prominently displayed" + [dynamic visual elements] + "commercial photography" + [lighting style] + [direct visual-register description — NOT a magazine name]`
 
 **Example:**
 ```
@@ -590,7 +777,8 @@ A sleek matte black bottle with a minimal white logo mark centered on the
 label, surrounded by swirling gradient ribbons of teal and coral light.
 The bottle sits on a reflective dark surface, sharp studio rim lighting
 separating it from the background. Product photography for luxury
-branding, dramatic contrast. Wallpaper* magazine design editorial.
+branding, dramatic contrast, minimalist architectural still-life
+composition with generous negative space.
 ```
 
 ### Presentation / Slide
@@ -703,7 +891,7 @@ label. Subtle silver network pattern at 10% opacity. 16:9 widescreen,
 6. **Add platform context** -- "Instagram aesthetic", "commercial photography for advertising"
 7. **Describe textures** -- "crinkle-textured", "metallic silver", "frosted glass"
 8. **Use action verbs** -- "mid-run", "posing confidently", "captured mid-stride"
-9. **Use prestigious context anchors** -- "Pulitzer Prize-winning photograph," "Vanity Fair editorial," "National Geographic cover" actively improve quality. NEVER use "ultra-realistic," "8K," "masterpiece" -- these are banned (see Banned Keywords)
+9. **Describe the visual register directly** -- "high-contrast studio portrait, single hard key light, deep shadow side" beats "Vanity Fair editorial portrait." Naming publications causes Gemini 3.1 to render the output as a literal magazine cover with masthead and headline text (see "Prompt Patterns That Don't Help"). Naming cameras, lenses, lighting, and composition is safe and productive.
 10. **For products, say "prominently displayed"** -- ensures the product/logo isn't hidden
 
 ### Anti-Patterns (What NOT to Do)

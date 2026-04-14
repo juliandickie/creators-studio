@@ -7,7 +7,7 @@
 
 - **Repo:** https://github.com/juliandickie/nano-banana-studio
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
-- **Current version:** 3.7.2
+- **Current version:** 3.7.3
 - **Local path:** `/Users/juliandickie/code/nano-banana-pro/nano-banana-studio/`
 - **Plugin layout:** `.claude-plugin/` + `skills/banana/` (image) + `skills/video/` (video) + `agents/`
 
@@ -378,6 +378,46 @@ This was a focused continuation of session 12's strategic reset. v3.7.1 shipped 
 **Total session 13 spend:** ~$0.43 (~$0.06 Lyria smoke + $0 ElevenLabs regen + $0.12 MusicGen + ~$0.20 MiniMax + $0.05 Stable Audio + $0.06 wrapper smoke test). Cumulative spike spend (sessions 12+13): ~$4.83 of approved ~$20-25 budget.
 
 **Cumulative v3.6.x + v3.7.x spend across all sessions:** $8.48.
+
+### Session 14 (2026-04-15, morning after session 13)
+**Scope:** v3.7.3 — Spike 6 (banned-keywords re-validation) + prompt-engineering guidance refresh against Gemini 3.1 and Google's official prompting docs
+
+Final spike from the strategic-reset research budget. This was the only empirical test left from the 6-spike plan in `~/.claude/plans/ethereal-gliding-curry.md`, and the question on the table was narrower than the others: does the v3.6.x-era "banned keywords" rule still hold on `gemini-3.1-flash-image-preview`, and is the "use prestigious context anchors instead" replacement still the right advice? Both turned out to be wrong.
+
+**Spike 6 — 9-image banned-keywords matrix ($0.70):**
+
+1. **Test design.** Same subject across all conditions: "Portrait of a 70-year-old Japanese ceramicist at a kiln, weathered hands shaping a tea bowl, warm afternoon light from a single high window." Three conditions × three samples each:
+   - **A — banned keywords**: `"8K ultra-realistic masterpiece high resolution"` prefix + subject
+   - **B — neutral baseline**: subject only, no quality modifiers
+   - **C — prestigious anchor**: `"Annie Leibovitz editorial portrait, Vanity Fair magazine cover style, dramatic studio lighting"` + subject
+
+2. **Generation.** 9/9 calls succeeded via the Gemini API path. Avg gen time: A=25.5s, B=26.5s, C=25.4s — statistically indistinguishable. Avg file sizes: A=3015 KB, B=3055 KB, C=2989 KB. File-size variance *within* conditions (up to 213 KB) exceeded variance *between* conditions (66 KB between A and B).
+
+3. **Visual analysis.** All 3 A-samples and all 3 B-samples: clean, well-composed portraits with no quality difference detectable by eye. **All 3 C-samples rendered as LITERAL MAGAZINE COVERS** — complete with masthead typography (one reads `"VAVANITY FAIR"`, a printing-error riff on the real title), headline text overlays, cover-line gibberish in the margins, and magazine-layout framing. The subject was still the ceramicist, but the output format was magazine cover, not standalone portrait.
+
+4. **Root-cause interpretation.** Gemini 3.1 Flash Image has unusually strong text rendering (the model family's documented strength). When you name `"Vanity Fair magazine cover style"`, it's good *enough* at rendering "Vanity Fair" that it does — including the masthead, the headline conventions, and the layout. The text-rendering strength works *against* you when you name publication formats. The pre-3.1 models couldn't render coherent text, so the same prompt biased composition harmlessly; on 3.1 it biases the entire output format.
+
+5. **Decision point: refined test deferred.** I proposed running a $0.23 refined condition C with just `"Annie Leibovitz editorial portrait"` (no Vanity Fair reference) to isolate whether the failure was publication-format-specific or creator-name-adjacent. The user replied: *"why don't you just read these two docs and get the answer here. Definitely, the prestigious anchor is not good; it also puts Annie's name on the covers. Just don't use it, no need to test that again."* Pasted: (a) the Replicate `google/nano-banana-2` model info confirming `gemini-3.1-flash-image-preview` as the underlying model, (b) the official Google Gemini 3.1 Flash Image prompting docs from `ai.google.dev/gemini-api/docs/image-generation`. Directive: rewrite `prompt-engineering.md` based on those two authoritative sources, skip the refined test.
+
+**v3.7.3 documentation refresh (single-file-heavy release, no new code):**
+
+6. **Core principle lede in `references/prompt-engineering.md`.** New "Core Principle (Gemini 3.1)" section at the top quotes Google's official *"Describe the scene, don't just list keywords"* guidance and establishes four corollaries (prose > tags, context > ornament, iterate > one-shot, semantic > negative). Everything downstream flows from this.
+
+7. **"Prompt Patterns That Don't Help (Gemini 3.1 Flash Image)" section** replacing the old "BANNED PROMPT KEYWORDS" section. Split into two subsections: (a) *useless quality modifiers* (the old banned list, now reframed as "cut them to save tokens, not because they degrade output") and (b) *patterns that actively FAIL*, with the spike 6 finding documented in the publication-format replacement table. Dated verification marker: `<!-- verified: 2026-04-15 -->`. The replacement table gives 5 worked swaps: Vanity Fair → studio portrait description, National Geographic → documentary natural-light, WIRED → high-contrast tech editorial, Wallpaper* → minimalist architectural still-life, Bon Appetit → commercial food overhead.
+
+8. **"Google's Official Use-Case Templates (Gemini 3.1)" section** adding seven templates verbatim from the official Google docs: photorealistic scene, stylised illustration/sticker, accurate text in image, product mockup, minimalist/negative-space composition, sequential art/comic panel, and grounded-in-a-reference-image. Plus Google's 6-point best-practice checklist (hyper-specific, context/intent, iterate, step-by-step, semantic negative, camera-control language). Noted that `"high-resolution"` appears *inside* Google's product template sentence (not as a standalone tag) — the principle is "describe, don't label."
+
+9. **Cascade cleanup across the rest of `prompt-engineering.md`:** Component 5 (STYLE) example rewritten to describe Dorothea Lange's register directly rather than citing publications, with an "Also bad" callout flagging the magazine-cover failure mode. Editorial/Fashion Mode's "Publication refs" line replaced with "Visual register (describe directly, do NOT name magazines)." Five prompt-template examples scrubbed of magazine-name anchors (Instagram ad, Nat Geo fitness, Bon Appetit beverage, Bon Appetit food, Wallpaper* bottle). "Pattern" lines in Product/Commercial + Logo/Branding templates updated to end in `[direct visual-register description — NOT a magazine name]`. Prompt Adaptation Rules row for `8K, masterpiece, ultra-detailed` rewritten to cut-without-replacement. Common Prompt Mistakes #1 and Key Tactics #9 rewritten with the new rule.
+
+10. **`CLAUDE.md` key constraints:** the legacy "NEVER use banned keywords" bullet replaced by three bullets: (a) the "describe the scene" principle, (b) the publication-format warning with the spike 6 citation and the reference-doc pointer, (c) a note that the old banned-keywords list is useless-but-not-harmful on Gemini 3.1.
+
+11. **Version bump 3.7.2 → 3.7.3** across `plugin.json`, `README.md` badge, `CITATION.cff` (`date-released: "2026-04-15"` — one day after v3.7.2). New "Gemini 3.1 Prompt Guidance Refresh (v3.7.3)" subsection in README "Features" above v3.7.2. New `[3.7.3] - 2026-04-15` CHANGELOG entry with the full spike 6 results table and the 6 documentation change bullets.
+
+**What v3.7.3 is NOT:** no new code, no new scripts, no new subcommands, no API changes. This is a pure prompt-engineering guidance refresh driven by one $0.70 empirical spike and one authoritative Google doc reread. The plan file `~/.claude/plans/ethereal-gliding-curry.md` predicted this release would be light on implementation — spike 6 was scoped as "cheap, isolated, doesn't depend on anything else" and the v3.7.3 scope was always going to be documentation-only.
+
+**Session 14 spend:** $0.70 (spike 6). Cumulative strategic-reset spike spend (sessions 12+13+14): ~$5.53 of the approved ~$20-25 budget. Spike 5 (character-consistency bake-off, ~$15-20) remains deferred to v3.8.0 planning.
+
+**Cumulative v3.6.x + v3.7.x spend:** $9.18.
 
 ## Expansion Roadmap
 

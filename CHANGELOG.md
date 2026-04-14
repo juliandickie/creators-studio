@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.3] - 2026-04-15
+
+### Headline
+
+**Spike 6 ships — prompt-engineering guidance refreshed against Gemini 3.1 and Google's official prompting docs.** Two pieces of v3.6.x guidance turned out to be wrong:
+
+1. The "banned keywords" rule (`"8K"`, `"masterpiece"`, `"ultra-realistic"`, `"high resolution"`) was based on older model behaviour. Spike 6 tested it on `gemini-3.1-flash-image-preview` with a 9-image matrix (3 conditions × 3 samples, $0.70). Result: file-size variance *within* conditions (213 KB) exceeded variance *between* conditions (66 KB). Visual quality was indistinguishable with or without the modifiers. The rule is obsolete — the keywords are useless, not harmful.
+2. The replacement "use prestigious context anchors" rule (`"Vanity Fair editorial portrait"`, `"National Geographic cover story"`, `"Wallpaper* design editorial"`) is actively harmful. The same spike 6 test included `"Annie Leibovitz editorial portrait, Vanity Fair magazine cover style, dramatic studio lighting"` — all 3 samples rendered as **literal magazine covers** with masthead typography (`"VAVANITY FAIR"`), headline text overlays, cover-line gibberish, and magazine-layout framing. Gemini 3.1's text-rendering strength works against you here: it's *good enough* at rendering "Vanity Fair" that when you name it, you get Vanity Fair.
+
+The authoritative replacement is Google's official Gemini 3.1 Flash Image prompting guide, which leads with: *"Describe the scene, don't just list keywords. The model's core strength is its deep language understanding. A narrative, descriptive paragraph will almost always produce a better, more coherent image than a list of disconnected words."*
+
+### Added
+
+- **New "Core Principle (Gemini 3.1)" lede** at the top of `references/prompt-engineering.md` with Google's "describe the scene, don't just list keywords" quote and four corollaries (prose > tags, context > ornament, iterate > one-shot, semantic > negative).
+- **"Prompt Patterns That Don't Help (Gemini 3.1 Flash Image)" section** replacing the old "BANNED PROMPT KEYWORDS" section. Documents spike 6 findings with `<!-- verified: 2026-04-15 -->`, a 5-row replacement table for common publication-name anchors (each showing the failing prompt and the direct-description equivalent), and worked ❌/✅ examples for keyword-stuffing remediation.
+- **"Google's Official Use-Case Templates (Gemini 3.1)" section** with seven templates lifted verbatim from `ai.google.dev/gemini-api/docs/image-generation`: photorealistic scene, stylised illustration/sticker, accurate text in image, product mockup, minimalist/negative-space composition, sequential art/comic panel, and grounded-in-a-reference-image. Plus Google's 6-point best-practice checklist (hyper-specific, context/intent, iterate, step-by-step, semantic negative, camera-control language).
+- **New `Gemini 3.1 Prompt Guidance Refresh (v3.7.3)` subsection** in README "What's New" summarising the two corrections and pointing to the updated reference doc.
+
+### Changed
+
+- **`references/prompt-engineering.md` → Component 5 (STYLE)** rewrote the "Good" example to describe Dorothea Lange's register via direct composition/light description rather than citing a publication, and added an "Also bad" example flagging `"Vanity Fair magazine cover style"` as a documented failure mode.
+- **`references/prompt-engineering.md` → Editorial/Fashion Mode** replaced the `Vogue Italia, Harper's Bazaar, GQ, National Geographic, Kinfolk` "Publication refs" line with a "Visual register (describe directly, do NOT name magazines)" line listing compositional descriptors (high-contrast studio editorial, natural-light documentary fashion, etc.).
+- **`references/prompt-engineering.md` → Prompt Templates section** scrubbed magazine-name anchors from the five affected examples (Instagram Ad, National Geographic fitness ad, Bon Appetit beverage ad, Bon Appetit food ad, Wallpaper* bottle branding). Each replacement describes the visual register directly.
+- **`references/prompt-engineering.md` → Prompt Adaptation Rules table** the `8K, masterpiece, ultra-detailed → use prestigious anchors` row was rewritten to cut the modifiers without replacement (the old advice pointed users into the publication-name failure mode).
+- **`references/prompt-engineering.md` → Common Prompt Mistakes #1 + Key Tactics #9** rewritten to reflect the new rule: describe register directly, do not substitute magazine names. Cameras, lenses, lighting, and composition remain safe and productive.
+- **`references/prompt-engineering.md` → Product/Commercial + Logo/Branding "Pattern" lines** updated to end in `[direct visual-register description — NOT a magazine name]` instead of `[prestigious publication reference]`.
+- **`CLAUDE.md` → Key constraints** the legacy "NEVER use banned keywords" bullet is replaced by three bullets: (1) the core "describe the scene" principle, (2) the publication-format warning with the spike 6 citation, and (3) a note that the old banned-keywords list is useless-but-not-harmful on Gemini 3.1.
+
+### Spike 6 results (full)
+
+| Condition | Prompt fragment | Avg file size (KB) | Avg gen time (s) | Visual outcome |
+|---|---|---|---|---|
+| A — banned keywords | `"8K ultra-realistic masterpiece high resolution portrait of..."` | 3015 | 25.5 | Clean portrait, no quality difference from B |
+| B — neutral baseline | `"portrait of..."` (no quality modifiers) | 3055 | 26.5 | Clean portrait, baseline reference |
+| C — prestigious anchor | `"Annie Leibovitz editorial portrait, Vanity Fair magazine cover style..."` | 2989 | 25.4 | All 3 samples rendered as literal magazine covers with masthead + headline text overlays |
+
+File-size variance within each condition (≤ 213 KB) exceeded between-condition variance (66 KB), confirming that the "banned" modifiers are statistically indistinguishable from baseline on Gemini 3.1. Total spike 6 cost: $0.70. Cumulative session spend across all strategic-reset spikes: ~$5.53.
+
+### Deferred to later v3.7.x / v3.8.0
+
+- Spike 5 (character-consistency bake-off: VEO vs Kling vs Runway, ~$15-20) still deferred to v3.8.0 planning.
+- Automated regression eval for prompt-engineering claims — still targeted at v3.8.1 after the v3.8.0 provider abstraction lands.
+- Lyria-vs-ElevenLabs genre bake-off, multi-call Lyria for long music, stereo FFmpeg mix, auto-measured per-voice WPM, voice cloning — unchanged from v3.7.2.
+
 ## [3.7.2] - 2026-04-14
 
 ### Headline
@@ -716,6 +760,7 @@ Real-API verification during the v3.5.0 release surfaced a critical distinction:
 - Batch variations, multi-turn chat, prompt inspiration
 - Install script with validation
 
+[3.7.3]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v3.7.3
 [3.4.1]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v3.4.1
 [3.4.0]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v3.4.0
 [3.3.0]: https://github.com/juliandickie/nano-banana-studio/releases/tag/v3.3.0
