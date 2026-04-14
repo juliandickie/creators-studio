@@ -221,7 +221,20 @@ These worked well and should be documented in the video-sequences reference so f
 | 3 | v3.6.1 — First+last frame interpolation + reference images on Vertex | Small | High | **Shipped 2026-04-11** |
 | 4 | v3.6.2 — Sequence production polish (review subcommand, `use_veo_interpolation`, partial storyboard regen, new output default) | Medium | High | **Shipped 2026-04-11** |
 | 5 | v3.6.3 — Review gate enforcement with plan hash tracking + shot-type defaults + `--reference-image` on banana + 1080p Lite verified | Medium | High | **Shipped 2026-04-11** |
-| 6 | v3.6.4 — `update-prompts` Gemini-vision subcommand (closes the prompt-drift loop from v3.6.3) | Medium | High | **Next** |
-| 7 | v3.7.0 — Audio strategy split (narration/dialogue/ambient/sfx fields) + `/video sequence narration` TTS subcommand | Large | Very High | Needs brainstorming session before plan |
-| 8 | Replicate video model routing (Kling, Wan, PixVerse) for character consistency | Medium | High | Future |
-| 9 | Backlog cherry-picks — `output_gcs_uri`, `--num-videos`, parallel batch execution, object insertion, regional restrictions awareness | Various | Low-Medium | Cherry-pick as needed |
+| 6 | v3.7.1 — ElevenLabs audio replacement pipeline + custom voice design + strategic reset (12 empirical findings) | Large | Very High | **Shipped 2026-04-14** |
+| 7 | v3.6.4 — `update-prompts` Gemini-vision subcommand (closes the prompt-drift loop from v3.6.3) | Medium | High | Deferred — superseded in priority by v3.7.1 |
+| 8 | v3.7.2 — Lyria 2/3 music integration (Vertex Model Garden alternative to Eleven Music) + spike 4 + spike 6 banned-keywords re-validation | Medium | High | **Next** |
+| 9 | v3.7.x — Audio polish: stereo mix, auto-measured per-voice WPM, voice cloning subcommands (IVC + PVC), pre-flight music prompt validation | Medium | Medium | After v3.7.2 |
+| 10 | v3.8.0 — Provider abstraction layer (Vertex Model Garden + Replicate via MCP server) — informed by spike 5 character consistency bake-off | Large | High | After v3.7.x |
+| 11 | Replicate video model routing (Kling, Wan, PixVerse) for character consistency | Medium | High | Folded into v3.8.0 (Replicate side) |
+| 12 | Backlog cherry-picks — `output_gcs_uri`, `--num-videos`, parallel batch execution, object insertion, regional restrictions awareness | Various | Low-Medium | Cherry-pick as needed |
+
+### Deferred research spikes (will run before their target releases)
+
+The strategic reset session (v3.7.1) included six planned empirical spikes. Three completed during the session and informed v3.7.1's design; three were deferred when the user pivoted to shipping v3.7.1 immediately. The deferred spikes are scheduled before their respective target releases:
+
+- **Spike 4 — Lyria 2 music smoke test (~$0.50)** — validates that Vertex AI Lyria 2/3 is callable through our existing Vertex API-key auth path. Targets v3.7.2.
+- **Spike 5 — Character consistency bake-off (~$15-20)** — generates 4-shot character sequences on VEO 3.1 Lite, Kling 2.6 (Replicate), and Runway Gen-4 (Replicate) for direct comparison. Informs whether v3.8.0 multi-provider abstraction is urgent or deferred. Targets v3.8.0.
+- **Spike 6 — Banned-keywords re-validation (~$1.50)** — tests whether the 2025-era banned-keywords list still applies to Gemini 3.1. Targets v3.7.2 or v3.8.1.
+
+Total deferred spike budget: ~$17-22. All approved during the strategic reset session, just unspent at v3.7.1 ship time.

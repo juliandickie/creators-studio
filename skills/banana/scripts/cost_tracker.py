@@ -79,6 +79,34 @@ PRICING = {
         "4s": 0.60, "6s": 0.90, "8s": 1.20,
         "per_second": 0.15,
     },
+    # ElevenLabs models (v3.7.1+). Pricing is character-based for TTS and
+    # second-based for music. ElevenLabs is subscription-billed: the per-call
+    # USD cost is effectively zero for users on Creator+ tiers within their
+    # monthly quota. We track usage for budget visibility only. The PRICING
+    # values below are nominal rates used to compute "credits-equivalent USD"
+    # for users who want to see what a generation WOULD cost at PAYG rates.
+    #
+    # Reference rates (Creator tier, April 2026; verify against current pricing):
+    #   TTS (eleven_v3, eleven_multilingual_v2):   $0.18 per 1k chars
+    #   TTS Flash (eleven_flash_v2_5):             $0.09 per 1k chars (about half)
+    #   Music (music_v1):                          $0.005 per second
+    #   Voice changer (eleven_multilingual_sts_v2): $0.18 per 1k chars audio
+    #   Voice design previews (eleven_ttv_v3):     subscription-only, no PAYG rate
+    "elevenlabs/eleven_v3": {
+        "per_1k_chars": 0.18,
+    },
+    "elevenlabs/eleven_multilingual_v2": {
+        "per_1k_chars": 0.18,
+    },
+    "elevenlabs/eleven_flash_v2_5": {
+        "per_1k_chars": 0.09,
+    },
+    "elevenlabs/music_v1": {
+        "per_second": 0.005,
+    },
+    "elevenlabs/eleven_multilingual_sts_v2": {
+        "per_1k_chars": 0.18,
+    },
 }
 
 

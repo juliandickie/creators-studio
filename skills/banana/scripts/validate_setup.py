@@ -115,6 +115,24 @@ def main() -> int:
         except OSError as e:
             results.append(check("Output directory writable", False, str(e)))
 
+    # 10. ElevenLabs (optional, v3.7.1+) -- non-blocking informational check.
+    # Only relevant if the user wants the audio replacement pipeline. We never
+    # fail validation on missing ElevenLabs config; we just surface its state.
+    config_path = Path.home() / ".banana" / "config.json"
+    if config_path.exists():
+        try:
+            with open(config_path) as f:
+                banana_config = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            banana_config = {}
+        eleven_key = banana_config.get("elevenlabs_api_key")
+        if eleven_key:
+            print(f"  [INFO] ElevenLabs API key configured (v3.7.1 audio pipeline available)")
+        custom_voices = banana_config.get("custom_voices", {}) or {}
+        if custom_voices:
+            roles = ", ".join(sorted(custom_voices.keys()))
+            print(f"  [INFO] Custom voices configured ({len(custom_voices)}): {roles}")
+
     # Summary
     passed = sum(1 for r in results if r)
     total = len(results)

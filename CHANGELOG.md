@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.1] - 2026-04-14
+
+### Headline
+
+**ElevenLabs audio replacement pipeline + custom voice design + strategic reset.** v3.7.1 ships the first non-VEO audio capability after a deep strategic reset session that questioned the entire v3.7.0 plan. Three empirical spike rounds invalidated the original "voice-changer post-pass" assumption, surfaced the real multi-clip music-bed seam problem, and validated a structural audio replacement architecture (continuous TTS + Eleven Music + FFmpeg ducked mix + lossless audio swap) end-to-end. The new `elevenlabs_audio.py` script + `references/elevenlabs-audio.md` ship as the canonical solution. Custom voice design via ElevenLabs Voice Design API is also wired in, with a nested `custom_voices.{role}` config schema designed for the multi-voice future already on the roadmap.
+
+### Strategic reset session — what changed
+
+The session was a deliberate "stop building, look up" checkpoint after 5 releases shipped in 48 hours. Three findings reshaped v3.7.0/v3.7.1:
+
+1. **VEO 3.1 generates voiceover narration natively** via `"A narrator says, '...'"` — confirmed by Google's own Vertex AI prompt guide and verified empirically. The original v3.7.0 ROADMAP claim that VEO "doesn't generate voiceover; it's added in post" was wrong. The TTS subcommand originally scoped for v3.7.0 was solving a non-problem.
+2. **VEO does NOT have voice character drift across separately-generated clips** when descriptors are locked. Spike 2 generated 4 clips of the same scene with the same voice descriptor and the user verified perfect voice consistency. The original v3.7.1 voice-changer scope was based on a false assumption.
+3. **The real "multi-clip drift" problem is musical, not vocal**: each VEO clip generates its own emergent music intro/outro envelope independently, so stitched sequences have audible music seams every clip-duration. Spike 3 confirmed the fix is structural audio replacement, not voice changing.
+
+The session also discovered Replicate's official MCP server (npm `replicate-mcp`), Vertex AI Model Garden's 200+ models including Lyria for music generation, and that Google ADK is architecturally incompatible with Claude Code's skill runtime (don't adopt). All of these are documented in the strategic reset plan and inform v3.7.2+ scope.
+
+### Added
+
+- **`skills/video/scripts/elevenlabs_audio.py`** — new ~720 line stdlib-only Python script implementing the v3.7.1 audio replacement pipeline. Subcommands:
+  - `pipeline` — canonical end-to-end command. Parallel TTS + Eleven Music API calls, FFmpeg sidechain mix, lossless audio swap into video. Halves user-perceived latency by parallelizing the two API calls.
+  - `narrate`, `music`, `mix`, `swap` — individual stage commands for debugging or partial workflows
+  - `voice-design` — POST `/v1/text-to-voice/design` to generate 3 candidate voice previews from a text description (eleven_ttv_v3 model)
+  - `voice-promote` — POST `/v1/text-to-voice` to save a chosen preview as a permanent custom voice, atomically write to `~/.banana/config.json` under the new `custom_voices.{role}` schema
+  - `voice-list` — list custom voices from config
+  - `status` — verify ElevenLabs API key + ffmpeg + custom voices
+- **`skills/video/references/elevenlabs-audio.md`** — comprehensive new reference doc covering the v3.7.1 architecture (TTS + music + ducked mix + audio swap), voice management (design → promote → use), prompt engineering for both TTS narration and Eleven Music, FFmpeg parameter rationale, the per-voice WPM calibration model, and the cost model.
+- **`custom_voices.{role}` config schema** in `~/.banana/config.json` — nested structure designed to support multiple semantic roles (narrator, character_a, brand_voice, etc.), three creation paths (designed, cloned, library), and per-voice metadata (model_id, source_type, design_method, guidance_scale, created_at, provider, notes). Forward-compatible for multi-provider future. Replaces the flat `custom_narrator_voice_id` field that briefly existed during the spike. **Lesson learned**: the flat field was a YAGNI miscall — when the user has *committed* future needs (multiple voices and clones), nested-now is correct.
+- **`elevenlabs_api_key` field in `~/.banana/config.json`** alongside the existing Google AI / Replicate / Vertex keys. Resolved with the same precedence pattern: CLI flag → env var → config file.
+- **12 empirical findings** in `references/video-audio.md` "Discoveries from real production" section, each with a `<!-- verified: 2026-04-14 -->` marker per the dated-verification principle. Findings cover: voice character anchoring (F1), delivery-mode drift / line-length calibration (F2), music seam problem (F3), VEO automatic ducking (F4), v3 audio tag flexibility / open-ended whitelist (F5), Eleven Music TOS guardrail on named creators (F6), Voice Design `should_enhance` behavior (F7), per-voice WPM differences (F8), Lite tier broadcast quality (F9), `[exhales]` audio tag (F10), capitalization emphasis (F11), ellipses pacing (F12).
+- **New `/video audio ...` and `/video voice ...` slash command surface** documented in `skills/video/SKILL.md` Quick Reference table. Includes routing rules ("when to use VEO native narration vs the v3.7.1 pipeline") and prompt engineering guidance for the new audio pipeline.
+- **ElevenLabs pricing rows in `cost_tracker.py`** for `eleven_v3`, `eleven_multilingual_v2`, `eleven_flash_v2_5`, `music_v1`, and `eleven_multilingual_sts_v2`. Subscription-billed users see negligible per-call cost; the entries support PAYG-equivalent estimates for users not on Creator tier.
+- **`validate_setup.py` informational check for ElevenLabs config** (non-blocking — v3.7.1 is opt-in). Surfaces "ElevenLabs API key configured" + custom voice list when present.
+
+### Changed
+
+- **The v3.7.0 audio strategy split scope is fundamentally redefined.** The original plan was "split per-shot `audio` field into ambient/sfx/dialogue/narration + build a `/video sequence narration` TTS subcommand for multi-clip drift." After the strategic reset, the architecture is "use the v3.7.1 ElevenLabs replacement pipeline for sequences that need narration, custom voices, or seam-free music." The schema split work is deferred to v3.7.x as a refinement, not a v3.7.0 blocker.
+- **`references/video-audio.md`** updated with the 12 empirical findings, the v3.7.1 audio replacement pipeline cross-reference, and a corrected "Limitations" section that points users to the audio swap workflow when audio quality is critical.
+- **VEO Lite tier framing in `references/veo-models.md`** is informally re-evaluated based on F9: Lite is broadcast-quality for narrated documentary footage. The "draft only" framing is being relaxed in v3.7.1+ — Standard is reserved for shots with extreme detail (extras, complex character interactions, hero product shots), not the default for hero work.
+- **`skills/video/SKILL.md`** Quick Reference table grew from 11 to 19 commands (new `/video audio ...` and `/video voice ...` subcommand groups). New "v3.7.1 Audio Replacement Pipeline" section in the body with routing rules, voice selection guidance, music TOS warning, and prompt engineering pointers for both TTS and music.
+
+### Deferred to v3.7.2+
+
+The strategic reset plan included three more spikes that were deferred when the user pivoted to shipping v3.7.1:
+
+- **Spike 4 — Lyria 2 music smoke test** (~$0.50). Validates that Vertex AI Lyria 2/3 is callable through our existing Vertex API-key auth path. Lyria is Google's native music generation model and would be a complementary alternative to Eleven Music. Targets v3.7.2.
+- **Spike 5 — Character consistency bake-off** (~$15-20). Generates 4-shot character sequences on VEO 3.1 Lite, Kling 2.6 (Replicate), and Runway Gen-4 (Replicate) for direct comparison. Informs whether v3.8.0 multi-provider abstraction is urgent or deferred. Targets v3.8.0.
+- **Spike 6 — Banned-keywords re-validation** (~$1.50). Tests whether the 2025-era banned-keywords list (`"8K"`, `"masterpiece"`, `"ultra-realistic"`) still applies to Gemini 3.1 image generation. Quick, cheap, isolated. Targets v3.7.2 or v3.8.1.
+
+### Verification
+
+- **End-to-end empirical validation in spike 3 final prototype** at `~/Desktop/spike3-elevenlabs-audio/v3.7.1-final-prototype-veo-video-with-custom-voice.mp4`. The user verified the architecture produces ship-ready output: continuous narration, no music seams, natural ducking, custom-designed British baritone narrator voice. Quote: *"ok to proceed as is."*
+- **Voice Design end-to-end flow** verified by promoting preview 3 (`DGEKfN3sQ7BmtUUNKoyI`) to the permanent voice "Nano Banana Narrator" and successfully calling TTS with the new voice.
+- **Config schema migration** from flat `custom_narrator_voice_id` to nested `custom_voices.{role}` validated by atomic write + readback comparison.
+- **No new Python pip dependencies.** `elevenlabs_audio.py` uses stdlib only (urllib.request, concurrent.futures, subprocess for FFmpeg). Matches the plugin's existing fallback-script pattern.
+- **Total spike spend during the strategic reset session: $4.40 of VEO Lite generation** + ~0 ElevenLabs cost (subscription-billed within Creator tier quota).
+
+### Known limitations (documented in `references/elevenlabs-audio.md`)
+
+- Stereo output collapses to mono in the current FFmpeg mix graph (workaround possible in a v3.7.x patch — route narration through `pan=stereo|c0=c0|c1=c0`)
+- Per-voice WPM is hardcoded rather than auto-measured on first use of a new voice
+- Voice cloning (Instant Voice Clone, Professional Voice Clone) is not yet wired up — the `source_type: "cloned"` schema field is reserved for a future v3.7.x addition
+- Music TOS guardrail is runtime-discovered, not validated pre-flight
+
 ## [3.6.3] - 2026-04-11
 
 ### Headline

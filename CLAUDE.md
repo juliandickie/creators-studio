@@ -99,6 +99,8 @@ This repo follows the official Claude Code plugin layout:
 | `skills/video/scripts/video_extend.py` | Clip extension via Scene Extension v2 (`--method video`, default) or legacy keyframe (`--method keyframe`). Hops chain to 148 s max. |
 | `skills/video/references/veo-models.md` | VEO model specs, pricing, rate limits, Backend Availability (Gemini API vs Vertex AI), auth setup. |
 | `skills/video/references/video-prompt-engineering.md` | 5-Part Video Framework, templates, camera motion vocabulary. |
+| `skills/video/scripts/elevenlabs_audio.py` | **v3.7.1** — ElevenLabs audio replacement pipeline. Subcommands: `pipeline` (canonical end-to-end with parallel TTS+music), `narrate`, `music`, `mix`, `swap`, `voice-design`, `voice-promote`, `voice-list`, `status`. Stdlib only. |
+| `skills/video/references/elevenlabs-audio.md` | **v3.7.1** — Comprehensive reference for the audio replacement architecture, voice management (design → promote → use), prompt engineering for both TTS and Eleven Music, FFmpeg parameter rationale, custom voice schema, cost model. |
 | `agents/brief-constructor.md` | Subagent for prompt construction. |
 
 ## Scripts use stdlib only
@@ -119,6 +121,11 @@ ensures the skill works on any system with Python 3.6+.
 - NEVER mention "logo" in Presentation mode prompts -- the model generates unwanted logo artifacts. Describe the area as "clean negative space" instead. Logos are composited in presentation software.
 - Brand Style Guide fields in presets are optional -- old presets without them continue to work.
 - Fallback chain: MCP (primary) -> Direct Gemini API -> Replicate.
+- **v3.7.1 audio architecture**: For multi-clip stitched VEO sequences that need narration or seam-free music, use `elevenlabs_audio.py pipeline` to replace the entire audio bed instead of relying on VEO's emergent audio. VEO's clip-locked music intro/outro envelopes create audible seams when concatenated; the v3.7.1 pipeline replaces them with a single continuous track. See `skills/video/references/elevenlabs-audio.md`.
+- **v3.7.1 narration line-length rule**: For VEO native narration, target line word count = `duration_seconds × (voice_wpm / 60)`. ~16 words for an 8s clip at native VEO narrator pace (~120 wpm). Shorter lines trigger a known failure mode where VEO sings the line to fill time. Per-voice WPM differs (Daniel ~137, Nano Banana Narrator ~159) — see F8 in `references/video-audio.md`.
+- **v3.7.1 narrator + visible character constraint**: When a human is visible in the VEO frame, prompting `"A narrator says..."` will cause VEO to lip-sync them to the line regardless of `NOT speaking, mouth closed` constraints. Workarounds: (a) frame the human without face visible, (b) use the v3.7.1 audio replacement pipeline to override VEO's lip-synced audio. See F1-F2 in `references/video-audio.md`.
+- **Eleven Music API blocks named-creator/brand prompts**. Returns HTTP 400 with `bad_prompt` and a `prompt_suggestion`. This is music-API-specific — image generation prompts welcome creator names. Strip named-creator references from music prompts before sending. See F6 in `references/video-audio.md`.
+- **Custom voice schema** (v3.7.1+): `~/.banana/config.json` `custom_voices.{role}` is the canonical location. Role-keyed (narrator, character_a, etc.), supports three creation paths via `source_type` discriminator (designed | cloned | library), provider-pluggable for future second-provider support.
 
 ## Upstream tracking
 

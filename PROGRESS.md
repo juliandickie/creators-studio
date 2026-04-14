@@ -7,7 +7,7 @@
 
 - **Repo:** https://github.com/juliandickie/nano-banana-studio
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
-- **Current version:** 3.6.3
+- **Current version:** 3.7.1
 - **Local path:** `/Users/juliandickie/code/nano-banana-pro/nano-banana-studio/`
 - **Plugin layout:** `.claude-plugin/` + `skills/banana/` (image) + `skills/video/` (video) + `agents/`
 
@@ -266,6 +266,69 @@ Both keys stored in `~/.banana/config.json`. Scripts check: CLI flag → env var
 8. **Ship discipline:** documented the overspend honestly in the v3.6.3 CHANGELOG "Release-process honesty" section. Going forward, any functional test that invokes `cmd_generate` must use a fixture storyboard dir that the child process cannot successfully submit against real APIs — either with fake frames that fail file-existence checks, or with env vars that block both the Gemini API and Vertex AI paths.
 
 **Total v3.6.3 spend:** $0.80 ($0.40 intended probe + $0.40 unintended from the gate test harness). Full v3.6.x series spend today: $3.65.
+
+### Session 12 (2026-04-14)
+**Scope:** Strategic reset + v3.7.1 — ElevenLabs audio replacement pipeline + custom voice design
+
+This was a fundamentally different kind of session than 6-11. The previous five releases shipped in 48 hours, building rapidly on a coherent ROADMAP plan. Session 12 was a deliberate "stop building, look up" checkpoint that questioned the entire forward direction before any v3.7.0 code landed. The result: the original v3.7.0 plan was substantially wrong (built on an unverified assumption about VEO narration), three new dev-docs were ingested (ElevenLabs, Google ADK, Replicate OpenAPI + MCP), and v3.7.1 shipped with a structurally different architecture than originally scoped.
+
+**Strategic reset (research phase):**
+
+1. **The trigger.** While answering "what's next on the development list?" I described v3.7.0 as needing a brainstorming session for the audio strategy split + TTS subcommand. The user pushed back: "I'm pretty sure VEO can do narration natively, it's just dependent on the prompt." That single push-back unraveled the entire v3.7.0 plan — empirical web research confirmed VEO 3.1 generates voiceover narration natively via `"A narrator says, '...'"` per Google's own Vertex AI prompt guide, contradicting the ROADMAP claim.
+
+2. **The dev-docs ingestion.** User dropped 5 reference files into `~/code/nano-banana-pro/dev-docs/` over the course of the session: `elevenlabs-llms-full.txt` (10 MB), `google-adk-llms-full.txt` (2.5 MB), `replicate-llms.txt` (11 KB), `replicate-openapi.json` (91 KB), `replicate-mcp.md` (12 KB), `elevenlabs-best-practices.md` (37 KB). Workspace-root and sub-repo CLAUDE.md updated to point at this dev-docs collection with an Explore-subagent-first usage pattern.
+
+3. **The strategic reset plan.** Spawned 3 parallel Explore agents (ElevenLabs deep dive, Google ADK fit assessment, current-state assumption audit) plus WebFetch on Vertex AI Model Garden. Synthesized into a 350-line strategy plan that: cancelled the v3.7.0 TTS subcommand, rejected Google ADK adoption (it's an orchestration system, not a library — would compete with Claude Code's skill runtime), discovered Vertex Model Garden's 200+ models including Lyria for music generation, and discovered Replicate's official MCP server (collapses ~80% of v3.8.0 Replicate-side work to one config command). Plan stored at `~/.claude/plans/ethereal-gliding-curry.md`.
+
+**Empirical spike phase ($4.40 total VEO Lite spend):**
+
+4. **Spike 1 — VEO native narration check ($1.20, 3 clips).** Generated 3 VEO 3.1 Lite clips testing whether "A narrator says..." actually produces clean off-screen voiceover. Findings: (1a) ✅ Works perfectly when no human is visible. (1b) ⚠️ When a human IS visible, VEO ignores `NOT speaking, mouth closed` constraints and lip-syncs them to the narration line — critical undocumented failure mode. (1c) ✅ Google's verbatim example with no specified line produces a coherent improvised narration matching the requested register. **VEO native narration works but only for no-character shots.** Findings file at `~/Desktop/spike1-veo-narration/spike-1-findings.md`.
+
+5. **Spike 2 v1 — multi-clip drift baseline ($1.60, 4 clips).** Generated 4 clips of the same autumn forest valley with locked voice descriptors and 2-4 word narration lines per clip. Stitched with FFmpeg concat. **The user heard one clip SING the line instead of speaking it** — a previously unknown VEO failure mode. User hypothesis: lines too short for clip duration, model stretches via singing to fill time. The other 3 clips were spoken normally. Voice character was perfectly consistent across all 4 clips, audio bed continuity had subtle seams at clip boundaries.
+
+6. **Spike 2 v2 — line-length hypothesis confirmation ($1.60, 4 clips).** Same scene, same voice descriptor, but 14-16 word lines targeting ~75-100% fill of the 8-second clip duration at narrator pace. ✅ **No singing.** All 4 clips spoke the lines naturally. Hypothesis confirmed: `target_word_count = duration_seconds × (voice_wpm / 60)`. Voice consistency was perfect, but the music seam issue at clip boundaries remained — that's the *real* multi-clip drift problem.
+
+7. **Spike 3 v1 — ElevenLabs structural replacement ($0 spike, $0 marginal).** Set up `elevenlabs_api_key` in `~/.banana/config.json`. Detected and corrected a paste duplication of the API key (the user double-pasted, producing a 102-char string that was the same 51-char key concatenated twice). Verified auth via `GET /v1/user` (Creator tier, 300k chars/month quota). Generated 32-second TTS narration with Daniel voice (`onwK4e9ZLuTAKqWW03F9`) via `eleven_multilingual_v2`. Generated 32-second Eleven Music background bed via `music_v1` with `force_instrumental=true` — first attempt blocked by music API TOS guardrail because the prompt named "Annie Leibovitz / BBC Earth aesthetic" (named-creator references trigger HTTP 400 with a `prompt_suggestion` for sanitized version). Cleaned prompt sailed through. FFmpeg sidechain compression mix with apad pattern to extend narration to music length. Audio-swap into the v2 stitched VEO video. **User verdict: "the narration and music all sound great and the combined track also is great"** — structural validation of the v3.7.1 architecture.
+
+8. **Spike 3 v2 — eleven_v3 model + audio tags.** Switched from `eleven_multilingual_v2` to `eleven_v3` (the most expressive model, supports audio tags). Added 5 ellipses for contemplative pauses, 1 `[exhales]` audio tag before "The river runs COLD here...", capitalization on "COLD" for emphasis. Stability lowered from 0.65 to 0.5 (Natural mode — honors audio tags). Re-mixed and audio-swapped into the video. **User verdict: "perfect"** — the architecture + expressive tagging is validated.
+
+9. **Tag flexibility experiment.** User pushed back on my conservative use of only documented tags: "I believe you can still use them, as it accepts and understands all tags' meanings." Confirmed via the docs: section 5 of `elevenlabs-best-practices.md` is literally titled "Audio Tags (Non-Exhaustive)" with explicit instructions to "infer similar, contextually appropriate tags." Empirical confirmation: generated 5 versions of the same line with `[no tag]`, `[thoughtful]` (documented), `[contemplative]` (undocumented), `[reverent]` (undocumented), `[wistful]` (undocumented). **`[reverent]` produced a 20.7% slower delivery than baseline** — clear semantic interpretation of an undocumented tag. Tag set is open-ended, not whitelisted.
+
+10. **Spike 3 v3 — custom voice design.** Used the ElevenLabs Voice Design API (`POST /v1/text-to-voice/design`) to generate 3 candidate voices matching the VEO test 1a narrator profile. User picked original preview 3 (`DGEKfN3sQ7BmtUUNKoyI`). Ran a second design pass with `should_enhance=true` to test whether AI-enhancement of the prompt produces better output — 6 previews total compared, user stuck with original preview 3. Promoted to permanent voice via `POST /v1/text-to-voice` with name "Nano Banana Narrator". Saved to `~/.banana/config.json` initially as flat `custom_narrator_voice_id`, then refactored to nested `custom_voices.narrator` schema after user push-back on YAGNI: "we are definitely going to have multiple voices and clones, so a more robust architecture is better to implement now." **Lesson learned**: YAGNI is for *speculative* future needs, not *committed* future needs. Distinguish hypothetical from scheduled. Regenerated the v3 narration with the new custom voice + audio tags, re-mixed, audio-swapped into video. Final v3.7.1 prototype at `~/Desktop/spike3-elevenlabs-audio/v3.7.1-final-prototype-veo-video-with-custom-voice.mp4`. **User verdict: "ok to proceed as is."**
+
+11. **Spike findings file** at `~/Desktop/spike3-elevenlabs-audio/spike-2-and-3-findings.md` captures the entire v1 → v2 → v3 → custom voice progression, the 12 empirical findings (F1-F12 — voice anchoring, line-length, music seams, automatic ducking, tag flexibility, music TOS guardrail, should_enhance behavior, per-voice WPM, Lite quality, [exhales], capitalization, ellipses), the architectural conclusions, and the lessons learned. The 12 findings were ported into `references/video-audio.md` "Discoveries from real production" section with `<!-- verified: 2026-04-14 -->` markers per the new dated-verification principle.
+
+**Implementation phase (this PR):**
+
+12. **`scripts/elevenlabs_audio.py`** — new ~720 line stdlib-only Python script. Subcommands: `pipeline` (the canonical end-to-end command with parallel TTS+music via `concurrent.futures.ThreadPoolExecutor`), `narrate`, `music`, `mix`, `swap`, `voice-design`, `voice-promote`, `voice-list`, `status`. Atomic config writes with the same pattern as `setup_mcp.py`. Structured JSON output for machine-readability matching `cost_tracker.py` style.
+
+13. **`references/elevenlabs-audio.md`** — new comprehensive reference covering the v3.7.1 architecture, voice management, prompt engineering for both TTS and music (including the named-creator TOS rule for music prompts that doesn't apply to image gen), FFmpeg parameter rationale, cost model, and known limitations.
+
+14. **`references/video-audio.md`** updated with the 12 empirical findings + the v3.7.1 audio replacement pipeline cross-reference. Each finding has a dated-verification marker.
+
+15. **`skills/video/SKILL.md`** Quick Reference table grew from 11 to 19 commands. Added a new "v3.7.1 Audio Replacement Pipeline" section with routing rules ("when to use VEO native narration vs the v3.7.1 pipeline"), voice selection guidance, music TOS warning, and prompt engineering pointers.
+
+16. **`scripts/cost_tracker.py`** updated with ElevenLabs pricing rows for `eleven_v3`, `eleven_multilingual_v2`, `eleven_flash_v2_5`, `music_v1`, and `eleven_multilingual_sts_v2`. Subscription-billed users see negligible per-call cost; the entries support PAYG-equivalent estimates for non-Creator users.
+
+17. **`scripts/validate_setup.py`** updated with non-blocking informational check for ElevenLabs config (key + custom voices). v3.7.1 is opt-in, so missing config is not a setup failure.
+
+18. **Version bump v3.6.3 → v3.7.1** across `plugin.json`, `README.md` badge, `CITATION.cff` (with date 2026-04-14). New v3.7.1 subsection added to README "Features" section above the v3.6.3 subsection. CHANGELOG `[3.7.1]` section added with the full strategic reset narrative + Added/Changed/Deferred/Verification/Known Limitations subsections. ROADMAP updated to mark v3.7.1 shipped and move spikes 4 (Lyria) → v3.7.2, spike 5 (character bake-off) → v3.8.0, spike 6 (banned keywords) → v3.7.2 or v3.8.1.
+
+19. **`CLAUDE.md` file responsibilities table** updated with new `elevenlabs_audio.py` and `elevenlabs-audio.md` entries.
+
+20. **Memory file** at `~/.claude/projects/.../memory/project_nano_banana_studio_workflow.md` updated with the v3.7.1 architecture, the new config schema, and the strategic reset principles ("test before build", dated-verification markers, YAGNI calibration for committed-vs-speculative futures).
+
+**What's NOT in v3.7.1 (deferred to v3.7.2+):**
+
+- Stereo output in the FFmpeg mix graph (currently collapses to mono)
+- Auto-measured per-voice WPM (currently hardcoded)
+- Voice cloning subcommands (Instant Voice Clone, Professional Voice Clone) — schema field `source_type: "cloned"` is reserved
+- Pre-flight validation of music prompts for named-creator references (currently runtime-discovered)
+- The deferred spikes 4 (Lyria), 5 (character bake-off), 6 (banned keywords)
+
+**Total session 12 spend:** $4.40 of VEO Lite generation (spikes 1+2+3) + ~$0 ElevenLabs (subscription quota usage). Approved spike budget remaining: ~$15-20 for the deferred spikes that will run before v3.7.2/v3.8.0.
+
+**Cumulative v3.6.x + v3.7.1 spend across all sessions:** $8.05 ($3.65 sessions 8-11 + $4.40 session 12).
 
 ## Expansion Roadmap
 

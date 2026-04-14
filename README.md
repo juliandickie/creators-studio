@@ -10,7 +10,7 @@ AI image and video generation plugin for Claude Code where **Claude acts as Crea
 Unlike simple API wrappers, Claude interprets your intent, selects domain expertise, constructs optimized prompts, and orchestrates generation for the best possible results — for both still images and video clips with synchronized audio.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-3.6.3-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.7.1-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Origin](https://img.shields.io/badge/origin-AgriciDaniel%2Fbanana--claude-gray)](https://github.com/AgriciDaniel/banana-claude)
 
@@ -38,6 +38,30 @@ Unlike simple API wrappers, Claude interprets your intent, selects domain expert
 ## Features
 
 Built on [AgriciDaniel/banana-claude](https://github.com/AgriciDaniel/banana-claude), extended with features driven by production use and research analysis of Google's prompting guidance:
+
+### ElevenLabs Audio Replacement Pipeline + Custom Voice Design (v3.7.1)
+
+The first non-VEO audio capability — solves multi-clip music seams, lets you design custom narrator voices, and ships after a deep strategic reset session that empirically validated the entire architecture before any code was written.
+
+**The problem v3.7.1 solves:** when you stitch multiple separately-generated VEO clips into a longer sequence, each clip has its own emergent music intro/outro envelope. FFmpeg concatenation joins them losslessly but the *audio* still has audible seams every clip-duration. This is a structural artifact of independent generation, not a per-clip quality issue. **The fix is to replace the entire audio bed with a single continuous track.**
+
+**What v3.7.1 ships:**
+
+- **`elevenlabs_audio.py pipeline` — the canonical end-to-end command.** Takes a stitched VEO video + narration text + music prompt, runs parallel ElevenLabs TTS + Eleven Music API calls (~12s wall clock total), mixes the result with FFmpeg side-chain ducking, then audio-swaps it into the source video losslessly. One command, ship-ready MP4.
+- **Custom voice design via ElevenLabs Voice Design API.** Describe a voice in 20-1000 chars, get 3 candidate previews, pick one, promote it to a permanent saved voice with a semantic role name (e.g. `narrator`, `character_a`). Saved to `~/.banana/config.json` under the new nested `custom_voices.{role}` schema designed for the multi-voice future.
+- **Eleven v3 audio tags + ellipses + capitalization** for emotional control. Documented tags like `[exhales]` work as expected; **undocumented tags like `[reverent]` also work** (verified empirically — produces ~20% slower delivery), so you can use any contextually appropriate descriptor without validating against a closed whitelist.
+- **`/video audio ...` and `/video voice ...` slash command surface** — 8 new commands covering pipeline, individual stages (narrate, music, mix, swap), voice design, voice promote, voice list, status.
+- **12 empirical findings** in `references/video-audio.md` from the spike sessions, each dated-verified per the new "test before build" principle.
+
+**The strategic reset session:** five releases (v3.5.0–v3.6.3) shipped in 48 hours. v3.7.1's session was a deliberate "stop building, look up" checkpoint. Three findings reshaped the entire v3.7.0 plan:
+
+1. **VEO 3.1 generates voiceover narration natively** via `"A narrator says, '...'"` — confirmed by Google's own Vertex AI prompt guide. The original v3.7.0 ROADMAP claim that VEO "doesn't generate voiceover; it's added in post" was wrong.
+2. **VEO does NOT have voice character drift across separately-generated clips** when descriptors are locked. Spike 2 verified perfect voice consistency across 4 clips with the same voice descriptor.
+3. **The real "multi-clip drift" problem is musical, not vocal**: each clip generates its own emergent music envelope independently, so stitched sequences have audible music seams. v3.7.1's structural audio replacement fixes this by construction.
+
+The session also discovered that Replicate ships an official MCP server (`replicate-mcp` on npm) which collapses ~80% of the v3.8.0 Replicate-side work to one config command, and that Vertex AI Model Garden hosts 200+ models including Lyria for music generation (a complementary alternative to Eleven Music, targeted for v3.7.2). Google ADK was evaluated and rejected as architecturally incompatible with Claude Code's skill runtime.
+
+**Setup:** add an `elevenlabs_api_key` to `~/.banana/config.json` alongside your existing Google/Replicate/Vertex keys, then `python3 skills/video/scripts/elevenlabs_audio.py status` to verify. Creator tier or above recommended (the music API requires a paid subscription). See `references/elevenlabs-audio.md` for the full architecture, voice design walkthrough, prompt engineering for both TTS and music, and the known polish issues (mono mix output, per-voice WPM hardcoded vs auto-measured).
 
 ### Review Gate Enforcement + Smarter Plans (v3.6.3)
 
