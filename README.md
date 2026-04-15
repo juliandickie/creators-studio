@@ -10,7 +10,7 @@ AI image and video generation plugin for Claude Code where **Claude acts as Crea
 Unlike simple API wrappers, Claude interprets your intent, selects domain expertise, constructs optimized prompts, and orchestrates generation for the best possible results — for both still images and video clips with synchronized audio.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-3.7.4-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.8.0-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Origin](https://img.shields.io/badge/origin-AgriciDaniel%2Fbanana--claude-gray)](https://github.com/AgriciDaniel/banana-claude)
 
@@ -38,6 +38,10 @@ Unlike simple API wrappers, Claude interprets your intent, selects domain expert
 ## Features
 
 Built on [AgriciDaniel/banana-claude](https://github.com/AgriciDaniel/banana-claude), extended with features driven by production use and research analysis of Google's prompting guidance:
+
+### Kling v3 as Default Video Model (v3.8.0)
+
+v3.8.0 switches the default video model from VEO 3.1 to Kling v3 Std (via Replicate) after a 15-shot-type head-to-head bake-off. Kling wins 8 of 15 playback-verified shot types (VEO 0), is 7.5× cheaper per 8s clip, natively supports 1:1 Instagram-square aspect ratio, and produces coherent 30-second narratives where VEO's extended workflow produces glitches. VEO remains available as an opt-in backup via `--provider veo`.
 
 ### Audio Polish + Voice Cloning (v3.7.4)
 
@@ -628,16 +632,18 @@ nano-banana-studio/                    # Claude Code Plugin
 │       ├── history.py                 # Session generation history and gallery export
 │       ├── multiformat.py             # Multi-format image converter (PNG/WebP/JPEG)
 │       └── batch.py                  # CSV batch workflow parser
-├── skills/video/                      # Video generation skill (VEO 3.1)
-│   ├── SKILL.md                       # Video Creative Director orchestrator
+├── skills/video/                      # Video generation skill (Kling v3 Std default, VEO 3.1 backup)
+│   ├── SKILL.md                       # Video Creative Director orchestrator (v3.8.0: Kling default)
 │   ├── scripts/
-│   │   ├── video_generate.py          # Async VEO API with polling, --backend routing
+│   │   ├── video_generate.py          # Async video API with polling, --backend/--provider routing
 │   │   ├── _vertex_backend.py         # Vertex AI helper (v3.6.0) — URL composer, request body builder, response parser, --diagnose CLI
-│   │   ├── video_sequence.py          # Multi-shot sequence production pipeline + review gate (v3.6.2/3.6.3)
-│   │   ├── video_extend.py            # Clip extension to 148s via chaining
+│   │   ├── _replicate_backend.py      # Replicate helper (v3.8.0) — Kling v3 Std request builder, full 6-status enum parser, --diagnose CLI
+│   │   ├── video_sequence.py          # Multi-shot sequence production pipeline + review gate (v3.6.2/3.6.3, Kling tiers in v3.8.0)
+│   │   ├── video_extend.py            # DEPRECATED in v3.8.0 — requires --acknowledge-veo-limitations
 │   │   └── video_stitch.py            # FFmpeg concat/trim/convert/info
 │   └── references/
-│       ├── veo-models.md              # VEO model specs, pricing, rate limits
+│       ├── kling-models.md            # v3.8.0 Kling v3 Std default — capabilities, multi_prompt, pricing
+│       ├── veo-models.md              # VEO model specs + v3.8.0 BACKUP ONLY status + Phase 2 Vertex constraints
 │       ├── video-prompt-engineering.md # 5-Part Video Framework, camera motion
 │       ├── video-domain-modes.md      # 6 domain modes + shot types for sequences
 │       ├── video-sequences.md         # Multi-shot production, storyboard approval

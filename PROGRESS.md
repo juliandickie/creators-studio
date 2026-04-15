@@ -7,7 +7,7 @@
 
 - **Repo:** https://github.com/juliandickie/nano-banana-studio
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
-- **Current version:** 3.7.4
+- **Current version:** 3.8.0
 - **Local path:** `/Users/juliandickie/code/nano-banana-pro/nano-banana-studio/`
 - **Plugin layout:** `.claude-plugin/` + `skills/banana/` (image) + `skills/video/` (video) + `agents/`
 
@@ -445,6 +445,101 @@ This was the scheduled post-v3.7.3 polish release closing the known-issues debt 
 **What v3.7.4 is NOT:** no empirical spike (everything was implementation), no new external dependencies (still stdlib-only for HTTP, concurrent.futures, subprocess), no breaking changes (all new flags default to v3.7.2 behaviour), no API calls during build except the smoke-test status check (which doesn't cost anything). The $0 session-cost result is a nice contrast to the v3.7.1/v3.7.2/v3.7.3 releases which each had empirical spike spend.
 
 **Session 15 spend:** $0.00 (implementation-only release, no empirical spike). Cumulative v3.6.x + v3.7.x spend stays at $9.18.
+
+### Session 16 (2026-04-15, evening) — Spike 5: v3.8.0 Provider Bake-Off (Phase 1 + Phase 2)
+
+**Goal**: Answer "is Kling v3 Std or another Replicate video provider a better default than VEO 3.1 Lite?" via empirical head-to-head testing across multiple shot types and providers.
+
+**Scope**: Two-phase spike spanning the entire session.
+
+**Phase 1** (Phase 1 test: 7 Replicate candidates + VEO 3.1 Lite baseline, 2 rounds each = 18 cells, one narrative shot type):
+- **Kling v3 Std won Round B decisively** via `multi_prompt` 6-shot JSON — best character detail preservation, clearest neck-tattoo rendering in the spike
+- **Kling v3 Omni timed out at 25+ minutes** on Round B (multi_prompt + 3 refs + native audio) — operationally unviable, deferred
+- **Seedance 2.0 rejected** — E005 safety filter failed all 4 attempts with different prompts
+- **Deferred**: Runway Gen-4.5, xAI Grok Imagine, Kling 2.5 Turbo Pro (no unique affordance)
+- **Phase 1 recommendation (later reversed in Phase 2)**: keep VEO 3.1 Lite as default, wire Kling v3 Std as secondary. Phase 1 initially identified PrunaAI P-Video as a potential iteration-loop tier but user playback review in session 16 declined to wire it.
+- **Spend**: ~$2.79
+
+**Phase 2** (15-shot-type head-to-head + tier comparison + extended 30s tests):
+- Shot types tested: cinematic narrative, 9:16 talking head, UGC selfie, 1:1 product hero, dialogue two-shot, action sports, POV walk, nature B-roll, fashion studio, anime stylized, brand mascot, hand-object retest, slow-mo hero, walking-and-talking, emotion close-up
+- Core matrix: 15 tests × (Kling v3 Std + VEO 3.1 Fast) = 30 cells, **$18.98**
+- Tier comparison: 4 tier-sensitive tests × (VEO Standard + VEO Lite extras) = 8 cells, **$13.50**
+- Kling extended 30s tests (2×15s multi_prompt chain stitched): 2 tests, **$1.20**, ship-quality narrative arcs
+- VEO extended 30s tests: **4 attempts** before success (model ID → resolution → 15 MB upload limit → keyframe method), **$15.90** total
+- Phase 2 total spend: **$50.18**
+
+**Phase 2 key findings (playback-verified with user)**:
+1. **Kling wins 8 of 15 shot types in playback; VEO wins 0; 7 ties.** Filmstrip analysis alone called 4 of the Kling wins incorrectly (VEO Fast looked competitive in single frames but had playback glitches, unprompted behaviors, or text artifacts that only showed in actual video viewing).
+2. **VEO Fast fixed Phase 1 VEO Lite's book-duplication glitch** — test_12 hand-object retest was clean across all VEO tiers. Phase 1's "VEO is weak at hand tracking" was an overgeneralization from one Round A failure.
+3. **Tier premium is invisible at 1fps sampling** except for dialogue lip-sync (where the trajectory Lite → Fast → Standard DOES improve naturalness). But **Kling beat even VEO Standard on dialogue at 1/20th the cost.**
+4. **Kling extended (2×15s multi_prompt chain) produces coherent narrative arcs at $0.60/30s.** VEO extended via keyframe method produces fragmented output with scene cuts, inconsistent actors, glitches, and audio seam discontinuities. **User verdict on VEO extended: "horrible, do not use."**
+5. **Cost ratio**: Kling $0.16 vs VEO Fast $1.20 (7.5×) vs VEO Standard $3.20 (20×).
+6. **Kling supports 1:1 aspect ratio**; VEO does not.
+7. **VEO's Vertex API has 4 undocumented constraints** (preview vs GA IDs, Scene Extension v2 forced 720p, 15 MB inline upload cap, keyframe method loses audio). Phase 2 navigated all 4 across retries.
+
+**User final decision** (2026-04-15):
+> "The VEO extended clips are horrible — glitches in the video, no consistent actors, definitely do not use and only run Kling. Let's just settle on Kling and have VEO only as a backup if needed after review, when asked for."
+
+**v3.8.0 scope** (locked in after user decision):
+- **Default video model**: `kwaivgi/kling-v3-video` (Kling v3 Std) via Replicate — replaces VEO 3.1 Lite as default
+- ~~**Secondary**: `prunaai/p-video`~~ **REMOVED** — user declined to wire PrunaAI after playback review. Final v3.8.0 roster is deliberately lean: Kling (primary) + VEO (opt-in backup), nothing else.
+- **VEO status**: **opt-in backup only**, not auto-selected. Callable via `--provider veo --tier <lite|fast|standard>` with documented warning that output should be reviewed against Kling before committing
+- **Extended (>15s) workflows**: ONLY Kling 2×15s chain. `video_extend.py` gets a deprecation warning and an `--acknowledge-veo-limitations` gate flag
+- **Deferred to v3.8.x**: retest ByteDance Seedance 2.0 with Phase 2 subjects + avatars (user request — Phase 1 rejected it on safety filter but Phase 2 subjects may handle it differently)
+
+**Session 16 spend**: ~$53 total across both phases (Phase 1 ~$2.79 + Phase 2 ~$50.18). Zero hard-cap breaches (Phase 2 cap raised to $60). Cumulative v3.6.x + v3.7.x + spike 5 spend: **~$62.18**.
+
+**Artifacts**:
+- Full findings doc: `/Users/juliandickie/code/nano-banana-pro/spikes/v3.8.0-provider-bakeoff/writeup/v3.8.0-bakeoff-findings.md`
+- Implementation plan: `/Users/juliandickie/code/nano-banana-pro/spikes/v3.8.0-provider-bakeoff/IMPLEMENTATION_PLAN.md`
+- Handoff doc: `/Users/juliandickie/code/nano-banana-pro/spikes/v3.8.0-provider-bakeoff/NEXT_SESSION.md`
+- Phase 2 test definitions: `/Users/juliandickie/code/nano-banana-pro/spikes/v3.8.0-provider-bakeoff/config/phase2_tests.json`
+- Kling extended 30s outputs (ship-quality): `runs/phase2_extended-2026-04-15T04-39-21Z/ext_01_cinematic_narrative_30s/kling-v3-std/output_stitched.mp4` + `ext_02_product_showcase_30s/kling-v3-std/output_stitched.mp4`
+
+**Session 16 is a research spike, NOT a release.** v3.8.0 implementation is queued for Session 17, which should start by reading `NEXT_SESSION.md` in the spike directory and executing the plan in `IMPLEMENTATION_PLAN.md`.
+
+### Session 17 (2026-04-15, late evening) — v3.8.0 Implementation: Kling v3 Std as default
+
+**Scope:** Execute the IMPLEMENTATION_PLAN.md from the spike directory. Wire Kling v3 Std as the default video model across the plugin, relegating VEO 3.1 to opt-in backup.
+
+**Approach:** Followed the 39-step execution order from `/Users/juliandickie/.claude/plans/toasty-weaving-dusk.md` (session-scoped plan that orchestrated execution of the spike's full spec). TDD discipline for the new `_replicate_backend.py`: wrote failing tests first based on the Kling model card + Replicate OpenAPI schema, verified RED with ImportError, implemented the module in one pass, verified GREEN with all 17 tests passing.
+
+**What shipped:**
+
+1. **New pure-function helper** `skills/video/scripts/_replicate_backend.py` (~500 lines). Mirrors `_vertex_backend.py`'s architecture exactly: URL builder, credential loader, request body builder, response parsers, HTTP helpers, `--diagnose` CLI. Stdlib only. Enforces the Kling model card rules client-side via `validate_kling_params()` — aspect ratio set, duration range, mode set, multi_prompt shot count + min duration + **total duration sum equality**, end_image-requires-start_image, prompt/negative_prompt length caps, and a non-blocking warning when both `aspect_ratio` and `start_image` are provided (Kling ignores the former per the model card).
+
+2. **New reference doc** `skills/video/references/kling-models.md` (~180 lines) citing the Kling v3 Std model card at `dev-docs/kwaivgi-kling-v3-video-llms.md` as the authoritative source.
+
+3. **`video_generate.py` wired for Replicate** — new `BACKEND_REPLICATE` constant, new `--provider/--tier/--replicate-key` argparse flags, new `_submit_replicate/_poll_replicate/_save_video_replicate` functions, new routing rule in `_select_backend()` (Replicate slugs first), new dispatch branches in `_submit_operation/_poll_operation/_save_video`, per-model duration/aspect maps updated for Kling's [3,15] range and {16:9, 9:16, 1:1} ratio set, `DEFAULT_MODEL` changed to `kwaivgi/kling-v3-video`. All additive — zero breaking changes to existing VEO/Gemini paths.
+
+4. **`video_sequence.py` remapped to Kling tiers** — `DEFAULT_SEQUENCE_MODEL` → Kling, `QUALITY_TIER_MODELS` draft/fast/standard/premium/lite/legacy all → Kling, new `veo-backup` tier for opt-in VEO 3.1 Lite, `_veo_cost()` dispatches on slug shape (Kling slugs use `_KLING_PER_SECOND` at ~$0.02/s, VEO uses the existing per-second rates).
+
+5. **`video_extend.py` hard-deprecated** — `--acknowledge-veo-limitations` flag required, exits code 2 with a JSON deprecation message if absent. Preserves backward compat for users who explicitly want VEO extended after reviewing spike 5 findings, but prevents accidental use.
+
+6. **`veo-models.md` reframed as "BACKUP ONLY"** — prepended section with spike 5 scoreboard, 5 Vertex API constraints discovered in Phase 2, and the Lite/Fast/Standard tier comparison findings.
+
+7. **`SKILL.md` orchestrator updated** — Core Principles generalized from VEO-specific to provider-aware, Model Routing table led by Kling default row, VEO warning paragraph with the spike 5 quote, image-to-video caveat for Kling's aspect_ratio + start_image mutual exclusion.
+
+8. **`CLAUDE.md` file responsibilities + Key Constraints** — new rows for `_replicate_backend.py` and `kling-models.md`, 10+ new Key Constraint entries covering the v3.8.0 default change, Kling parameter rules, English+Chinese audio limitation, Cloudflare User-Agent requirement, `Prefer: wait=0` non-compliance, `aborted` status enum handling, and the `video_extend.py` deprecation gate rationale.
+
+9. **Version bump in all 3 files**: `plugin.json` 3.7.4 → 3.8.0, README badge, CITATION.cff. CHANGELOG [3.8.0] section added with Headline/Added/Changed/Deprecated/Fixed/Deferred subsections. README "What's New" paragraph added per the plugin's 1-3-sentence sales-copy rule.
+
+**Test results:**
+- 17/17 unit tests passing on `_replicate_backend.py` (all 6 status enum values handled, multi_prompt duration sum rule enforced, aspect+start_image warning verified)
+- `_replicate_backend.py --diagnose` authenticates against Replicate `/v1/account` (required User-Agent header fix for Cloudflare error 1010 — discovered on first diagnose run, documented in CLAUDE.md Key Constraints)
+- VEO regression tests pass: invalid model errors correctly, `--provider veo --tier lite --duration 99` validates against VEO's `{4,6,8}` set, model routing intact
+- Kling validation tests pass: `--provider kling --duration 20` fails at Kling's [3,15] range, 4K blocked with Kling-aware error message
+- `video_sequence.py estimate` computes $0.60 for a 30-second Kling plan and $1.50 for the same plan via `--quality-tier veo-backup`, both matching the expected per-model pricing
+- `video_extend.py` without `--acknowledge-veo-limitations` exits 2 with the full deprecation message
+
+**Scope decisions during execution:**
+- **Kling chain helper deferred to v3.8.x**: the existing `video_sequence.py` pipeline already handles extended workflows via independent Kling calls per shot. A dedicated chain helper (last-frame extraction + stitch for single continuous long shots) only becomes valuable if a specific use case emerges. Documented in `kling-models.md`.
+- **`video_stitch.py` FFmpeg stitch helper already backend-agnostic** — no changes needed. It concatenates MP4s by filename regardless of which model generated them.
+- **User-Agent hardening to `replicate_generate.py`** flagged in CHANGELOG as a candidate v3.8.x hardening — the image-gen Replicate path doesn't set User-Agent and works only because `/v1/models/.../predictions` endpoints have more lenient Cloudflare rules than `/v1/account`. Low priority given the image-gen path currently works.
+
+**Key insight from execution**: Spike 6's lesson ("consult the pinned dev-docs before running empirical spikes") applied here too — partway through writing my session plan, the user noted I hadn't referenced the dev-docs files (`kwaivgi-kling-v3-video-llms.md`, `replicate-openapi.json`, `replicate-mcp.md`, `replicate-llms.txt`). Cross-checking surfaced 6 material corrections to the initial plan: `Prefer: wait=0` is non-spec-compliant (regex requires N∈[1,60]), `aborted` is a 6th status enum value the spike's client didn't know about, Kling's output is a single URI string (not polymorphic), `aspect_ratio` is ignored when `start_image` is provided, `multi_prompt` total duration must equal the top-level `duration`, audio is English+Chinese only. These all made it into the implementation before any code was written, saving a full debugging round.
+
+**Session 17 status**: v3.8.0 is a shipping release, not a spike. Implementation complete; verification + commit + release queued for the remainder of this session.
 
 ## Expansion Roadmap
 

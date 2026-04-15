@@ -3,6 +3,92 @@
 > Load this when selecting a model for video generation or when the user
 > asks about VEO capabilities, pricing, rate limits, or known limitations.
 
+## v3.8.0 status: BACKUP ONLY
+
+**As of v3.8.0, VEO is no longer the default video model.** Kling v3 Std
+(`kwaivgi/kling-v3-video` via Replicate) replaces it as the default after
+spike 5 (94 generations, ~$53 spend) proved:
+
+1. **Kling wins 8 of 15 playback-verified shot types** to VEO Fast's 0.
+2. **Kling is 7.5× cheaper than VEO Fast** and 20× cheaper than VEO Standard
+   per 8s clip.
+3. **VEO extended workflows** (Scene Extension v2 and keyframe fallback at
+   30 seconds) produced "glitches, inconsistent actors, audio seam
+   discontinuities — horrible, do not use" per user verdict 2026-04-15.
+4. **Kling supports 1:1 aspect ratio** for Instagram-square workflows; VEO
+   does not.
+
+**VEO is still callable** via `--provider veo --tier {lite|fast|standard}`
+(default: `lite`) for workflows where the user specifically wants to review
+VEO output against Kling. But **it is never auto-selected in v3.8.0+**.
+
+When routing a request to VEO, the orchestrator should warn the user:
+> "VEO output was found to have glitches in multi-shot workflows per spike 5
+> findings. Recommend generating both a Kling and VEO version for comparison
+> before committing to VEO for your workflow."
+
+Full spike findings:
+[`spikes/v3.8.0-provider-bakeoff/writeup/v3.8.0-bakeoff-findings.md`](../../../spikes/v3.8.0-provider-bakeoff/writeup/v3.8.0-bakeoff-findings.md)
+
+For the new default, see `references/kling-models.md`.
+
+## v3.8.0 Phase 2 Vertex API constraints (documented here for future sessions)
+
+These 5 constraints were all hit during spike 5 Phase 2 and are now pinned
+here so future sessions don't re-discover them:
+
+1. **Preview model IDs are NOT accessible on all Vertex projects.** Use GA
+   `-001` IDs: `veo-3.1-lite-generate-001`, `veo-3.1-fast-generate-001`,
+   `veo-3.1-generate-001`. The `-preview` suffixes can return HTTP 404
+   depending on project configuration.
+
+2. **Scene Extension v2 forces 720p output.** If you pass a 1080p source
+   clip, Vertex rejects the extension with a resolution mismatch error.
+   Always generate base clips at 720p when planning to use Scene Extension v2.
+
+3. **Scene Extension v2 has a 15 MB inline base64 upload limit.** A 23-second
+   720p clip is already ~16 MB, so **30-second targets are NOT reachable**
+   via the inline path. The plugin error message references "v3.6.1 GCS
+   upload support" as the planned fix; until then, Scene Extension v2 caps
+   at around 22 seconds total duration.
+
+4. **`--method keyframe` as the Scene Extension v2 fallback** loses audio
+   continuity at every seam (each hop is a fresh generation seeded only by
+   the previous last frame) AND produces inconsistent actors in narrative
+   workflows — user verdict: "horrible, do not use" for extended narrative.
+
+5. **VEO duration is {4, 6, 8}** for all tiers. Scene Extension v2 hops are
+   fixed at 7 s. 5-second requests are rejected with
+   `"Unsupported output video duration 5 seconds, supported durations are
+   [8,4,6] for feature text_to_video"`.
+
+6. **VEO aspect ratios are {16:9, 9:16} only.** No 1:1 support. The v3.5.0
+   claim that Lite supported 1:1 was wrong on two counts and was removed in
+   v3.6.0.
+
+## v3.8.0 tier comparison (spike 5 Phase 2B)
+
+Spike 5 Phase 2B tested 4 tier-sensitive shot types across Lite / Fast /
+Standard to answer "is the tier premium worth paying?":
+
+| Tier | Price per 8s | Measured latency (avg) | Visible quality delta at 1 fps sampling |
+|---|---|---|---|
+| Lite | $0.40 | ~130 s | Baseline |
+| Fast | $1.20 | ~125 s | Imperceptible at 1 fps |
+| Standard | $3.20 | ~145 s | Imperceptible at 1 fps; slight dialogue tone improvement in playback |
+
+**Finding**: VEO tier premium is invisible at 1 fps sampling for most shot
+types. Dialogue tests showed progressive improvement (Lite < Fast < Standard)
+in playback but **Kling beat even VEO Standard** on dialogue at 1/20th the
+cost per clip.
+
+**Recommendation**: If a user opts into VEO, use Lite
+(`veo-3.1-lite-generate-001`) as the default tier. Fast and Standard tier
+premiums are only worth the cost for explicit lip-sync-critical hero shots
+that the user is willing to playback-verify.
+
+---
+
 ## Backend Availability (v3.6.0+)
 
 VEO 3.1 is served via two different Google API backends with **different

@@ -44,29 +44,52 @@ MAX_SHOT_DURATION = 8
 
 # Default model for sequences. Individual shots (shot["model"]) and
 # sequence-level overrides (plan["model"]) take precedence over this.
-DEFAULT_SEQUENCE_MODEL = "veo-3.1-generate-preview"
+#
+# v3.8.0+: Kling v3 Std replaces VEO 3.1 Standard as the default after
+# spike 5 decisively proved Kling wins 8 of 15 playback-verified shot
+# types to VEO Fast's 0, at 7.5x lower cost. VEO remains callable as an
+# opt-in backup via the `veo-backup` quality tier.
+DEFAULT_SEQUENCE_MODEL = "kwaivgi/kling-v3-video"
 DEFAULT_SEQUENCE_RESOLUTION = "1080p"
 
 # Quality-tier CLI flag maps to concrete model IDs.
 #
-# v3.6.0: `draft` is now Lite (the original v3.5.0 promise). Lite,
-# Legacy, and the GA `-001` IDs are reachable via the Vertex AI backend
-# that v3.6.0 added. video_generate.py auto-routes these models through
-# Vertex; the user only needs Vertex credentials in ~/.banana/config.json.
+# v3.8.0: All auto-selected tiers route to Kling v3 Std. Kling's flat
+# $0.16/8s (pro mode 1080p) is cheap enough to serve BOTH draft and
+# premium tiers — no point in a separate draft tier when the premium
+# tier is already ~3x cheaper than VEO Lite. VEO is the only alternative
+# and ships as the `veo-backup` tier requiring explicit user opt-in.
 #
-# Cost reduction vs Standard for the draft pass:
-#   draft (Lite, $0.05/sec) → 8× cheaper than Standard ($0.40/sec)
-#   fast  (Fast, $0.15/sec) → 2.7× cheaper than Standard
+# Historical note: v3.6.0-v3.7.x used a 5-tier VEO-only ladder (draft,
+# fast, standard, lite, legacy). v3.8.0 collapses the draft/fast/standard/
+# premium tiers into Kling because the Kling quality delta is invisible
+# at most viewing conditions and the cost math no longer justifies the
+# split. The `lite` and `legacy` aliases are preserved for backward
+# compat with pre-v3.8.0 shot plans but point to Kling, not VEO.
 QUALITY_TIER_MODELS = {
-    "draft": "veo-3.1-lite-generate-001",          # 8× cheaper than Standard
-    "fast": "veo-3.1-fast-generate-preview",       # 2.7× cheaper
-    "standard": "veo-3.1-generate-preview",
-    "lite": "veo-3.1-lite-generate-001",           # alias for draft
-    "legacy": "veo-3.0-generate-001",
+    "draft": "kwaivgi/kling-v3-video",        # Kling Std at $0.16/8s
+    "fast": "kwaivgi/kling-v3-video",         # same model, same price
+    "standard": "kwaivgi/kling-v3-video",     # default tier
+    "premium": "kwaivgi/kling-v3-video",      # Kling IS the premium
+    # Backward-compat aliases — point to Kling, NOT VEO, per v3.8.0 default
+    "lite": "kwaivgi/kling-v3-video",
+    "legacy": "kwaivgi/kling-v3-video",
+    # Opt-in VEO backup. Requires explicit --quality-tier veo-backup and
+    # acknowledgment that spike 5 found VEO's multi-shot workflows produce
+    # glitches. VEO Lite is used as the cheapest VEO path; Fast and Standard
+    # tier premiums were imperceptible at 1fps sampling (spike 5 Phase 2B).
+    "veo-backup": "veo-3.1-lite-generate-001",
 }
 
-# Fallback per-second rates matching cost_tracker.PRICING. Kept in sync by
-# convention rather than import to preserve this script's stdlib-only posture.
+# Per-clip pricing (v3.8.0+). Kling uses flat-per-clip pricing based on
+# duration, not per-second like VEO. The keys below match both VEO model
+# IDs (priced per-second) and Kling's slug (priced per-clip). _veo_cost()
+# below dispatches on the key shape.
+#
+# Kling pricing source: Kling v3 Std model card + spike 5 observed costs.
+#   8 s @ pro mode (1080p): $0.16
+#   15 s @ pro mode (1080p): ~$0.30
+#   Approximate linear scaling at ~$0.02/s for the 3-15 range.
 _VEO_PER_SECOND = {
     "veo-3.1-generate-preview": 0.40,
     "veo-3.1-generate-001": 0.40,
@@ -74,6 +97,12 @@ _VEO_PER_SECOND = {
     "veo-3.1-fast-generate-001": 0.15,
     "veo-3.1-lite-generate-001": 0.05,
     "veo-3.0-generate-001": 0.15,
+}
+_KLING_PER_SECOND = {
+    # Kling v3 Std at pro mode (1080p) — our default. $0.16/8s = $0.02/s.
+    # Slightly higher effective rate at 3-6 s (fixed per-call overhead) but
+    # the difference is rounding-noise for the plugin's budget math.
+    "kwaivgi/kling-v3-video": 0.02,
 }
 
 SHOT_TYPES = (
@@ -151,7 +180,17 @@ def _shot_defaults(shot_type):
 
 
 def _veo_cost(model, duration_seconds):
-    """Local VEO cost lookup. Mirrors cost_tracker._veo_cost but stdlib-only."""
+    """Local per-clip cost lookup. Mirrors cost_tracker._veo_cost but
+    stdlib-only, and v3.8.0+ handles both Kling (slug with "/") and VEO
+    (plain model ID) rates. Returns None for unknown models so callers can
+    decide whether to treat unknown as zero-cost or opaque."""
+    # Kling: model slug contains "/"
+    if "/" in model:
+        rate = _KLING_PER_SECOND.get(model)
+        if rate is None:
+            return None
+        return round(rate * duration_seconds, 4)
+    # VEO: plain model ID
     rate = _VEO_PER_SECOND.get(model)
     if rate is None:
         return None
@@ -1391,9 +1430,14 @@ def main():
     p_est = subparsers.add_parser("estimate", help="Print cost estimate from plan")
     p_est.add_argument("--plan", required=True, help="Path to shot-list.json")
     p_est.add_argument(
-        "--quality-tier", choices=["draft", "fast", "standard", "lite", "legacy"],
+        "--quality-tier",
+        choices=["draft", "fast", "standard", "premium", "lite", "legacy", "veo-backup"],
         default=None,
-        help="Override model for all shots (draft|fast|standard|legacy)",
+        help=(
+            "Override model for all shots. v3.8.0+: draft/fast/standard/"
+            "premium/lite/legacy all point to Kling v3 Std (flat $0.16/8s). "
+            "veo-backup routes to VEO 3.1 Lite — opt-in only, see spike 5 findings."
+        ),
     )
 
     # -- generate --
@@ -1406,16 +1450,20 @@ def main():
     p_gen.add_argument("--api-key", default=None, help="Google AI API key")
     p_gen.add_argument("--output", default=None, help="Output directory for clips")
     p_gen.add_argument(
-        "--quality-tier", choices=["draft", "fast", "standard", "lite", "legacy"],
+        "--quality-tier",
+        choices=["draft", "fast", "standard", "premium", "lite", "legacy", "veo-backup"],
         default=None,
         help=(
-            "Override model for all shots. 'draft' (alias 'lite') uses Lite "
-            "($0.05/sec, 8x cheaper than Standard) as the first-pass "
-            "review tier. 'fast' uses Fast ($0.15/sec, 2.7x cheaper). "
-            "'standard' uses the flagship Standard tier for final renders. "
-            "'legacy' uses VEO 3.0. Lite/Legacy/GA models auto-route through "
-            "Vertex AI — requires vertex_api_key in ~/.banana/config.json. "
-            "See references/video-sequences.md for the draft-then-final workflow."
+            "Override model for all shots. v3.8.0+: draft/fast/standard/"
+            "premium/lite/legacy ALL route to Kling v3 Std ($0.16/8s flat). "
+            "Kling's quality is cheap enough that a separate draft tier no "
+            "longer makes sense. veo-backup is the opt-in VEO 3.1 Lite path "
+            "for workflows that specifically want VEO output reviewed against "
+            "Kling — requires vertex_api_key in ~/.banana/config.json and "
+            "you should review the spike 5 findings at "
+            "spikes/v3.8.0-provider-bakeoff/writeup/v3.8.0-bakeoff-findings.md "
+            "before committing to VEO for production work. "
+            "See references/video-sequences.md for the workflow guide."
         ),
     )
     p_gen.add_argument(
@@ -1451,7 +1499,8 @@ def main():
         help="Path for the generated REVIEW-SHEET.md (default: <storyboard>/REVIEW-SHEET.md)",
     )
     p_rev.add_argument(
-        "--quality-tier", choices=["draft", "fast", "standard", "lite", "legacy"],
+        "--quality-tier",
+        choices=["draft", "fast", "standard", "premium", "lite", "legacy", "veo-backup"],
         default=None,
         help="Preview the cost breakdown at this tier (matches generate --quality-tier)",
     )

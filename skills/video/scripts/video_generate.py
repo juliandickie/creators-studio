@@ -33,9 +33,19 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _vertex_backend as vertex  # noqa: E402
 
+# Replicate backend helper (v3.8.0). Wires Kling v3 Std as the default
+# video model after spike 5 decisively beat VEO 3.1 on 8 of 15 shot types
+# at 7.5x lower cost. Stdlib-only like the Vertex helper. The backend
+# path is chosen by _select_backend() based on whether the model slug
+# contains "/" (owner/name format = Replicate).
+import _replicate_backend as replicate  # noqa: E402
+
 API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 OPERATIONS_BASE = "https://generativelanguage.googleapis.com/v1beta"
-DEFAULT_MODEL = "veo-3.1-generate-preview"
+# v3.8.0+: Kling v3 Std is the default video model. VEO 3.1 is the opt-in
+# backup via --provider veo. See spikes/v3.8.0-provider-bakeoff/ and
+# skills/video/references/kling-models.md for the bake-off findings.
+DEFAULT_MODEL = "kwaivgi/kling-v3-video"
 DEFAULT_DURATION = 8
 DEFAULT_RATIO = "16:9"
 DEFAULT_RESOLUTION = "1080p"
@@ -43,8 +53,8 @@ DEFAULT_POLL_INTERVAL = 10
 DEFAULT_MAX_WAIT = 300
 OUTPUT_DIR = Path.home() / "Documents" / "nanobanana_generated"
 
-# All VEO 3.x model IDs the plugin knows about. Not every ID is callable
-# through every backend — see MODELS_VERTEX_ONLY below.
+# All video model IDs the plugin knows about. Not every ID is callable
+# through every backend — see MODELS_VERTEX_ONLY and MODELS_REPLICATE below.
 VALID_MODELS = {
     # Preview IDs — callable on both Gemini API and Vertex AI
     "veo-3.1-generate-preview",       # Standard (flagship, highest quality)
@@ -54,6 +64,14 @@ VALID_MODELS = {
     "veo-3.1-fast-generate-001",      # Fast GA
     "veo-3.1-lite-generate-001",      # Lite (draft tier, 5-60s range)
     "veo-3.0-generate-001",           # Legacy (predecessor)
+    # v3.8.0+: Kling v3 Std via Replicate (DEFAULT as of v3.8.0)
+    "kwaivgi/kling-v3-video",         # Kling v3 Std (multi_prompt, 1:1, native audio)
+}
+
+# Replicate model slugs (owner/name format). The _select_backend() router
+# treats any model containing "/" as a Replicate model.
+MODELS_REPLICATE = {
+    "kwaivgi/kling-v3-video",
 }
 
 # These model IDs return HTTP 404 from `generativelanguage.googleapis.com`
@@ -79,11 +97,13 @@ VIDEO_INPUT_VERTEX_ONLY = True
 
 # Backend selection for --backend auto. v3.6.0 adds a real Vertex AI
 # backend (via _vertex_backend.py) that reaches models and features the
-# Gemini API surface does not serve.
+# Gemini API surface does not serve. v3.8.0 adds a Replicate backend
+# (via _replicate_backend.py) that serves Kling v3 Std as the new default.
 BACKEND_GEMINI_API = "gemini-api"
 BACKEND_VERTEX_AI = "vertex-ai"
+BACKEND_REPLICATE = "replicate"
 BACKEND_AUTO = "auto"
-VALID_BACKENDS = {BACKEND_GEMINI_API, BACKEND_VERTEX_AI, BACKEND_AUTO}
+VALID_BACKENDS = {BACKEND_GEMINI_API, BACKEND_VERTEX_AI, BACKEND_REPLICATE, BACKEND_AUTO}
 
 # Scene Extension v2 on Vertex has a single fixed durationSeconds. All
 # other values are rejected with "supported durations are [7] for
@@ -117,22 +137,30 @@ DOWNLOAD_RETENTION_HOURS = 48
 # [8,4,6] for feature text_to_video".
 STANDARD_DURATIONS = {4, 6, 8}
 VALID_DURATIONS_BY_MODEL = {
-    # No model-specific overrides — all VEO 3.1 tiers use STANDARD_DURATIONS.
-    # Kept as an empty dict so future models with different ranges (e.g. a
-    # long-form tier) have a natural place to land.
+    # VEO 3.1 tiers all use STANDARD_DURATIONS (the empty-dict default).
+    # Kling v3 Std accepts any integer in [3, 15] per the Kling model card
+    # at dev-docs/kwaivgi-kling-v3-video-llms.md. We expand the range to
+    # an explicit set so the existing `duration not in valid_durations`
+    # check works without conditional logic.
+    "kwaivgi/kling-v3-video": set(range(3, 16)),
 }
 
 STANDARD_RATIOS = {"16:9", "9:16"}
 VALID_RATIOS_BY_MODEL = {
-    # No model-specific overrides — all VEO 3.1 tiers use STANDARD_RATIOS.
-    # v3.5.0 documented 1:1 support for Lite but that claim was wrong on
-    # two counts: the Vertex AI reference page explicitly lists only
-    # "16:9" and "9:16" as valid aspectRatio values, and we also found
-    # _vertex_backend.py validates this at the request boundary.
+    # VEO 3.1 tiers all use STANDARD_RATIOS (the empty-dict default).
+    # Kling v3 Std supports 1:1 per the Kling model card — the only
+    # plugin-registered model that does. v3.5.0 documented 1:1 for VEO
+    # Lite but that claim was wrong; Vertex AI explicitly rejects it.
+    "kwaivgi/kling-v3-video": {"16:9", "9:16", "1:1"},
 }
 
 # Lite does NOT support 4K per reference doc line 55, 274.
-MODELS_WITHOUT_4K = {"veo-3.1-lite-generate-001", "veo-3.0-generate-001"}
+# Kling v3 Std maxes at 1080p (pro mode) per the Kling model card.
+MODELS_WITHOUT_4K = {
+    "veo-3.1-lite-generate-001",
+    "veo-3.0-generate-001",
+    "kwaivgi/kling-v3-video",
+}
 
 VALID_RESOLUTIONS = {"720p", "1080p", "4K"}
 
@@ -150,19 +178,28 @@ def _valid_ratios(model):
 def _select_backend(args):
     """Return which backend to use for this request.
 
-    `--backend auto` routing rules (in precedence order):
-    1. `--video-input` set → Vertex (Gemini API rejects inline video)
-    2. `--first-frame` / `--last-frame` / `--reference-image` set → Vertex
+    `--backend auto` routing rules (in precedence order, v3.8.0+):
+    1. `--model` is a Replicate slug (contains "/") → Replicate (Kling path)
+    2. `--video-input` set → Vertex (Gemini API rejects inline video)
+    3. `--first-frame` / `--last-frame` / `--reference-image` set → Vertex
        (Gemini API rejects the inlineData image parts for VEO as of 2026-04-10)
-    3. `--model` is a GA `-001` ID → Vertex (Gemini API returns 404)
-    4. `--model` is Lite or Legacy 3.0 → Vertex (Gemini API returns 404)
-    5. Otherwise (text-only on a preview ID) → Gemini API (preserves the
+    4. `--model` is a GA `-001` ID → Vertex (Gemini API returns 404)
+    5. `--model` is Lite or Legacy 3.0 → Vertex (Gemini API returns 404)
+    6. Otherwise (text-only on a preview ID) → Gemini API (preserves the
        v3.4.x code path for backward compat)
 
-    Explicit `--backend gemini-api` or `--backend vertex-ai` always wins.
+    Explicit `--backend gemini-api` / `--backend vertex-ai` / `--backend replicate`
+    always wins.
     """
     if args.backend != BACKEND_AUTO:
         return args.backend
+
+    # v3.8.0: Replicate model slugs contain "/" (owner/name format). This
+    # check is first so a user who explicitly sets --model kwaivgi/... gets
+    # routed to Replicate regardless of other flags. The Vertex/VEO path
+    # is preserved for model IDs without "/".
+    if "/" in args.model:
+        return BACKEND_REPLICATE
 
     # Any form of non-text input forces Vertex.
     if args.video_input or args.first_frame or args.last_frame or args.reference_image:
@@ -429,15 +466,136 @@ def _submit_vertex_ai(prompt, model, duration, ratio, resolution,
     return op_name
 
 
-def _submit_operation(*, backend, vertex_creds, **kwargs):
+def _submit_replicate(prompt, model, duration, ratio, resolution,
+                      replicate_creds,
+                      first_frame=None, last_frame=None, ref_images=None,
+                      negative_prompt=None, seed=None, video_input=None):
+    """POST to Replicate's predictions API for Kling v3 Std (v3.8.0+).
+
+    Translates the VEO-shaped kwargs to Kling's input schema:
+      - resolution → mode (720p → standard, 1080p → pro, 4K blocked)
+      - first_frame → start_image data URI
+      - last_frame → end_image data URI
+      - ref_images, video_input, seed: NOT supported by Kling v3 Std;
+        callers that need these must switch to --provider veo.
+
+    Uses _replicate_backend.validate_kling_params for the model-card rules
+    (multi_prompt duration sum, start_image+aspect_ratio warning, etc.).
+    Returns the prediction poll URL (not a prediction id) so _poll_replicate
+    can GET directly without reconstructing the URL.
+    """
+    # Pre-flight: reject unsupported VEO-only features early.
+    if ref_images:
+        _error_exit(
+            "--reference-image is not supported by Kling v3 Std. "
+            "Kling uses start_image + end_image for image-driven generation. "
+            "For reference-image workflows, use --provider veo."
+        )
+    if video_input:
+        _error_exit(
+            "--video-input (Scene Extension v2) is not supported by Kling v3 Std. "
+            "Kling's extended workflow uses multi_prompt chain via video_sequence.py. "
+            "If you specifically need VEO Scene Extension v2, use "
+            "--provider veo and acknowledge the spike 5 findings."
+        )
+
+    # Translate resolution → mode. Kling maxes at 1080p (pro). 4K was
+    # already blocked upstream by MODELS_WITHOUT_4K, but double-check
+    # defensively at the backend boundary.
+    if resolution == "720p":
+        mode = "standard"
+    elif resolution == "1080p":
+        mode = "pro"
+    else:
+        # 4K should have been caught upstream, but if it slips through,
+        # downgrade silently with a progress note.
+        _progress({
+            "status": "resolution_downgraded",
+            "reason": "Kling v3 Std maxes at 1080p (pro mode)",
+            "from": resolution,
+            "to": "1080p",
+        })
+        mode = "pro"
+
+    # Translate first_frame / last_frame to Replicate data URIs.
+    start_image_uri = None
+    end_image_uri = None
+    if first_frame:
+        try:
+            start_image_uri = replicate.image_path_to_data_uri(Path(first_frame))
+        except replicate.ReplicateValidationError as e:
+            _error_exit(f"Kling first-frame encode failed: {e}")
+    if last_frame:
+        try:
+            end_image_uri = replicate.image_path_to_data_uri(Path(last_frame))
+        except replicate.ReplicateValidationError as e:
+            _error_exit(f"Kling last-frame encode failed: {e}")
+
+    # Validate parameters against the Kling model card rules.
+    try:
+        replicate.validate_kling_params(
+            aspect_ratio=ratio,
+            duration=duration,
+            mode=mode,
+            start_image=start_image_uri,
+            end_image=end_image_uri,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+        )
+    except replicate.ReplicateValidationError as e:
+        _error_exit(f"Kling parameter validation failed: {e}")
+
+    # Build request body and URL.
+    body = replicate.build_kling_request_body(
+        prompt=prompt,
+        duration=duration,
+        aspect_ratio=ratio,
+        mode=mode,
+        negative_prompt=negative_prompt,
+        start_image=start_image_uri,
+        end_image=end_image_uri,
+    )
+    url = replicate.build_predictions_url(model)
+
+    _progress({
+        "status": "submitting",
+        "backend": BACKEND_REPLICATE,
+        "model": model,
+        "duration": duration,
+        "mode": mode,
+        "aspect_ratio": ratio,
+    })
+
+    try:
+        result = replicate.replicate_post(
+            url, body, token=replicate_creds["api_token"], timeout=120
+        )
+        prediction_id, poll_url = replicate.parse_replicate_submit_response(result)
+    except replicate.ReplicateBackendError as e:
+        _error_exit(f"Replicate submit failed: {e}")
+
+    _progress({
+        "status": "submitted",
+        "backend": BACKEND_REPLICATE,
+        "prediction_id": prediction_id,
+    })
+    # Return the poll URL — _poll_replicate needs the full URL, not just
+    # the prediction ID. This differs from the Vertex path which uses an
+    # operation name + separate method call.
+    return poll_url
+
+
+def _submit_operation(*, backend, vertex_creds, replicate_creds=None, **kwargs):
     """Dispatch to the right backend.
 
-    kwargs are forwarded to either _submit_gemini_api or _submit_vertex_ai.
-    Both take compatible keyword signatures: prompt, model, duration, ratio,
-    resolution, first_frame, last_frame, ref_images, negative_prompt, seed,
-    video_input. The Gemini path also takes `api_key`; the Vertex path takes
-    `vertex_creds` instead. The dispatcher translates.
+    kwargs are forwarded to the backend-specific submit function. All backends
+    share the core shape: prompt, model, duration, ratio, resolution,
+    first_frame, last_frame, ref_images, negative_prompt, seed, video_input.
+    Per-backend credentials are passed as explicit kwargs (vertex_creds,
+    replicate_creds) or threaded through kwargs (api_key for Gemini API).
     """
+    if backend == BACKEND_REPLICATE:
+        return _submit_replicate(replicate_creds=replicate_creds, **kwargs)
     if backend == BACKEND_VERTEX_AI:
         return _submit_vertex_ai(vertex_creds=vertex_creds, **kwargs)
     # Gemini API path: the api_key is already in kwargs as api_key=...
@@ -540,15 +698,79 @@ def _poll_vertex_ai(operation_name, model, vertex_creds, interval, max_wait):
         _error_exit(f"Vertex operation failed: {msg}")
 
 
-def _poll_operation(*, backend, operation_name, api_key, vertex_creds, model,
-                    interval, max_wait):
+def _poll_replicate(poll_url, replicate_creds, interval, max_wait):
+    """Poll a Replicate prediction URL until it reaches a terminal state.
+
+    poll_url is the full prediction GET URL returned by _submit_replicate
+    (extracted from the submit response's urls.get field).
+
+    Returns a tuple (status, payload):
+      ("done", output_url_string)  — caller should download from the URL
+
+    Raises via _error_exit() for failed / canceled / aborted / timeout.
+    The Replicate Prediction.status enum has 6 values; parse_replicate_poll_
+    response() already maps failed/canceled/aborted to the "failed" bucket.
+    """
+    start = time.time()
+
+    while True:
+        elapsed = time.time() - start
+        if elapsed > max_wait:
+            _error_exit(
+                f"Timeout: Replicate prediction not done after {max_wait}s. "
+                f"Poll URL: {poll_url}"
+            )
+
+        try:
+            result = replicate.replicate_get(
+                poll_url, token=replicate_creds["api_token"], timeout=30
+            )
+            status, payload = replicate.parse_replicate_poll_response(result)
+        except replicate.ReplicateBackendError as e:
+            _error_exit(f"Replicate poll failed: {e}")
+
+        if status == "running":
+            _progress({
+                "polling": True,
+                "backend": BACKEND_REPLICATE,
+                "elapsed": int(elapsed),
+                "status": "processing",
+            })
+            time.sleep(interval)
+            continue
+
+        if status == "done":
+            # Kling v3 Std output is a single URI string per the model card.
+            # Defensively handle list output for forward-compat with other
+            # Replicate models that return arrays.
+            if isinstance(payload, list):
+                payload = payload[0] if payload else None
+            if not payload:
+                _error_exit("Replicate prediction succeeded but output is empty.")
+            return ("done", payload)
+
+        # status == "failed" (covers failed | canceled | aborted)
+        err_str = str(payload) if payload else "unknown error"
+        if "safety" in err_str.lower() or "nsfw" in err_str.lower():
+            _error_exit(f"VIDEO_SAFETY: {err_str}")
+        _error_exit(f"Replicate prediction failed: {err_str}")
+
+
+def _poll_operation(*, backend, operation_name, api_key, vertex_creds,
+                    replicate_creds, model, interval, max_wait):
     """Dispatch polling to the right backend.
 
     Returns:
         - For Gemini API: the raw response dict (legacy shape), for _save_video
         - For Vertex: a tuple ("done", [video_bytes, ...]) or
                      ("service_agent_provisioning", error_dict)
+        - For Replicate: a tuple ("done", output_url_string)
+
+    For Replicate, operation_name is actually the poll URL (full HTTPS URL)
+    returned by _submit_replicate — not a prediction ID.
     """
+    if backend == BACKEND_REPLICATE:
+        return _poll_replicate(operation_name, replicate_creds, interval, max_wait)
     if backend == BACKEND_VERTEX_AI:
         return _poll_vertex_ai(operation_name, model, vertex_creds, interval, max_wait)
     return _poll_gemini_api(operation_name, api_key, interval, max_wait)
@@ -642,13 +864,57 @@ def _save_video_vertex_ai(video_bytes_list, output_dir):
     return str(output_path)
 
 
+def _save_video_replicate(output_url, output_dir):
+    """Download a video from Replicate's delivery URL and save it locally.
+
+    Replicate returns a pre-signed URL on succeeded predictions that's
+    accessible without auth (the URL itself is the capability token). The
+    URL typically lives at replicate.delivery/... and expires after a few
+    hours, so we download immediately.
+    """
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    filename = f"video_{timestamp}.mp4"
+    output_path = (out / filename).resolve()
+
+    _progress({
+        "status": "downloading",
+        "backend": BACKEND_REPLICATE,
+        "url": output_url,
+    })
+
+    try:
+        req = urllib.request.Request(output_url)
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            with open(output_path, "wb") as f:
+                while True:
+                    chunk = resp.read(8192)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+    except (urllib.error.URLError, urllib.error.HTTPError) as e:
+        _error_exit(f"Failed to download Replicate video: {e}")
+
+    return str(output_path)
+
+
 def _save_video(*, backend, poll_result, output_dir, api_key=None):
     """Dispatch save to the right backend.
 
     poll_result is whatever _poll_operation returned for this backend:
       - Gemini API: the raw response dict
       - Vertex AI: a tuple (status, payload)
+      - Replicate: a tuple ("done", output_url_string)
     """
+    if backend == BACKEND_REPLICATE:
+        status, output_url = poll_result
+        if status != "done":
+            _error_exit(
+                f"_save_video called for Replicate with status={status!r}; "
+                f"expected 'done'. Caller bug."
+            )
+        return _save_video_replicate(output_url, output_dir)
     if backend == BACKEND_VERTEX_AI:
         status, payload = poll_result
         if status != "done":
@@ -664,21 +930,41 @@ def main():
     parser = argparse.ArgumentParser(description="Generate video via Google VEO 3.1 REST API")
     parser.add_argument("--prompt", required=True, help="Video generation prompt")
     parser.add_argument("--duration", type=int, default=DEFAULT_DURATION,
-                        help=f"Duration in seconds. All VEO 3.1 tiers: {{4,6,8}}. "
+                        help=f"Duration in seconds. VEO 3.1 tiers: {{4,6,8}}. "
+                             f"Kling v3 Std: any integer in [3, 15]. "
                              f"Scene Extension v2 (--video-input) uses 7. "
                              f"(default: {DEFAULT_DURATION})")
     parser.add_argument("--aspect-ratio", default=DEFAULT_RATIO,
-                        help=f"Aspect ratio. All VEO 3.1 tiers: 16:9 or 9:16. "
+                        help=f"Aspect ratio. VEO 3.1 tiers: 16:9 or 9:16. "
+                             f"Kling v3 Std: 16:9, 9:16, or 1:1. "
                              f"(default: {DEFAULT_RATIO})")
     parser.add_argument("--resolution", default=DEFAULT_RESOLUTION,
                         help=f"Resolution: 720p, 1080p, 4K. "
-                             f"Lite and 3.0 do not support 4K. (default: {DEFAULT_RESOLUTION})")
-    parser.add_argument("--model", default=DEFAULT_MODEL,
-                        help=f"Model ID. Options: veo-3.1-generate-preview (Standard), "
-                             f"veo-3.1-fast-generate-preview (Fast), "
-                             f"veo-3.1-lite-generate-001 (Lite/draft), "
-                             f"veo-3.0-generate-001 (Legacy). "
-                             f"(default: {DEFAULT_MODEL})")
+                             f"VEO Lite/Legacy and Kling v3 Std do not support 4K. "
+                             f"Kling translates 720p→standard, 1080p→pro mode. "
+                             f"(default: {DEFAULT_RESOLUTION})")
+    parser.add_argument("--model", default=None,
+                        help=f"Explicit model ID. If unset, resolved from --provider. "
+                             f"Options: kwaivgi/kling-v3-video (default, Kling v3 Std), "
+                             f"veo-3.1-generate-preview (VEO Standard), "
+                             f"veo-3.1-fast-generate-preview (VEO Fast), "
+                             f"veo-3.1-lite-generate-001 (VEO Lite), "
+                             f"veo-3.0-generate-001 (VEO Legacy). "
+                             f"Explicit --model overrides --provider. "
+                             f"(default: {DEFAULT_MODEL} via --provider auto)")
+    parser.add_argument("--provider", default="auto",
+                        choices=["auto", "kling", "veo"],
+                        help="Video provider. 'auto' defaults to Kling v3 Std (v3.8.0+). "
+                             "'kling' forces Kling v3 Std. 'veo' forces VEO 3.1 (with --tier). "
+                             "Per spike 5 findings, Kling wins 8 of 15 shot types vs VEO 0, "
+                             "at 7.5x lower cost. VEO is opt-in backup only. "
+                             "(default: auto)")
+    parser.add_argument("--tier", default=None,
+                        choices=["lite", "fast", "standard"],
+                        help="VEO tier (used with --provider veo). 'lite' is cheapest "
+                             "and recommended per spike 5 — Fast and Standard tier "
+                             "premiums were imperceptible at 1fps sampling. "
+                             "(default: lite when --provider veo)")
     parser.add_argument("--first-frame", default=None, help="Path to first frame image")
     parser.add_argument("--last-frame", default=None, help="Path to last frame image")
     parser.add_argument("--reference-image", nargs="+", default=None,
@@ -714,8 +1000,28 @@ def main():
     parser.add_argument("--vertex-location", default=None,
                         help="Vertex AI region (e.g. us-central1). Loads from VERTEX_LOCATION "
                              "env or ~/.banana/config.json if unset. Defaults to us-central1.")
+    parser.add_argument("--replicate-key", default=None,
+                        help="Replicate API token (for Kling v3 Std). Loads from "
+                             "REPLICATE_API_TOKEN env or ~/.banana/config.json "
+                             "replicate_api_token field if unset. Set via "
+                             "`python3 skills/banana/scripts/setup_mcp.py --replicate-key TOKEN`.")
 
     args = parser.parse_args()
+
+    # v3.8.0: Resolve --provider to a concrete --model if --model wasn't
+    # explicitly set. Explicit --model always wins — this lets power users
+    # override the provider mapping without fighting argparse defaults.
+    if args.model is None:
+        if args.provider in ("auto", "kling"):
+            args.model = "kwaivgi/kling-v3-video"
+        elif args.provider == "veo":
+            tier = args.tier or "lite"
+            veo_tier_map = {
+                "lite": "veo-3.1-lite-generate-001",
+                "fast": "veo-3.1-fast-generate-001",
+                "standard": "veo-3.1-generate-001",
+            }
+            args.model = veo_tier_map[tier]
 
     # Prompt length sanity check (VEO 3.1 = 1,024 token limit, English only).
     # Approximate: ~4 chars/token for English prose.
@@ -783,10 +1089,19 @@ def main():
     if args.resolution not in VALID_RESOLUTIONS:
         _error_exit(f"Invalid resolution '{args.resolution}'. Valid: {sorted(VALID_RESOLUTIONS)}")
     if args.resolution == "4K" and args.model in MODELS_WITHOUT_4K:
-        _error_exit(
-            f"{args.model} does not support 4K resolution. "
-            f"Use 'veo-3.1-generate-preview' or 'veo-3.1-fast-generate-preview' for 4K."
-        )
+        if args.model in MODELS_REPLICATE:
+            _error_exit(
+                f"{args.model} does not support 4K. "
+                f"Kling v3 Std maxes at 1080p (pro mode). "
+                f"Use --resolution 1080p for the highest Kling quality, or "
+                f"--provider veo with --resolution 4K if you specifically need "
+                f"4K output (VEO Fast/Standard preview IDs only)."
+            )
+        else:
+            _error_exit(
+                f"{args.model} does not support 4K resolution. "
+                f"Use 'veo-3.1-generate-preview' or 'veo-3.1-fast-generate-preview' for 4K."
+            )
 
     if args.reference_image and len(args.reference_image) > 3:
         _error_exit("Maximum 3 reference images allowed")
@@ -839,12 +1154,27 @@ def main():
             args.duration = VIDEO_EXTENSION_FIXED_DURATION
 
     # Load credentials for whichever backend we're going to use.
-    # The Gemini API path uses the existing google_ai_api_key; the Vertex
-    # path uses vertex_api_key + vertex_project_id + vertex_location.
+    # The Gemini API path uses google_ai_api_key; the Vertex path uses
+    # vertex_api_key + vertex_project_id + vertex_location; the Replicate
+    # path uses replicate_api_token (same token the image-gen side stores
+    # via setup_mcp.py).
     api_key = None
     vertex_creds = None
+    replicate_creds = None
     if backend == BACKEND_GEMINI_API:
         api_key = _load_api_key(args.api_key)
+    elif backend == BACKEND_REPLICATE:
+        try:
+            replicate_creds = replicate.load_replicate_credentials(
+                cli_token=args.replicate_key,
+            )
+        except replicate.ReplicateAuthError as e:
+            _error_exit(str(e))
+        _progress({
+            "status": "backend_selected",
+            "backend": BACKEND_REPLICATE,
+            "model": args.model,
+        })
     else:
         try:
             vertex_creds = vertex.load_vertex_credentials(
@@ -889,6 +1219,7 @@ def main():
         operation_name = _submit_operation(
             backend=backend,
             vertex_creds=vertex_creds,
+            replicate_creds=replicate_creds,
             **submit_kwargs,
         )
         poll_result = _poll_operation(
@@ -896,6 +1227,7 @@ def main():
             operation_name=operation_name,
             api_key=api_key,
             vertex_creds=vertex_creds,
+            replicate_creds=replicate_creds,
             model=args.model,
             interval=args.poll_interval,
             max_wait=args.max_wait,

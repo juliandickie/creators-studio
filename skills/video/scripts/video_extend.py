@@ -1,6 +1,23 @@
 #!/usr/bin/env python3
 """Banana Claude -- Video Extension via VEO 3.1
 
+DEPRECATED IN v3.8.0: Scene Extension v2 and keyframe extension via VEO
+produce glitches, inconsistent actors, and audio seam discontinuities at
+extended durations (user verdict per spike 5 Phase 2C, 2026-04-15:
+"horrible, do not use"). This script is preserved for backward compat
+and for users who explicitly want to use VEO extension despite the spike
+findings — but running it now requires the --acknowledge-veo-limitations
+flag to prevent accidental use.
+
+For extended Kling workflows, use video_sequence.py with the existing
+plan → storyboard → generate → stitch pipeline. Each shot is an
+independent Kling v3 Std API call, stitched by FFmpeg. This is the
+recommended v3.8.0+ extended workflow path.
+
+See spikes/v3.8.0-provider-bakeoff/writeup/v3.8.0-bakeoff-findings.md
+for the full spike 5 findings.
+
+Original description:
 Extend a video clip by chaining: extract last frame, use as reference
 for next generation, concatenate. Each hop adds ~7 seconds of video.
 Maximum total duration: 148 seconds (20 hops).
@@ -9,6 +26,7 @@ Uses only Python stdlib + subprocess (FFmpeg and video_generate.py).
 
 Usage:
     video_extend.py --input clip.mp4 --target-duration 30
+                    --acknowledge-veo-limitations
                     [--prompt "continue the scene..."]
                     [--api-key KEY] [--output extended.mp4]
 """
@@ -254,7 +272,49 @@ def main():
             "continuity at the seam."
         ),
     )
+    parser.add_argument(
+        "--acknowledge-veo-limitations",
+        action="store_true",
+        help=(
+            "Required flag in v3.8.0+. By passing this you acknowledge that "
+            "VEO extended workflows produce glitches, inconsistent actors, "
+            "and audio seam discontinuities at extended durations per "
+            "spike 5 Phase 2C. The recommended extended workflow path is "
+            "video_sequence.py with the existing plan → storyboard → "
+            "generate → stitch pipeline using Kling v3 Std (default as of "
+            "v3.8.0). See spikes/v3.8.0-provider-bakeoff/writeup/"
+            "v3.8.0-bakeoff-findings.md for the spike findings."
+        ),
+    )
     args = parser.parse_args()
+
+    # ── v3.8.0 deprecation gate ──────────────────────────────────────
+    # Hard-block running this script without explicit acknowledgment of
+    # the spike 5 findings. Exit code 2 signals "user error" (argparse
+    # convention) vs exit code 1 which is reserved for _error_exit.
+    if not args.acknowledge_veo_limitations:
+        msg = (
+            "video_extend.py is DEPRECATED as of v3.8.0 because spike 5 "
+            "Phase 2C proved VEO extended workflows produce glitches, "
+            "inconsistent actors, and audio seam discontinuities at "
+            "extended durations. User verdict, 2026-04-15: "
+            "'horrible, do not use'.\n\n"
+            "RECOMMENDED: Use video_sequence.py with the plan → storyboard "
+            "→ generate → stitch pipeline. Each shot is an independent "
+            "Kling v3 Std API call, stitched by FFmpeg — the pipeline "
+            "already works for extended workflows via Kling (default in "
+            "v3.8.0+).\n\n"
+            "IF YOU STILL WANT VEO EXTEND: re-run this command with "
+            "--acknowledge-veo-limitations to acknowledge the findings "
+            "and proceed. Be prepared for glitches and inconsistent "
+            "actors in the output.\n\n"
+            "Full spike findings: "
+            "spikes/v3.8.0-provider-bakeoff/writeup/v3.8.0-bakeoff-findings.md"
+        )
+        print(
+            json.dumps({"error": True, "deprecated": True, "message": msg}),
+        )
+        sys.exit(2)
 
     # ── Preflight checks ─────────────────────────────────────────────
     _check_tool("ffmpeg")

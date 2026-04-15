@@ -11,11 +11,11 @@ argument-hint: "[generate|animate|sequence|extend|stitch|cost|status] <idea, pat
 
 ## Core Principles
 
-1. **Creative Director for Video** -- NEVER pass raw user text to the VEO API. Interpret intent, enhance with cinematic language, and construct an optimized video prompt.
-2. **Audio is Always Part of the Prompt** -- VEO 3.1 generates synchronized audio. Every prompt should include dialogue (in quotes), SFX (prefix "SFX:"), or ambient sound descriptions.
-3. **8-Second Thinking** -- Every clip must tell a complete micro-story within 4-8 seconds. One dominant action per clip.
-4. **Storyboard Before Generating** -- For sequences (15s+), generate still frame previews first. Video generation is expensive ($1.20+/clip). Preview with images ($0.08/frame) before committing.
-5. **Image-to-Video** -- Animate existing assets from `/banana` for visual consistency across image and video outputs.
+1. **Creative Director for Video** -- NEVER pass raw user text to the video model. Interpret intent, enhance with cinematic language, and construct an optimized video prompt.
+2. **Audio is Always Part of the Prompt** -- Both Kling v3 Std (default as of v3.8.0) and VEO 3.1 generate synchronized audio. Every prompt should include dialogue (in quotes), SFX (prefix "SFX:"), or ambient sound descriptions. **Kling audio works best in English and Chinese** per the model card — for other languages, consider generating without audio and using the audio_pipeline.py replacement path.
+3. **Clip Length Thinking** -- Kling supports 3-15 second single-call clips; VEO supports {4, 6, 8}. For sequences beyond 15 seconds, use `video_sequence.py` with independent shot calls stitched by FFmpeg.
+4. **Storyboard Before Generating** -- For sequences, generate still frame previews first. Video generation is expensive even on Kling ($0.16/8s; VEO Standard is $3.20/8s). Preview with images ($0.08/frame) before committing.
+5. **Image-to-Video** -- Animate existing assets from `/banana` for visual consistency. **Both Kling and VEO support start_image**; Kling also supports `end_image` for first-and-last-frame interpolation. **Caveat**: when passing a start image to Kling, the `aspect_ratio` parameter is IGNORED — output uses the start image's native aspect ratio per the Kling model card.
 
 ## Quick Reference
 
@@ -85,29 +85,42 @@ Use the **5-Part Video Framework**: Camera → Subject → Action → Setting �
 
 ### Step 6: Set Duration + Aspect Ratio + Resolution
 
-| Parameter | Options | Default |
-|-----------|---------|---------|
-| Duration | 4s, 6s, 8s | 8s |
-| Aspect ratio | 16:9, 9:16 | 16:9 |
-| Resolution | 720p, 1080p, 4K | 1080p |
+| Parameter | Kling v3 Std (default) | VEO 3.1 (backup) | Plugin default |
+|-----------|-----------------------|------------------|----------------|
+| Duration | any integer 3-15s | {4, 6, 8} | 8s |
+| Aspect ratio | 16:9, 9:16, **1:1** | 16:9, 9:16 | 16:9 |
+| Resolution | 720p (standard) or 1080p (pro) | 720p, 1080p, 4K | 1080p |
 
-### Step 7: Call VEO API
+### Step 7: Call the video generation script
 
 ```bash
+# Default (Kling v3 Std as of v3.8.0)
 python3 ${CLAUDE_SKILL_DIR}/scripts/video_generate.py --prompt "..." --duration 8 --aspect-ratio 16:9 --resolution 1080p
 ```
 
-VEO uses async generation: the script submits the request, polls for completion (printing progress to stderr), and saves the MP4 when done. Typical generation: 30-90 seconds.
+As of v3.8.0, the default provider is **Kling v3 Std** via Replicate. Generation is async: the script submits the prediction, polls for completion (printing progress to stderr), and downloads the MP4 when done. **Typical Kling wall time: 3-6 minutes per call** — longer than VEO Lite's ~2 minutes, which is the trade-off for Kling's 7.5× lower cost and higher motion quality.
+
+**For VEO 3.1 (opt-in backup, requires explicit request):**
+```bash
+# Route to VEO Lite (cheapest VEO tier, spike 5 recommended)
+python3 ${CLAUDE_SKILL_DIR}/scripts/video_generate.py --provider veo --tier lite --prompt "..." --duration 8
+```
+
+**WARNING when routing to VEO**: Spike 5 found VEO's multi-shot workflows produce glitches at extended durations. When a user explicitly requests VEO, recommend generating both a Kling version and a VEO version for comparison before committing to VEO for production work. See `references/veo-models.md` → "v3.8.0 status: BACKUP ONLY" for the full findings.
 
 **For image-to-video (animate a still):**
 ```bash
 python3 ${CLAUDE_SKILL_DIR}/scripts/video_generate.py --prompt "..." --first-frame PATH
 ```
 
+**Caveat for Kling + start_image**: Kling ignores the `aspect_ratio` parameter when `start_image` is provided — output uses the start image's native aspect. If the user requested a specific aspect ratio alongside a first-frame, note that Replicate will override it. Offer to crop or pad the start image first if the aspect conflict matters.
+
 **For first/last frame (keyframe interpolation):**
 ```bash
 python3 ${CLAUDE_SKILL_DIR}/scripts/video_generate.py --prompt "..." --first-frame START.png --last-frame END.png
 ```
+
+Both Kling and VEO support this. Kling's `end_image` requires `start_image`.
 
 ### Step 8: Post-Processing
 
@@ -159,32 +172,49 @@ The storyboard stage generates still frame pairs using `/banana generate` for vi
 
 ## /video extend
 
-Extend a clip by chaining: extract last frame, use as reference for next clip. +7s per hop, max 148s total.
+**DEPRECATED in v3.8.0.** Spike 5 Phase 2C found VEO extended workflows (both Scene Extension v2 and keyframe fallback) produce glitches, inconsistent actors, and audio seam discontinuities at extended durations — user verdict 2026-04-15: "horrible, do not use."
+
+`video_extend.py` now requires `--acknowledge-veo-limitations` to run. Without the flag, the script exits with code 2 and a deprecation message pointing users at `video_sequence.py`.
+
+**Recommended extended workflow path (v3.8.0+)**: Use `video_sequence.py` with the existing plan → storyboard → generate → stitch pipeline. Each shot is an independent Kling v3 Std API call, stitched by FFmpeg.
+
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/video_extend.py --input clip.mp4 --target-duration 30
+# Recommended: extended workflow via Kling shot list
+python3 ${CLAUDE_SKILL_DIR}/scripts/video_sequence.py plan --script "30-second product launch" --target 30
+# ... follow the standard video_sequence pipeline (storyboard → review → generate → stitch)
+
+# Only if user explicitly accepts the spike 5 findings:
+python3 ${CLAUDE_SKILL_DIR}/scripts/video_extend.py --input clip.mp4 --target-duration 30 --acknowledge-veo-limitations
 ```
 
 ## Model Routing
 
 | Scenario | Model | Duration | Backend | When |
 |----------|-------|----------|---------|------|
-| Draft / motion check | `veo-3.1-lite-generate-001` | 4-8s | Vertex (auto) | **First pass** for sequences ($0.05/sec) |
-| Quick turnaround social | `veo-3.1-fast-generate-preview` | 4s | Gemini API | TikTok, Reels, Shorts ($0.15/sec) |
-| Standard production | `veo-3.1-generate-preview` | 8s | Gemini API | Default single-clip ($0.40/sec) |
-| Hero / brand work | `veo-3.1-generate-preview` + 4K | 8s | Gemini API | Premium campaign (same $0.40/sec) |
-| Image-to-video / Scene Ext v2 | any tier | 4-8s (or 7s for ext) | Vertex (auto) | first-frame, --video-input |
-| Legacy / reproduction | `veo-3.0-generate-001` | 8s | Vertex (auto) | Match existing VEO 3.0 style |
+| **Default (everything)** | **`kwaivgi/kling-v3-video`** | **3-15s** | **Replicate (auto)** | **v3.8.0+ default. $0.16/8s at 1080p pro mode.** |
+| Instagram square | `kwaivgi/kling-v3-video` | 8s | Replicate | Kling is the ONLY plugin-registered model with 1:1 support |
+| Speed-critical iteration | `veo-3.1-lite-generate-001` | 4-8s | Vertex | ~2 min wall time vs Kling's 3-6 min — trade quality for speed |
+| VEO output comparison | `veo-3.1-lite-generate-001` | 4-8s | Vertex | Explicit VEO opt-in. **Warn user about spike 5 findings.** |
+| 4K output | `veo-3.1-generate-preview` / `veo-3.1-fast-generate-preview` | 4-8s | Gemini API | Kling maxes at 1080p pro |
+| Reference-image guided | VEO any tier | 4-8s | Vertex | Kling does not support `referenceImages` |
+| Scene Extension v2 | Not recommended | — | — | **Deprecated in v3.8.0**. Use Kling shot list instead. |
+| Legacy 3.0 reproduction | `veo-3.0-generate-001` | 8s | Vertex (auto) | Match existing VEO 3.0 style (opt-in) |
 
-Default model: `veo-3.1-generate-preview`. Default backend: `auto`
-(routes Vertex-only features through Vertex automatically; keeps
-text-to-video on Gemini API for v3.4.x compat). **For sequences, always
-draft at Lite first** — see the draft-then-final workflow in
-`references/video-sequences.md`.
+Default model: `kwaivgi/kling-v3-video` (Kling v3 Std). Default backend: `auto`
+(routes Replicate slugs to Kling, Vertex-only VEO features to Vertex, text-
+only VEO preview IDs to Gemini API). **VEO is opt-in backup only** as of
+v3.8.0 — always prefer Kling unless the user specifically requests VEO.
 
-**Vertex AI setup** (3 minutes, one-time): add `vertex_api_key`,
-`vertex_project_id`, and `vertex_location` to `~/.banana/config.json`.
-See `references/veo-models.md` → Backend Availability for the bound-
-to-service-account API key creation steps.
+**Replicate setup** (1 minute, one-time): add `replicate_api_token` to
+`~/.banana/config.json`. If the plugin's image-gen side was already used,
+the token is already in place — no new setup needed. Otherwise:
+`python3 skills/banana/scripts/setup_mcp.py --replicate-key YOUR_TOKEN`.
+Get a token at https://replicate.com/account/api-tokens.
+
+**Vertex AI setup** (for opt-in VEO backup, 3 minutes, one-time): add
+`vertex_api_key`, `vertex_project_id`, and `vertex_location` to
+`~/.banana/config.json`. See `references/veo-models.md` → Backend Availability
+for the bound-to-service-account API key creation steps.
 
 ## Audio Quick Guide
 
@@ -253,8 +283,9 @@ Check FFmpeg: `which ffmpeg` (required for extend/stitch/trim)
 ## Reference Documentation
 
 Load on-demand -- do NOT load all at startup:
+- `references/kling-models.md` -- **v3.8.0+** Kling v3 Std default model, capabilities, multi_prompt JSON schema, pricing, extended workflows, known limitations
 - `references/video-prompt-engineering.md` -- 5-Part Video Framework, templates, camera motion vocabulary
-- `references/veo-models.md` -- VEO model specs, pricing, rate limits, Replicate alternatives
+- `references/veo-models.md` -- VEO model specs, pricing, rate limits, v3.8.0 "BACKUP ONLY" status, Phase 2 Vertex API constraints, tier comparison
 - `references/video-domain-modes.md` -- 6 domain modes with modifier libraries, shot types for sequences
 - `references/video-sequences.md` -- Multi-shot production, first/last frame chaining, storyboard approval
 - `references/video-audio.md` -- VEO native dialogue, SFX, ambient audio prompting + 12 empirical findings from spike sessions
