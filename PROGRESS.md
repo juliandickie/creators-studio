@@ -624,6 +624,10 @@ This was the scheduled post-v3.7.3 polish release closing the known-issues debt 
 
 **Spike artifacts**: `/tmp/dreamactor-spike/` with subdirectories for each test. Run script at `/tmp/dreamactor-spike/run_spike.py`.
 
+7. **12-genre music bake-off: ElevenLabs 12-0 sweep over Lyria** — flipped `DEFAULT_MUSIC_SOURCE` to `"elevenlabs"` after a blind A/B evaluation across cinematic, corporate, electronic, lo-fi, classical, ambient, jazz, acoustic, hip-hop, synthwave, world, and funk. 24 calls total (12 per provider), $0.72 Lyria cost. User verdict: "each winner was a clear winner and a definite difference in quality and interpretation." This overrides v3.7.2 spike 4's single-genre Lyria win. Spike artifacts at `/tmp/genre-bakeoff/`. v3.8.3 release.
+
+**Updated session 19 total spend**: ~$1.82 ($1.10 DreamActor/Kling spike + $0.72 Lyria bake-off). **Cumulative: ~$9.34**.
+
 ## Expansion Roadmap
 
 See `ROADMAP.md` for the full prioritized feature roadmap.

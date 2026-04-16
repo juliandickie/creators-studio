@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.3] - 2026-04-16
+
+### Headline
+
+**ElevenLabs Music replaces Lyria 2 as the default music provider.** A 12-genre blind A/B bake-off (session 19, 2026-04-16, $0.72 Lyria cost) produced a decisive ElevenLabs **12-0 sweep**: cinematic, corporate, electronic, lo-fi, classical, ambient, jazz, acoustic, hip-hop, synthwave, world, and funk — ElevenLabs won every genre, each time by a clear margin. This overrides the v3.7.2 spike 4 finding where Lyria won a single-genre cinematic-documentary test. That result was a genre-specific anomaly — both providers were "very close and hard to pick" on cinematic, the one genre spike 4 tested.
+
+`DEFAULT_MUSIC_SOURCE` in `audio_pipeline.py` flipped from `"lyria"` to `"elevenlabs"`. Lyria remains available via `--music-source lyria` for users who need `negative_prompt` exclusion or lack an ElevenLabs subscription.
+
+### Changed
+
+- **`audio_pipeline.py` `DEFAULT_MUSIC_SOURCE`** flipped from `"lyria"` to `"elevenlabs"`. CLI `--source` / `--music-source` flags still work for explicit provider selection; only the default changes.
+- **`audio-pipeline.md`** fully rewritten for ElevenLabs-default: v3.8.3 update lede, provider summary table labels swapped, "When to use which" section updated (Lyria now the opt-in path for negative-prompt and no-subscription scenarios), architecture diagram labels updated, quick-start example updated to show ElevenLabs as the no-flag default and Lyria as the `--music-source lyria` opt-in.
+- **Video `SKILL.md`** Quick Reference table updated: pipeline and music command descriptions now say "ElevenLabs default, Lyria alt". Audio pipeline section updated with the v3.8.3 bake-off citation.
+- **`CLAUDE.md`** music provider default key constraint rewritten from Lyria to ElevenLabs with the 12-0 sweep finding + the single-genre-anomaly explanation.
+
+### Research
+
+- **Session 19 12-genre blind A/B bake-off (24 calls, $0.72 Lyria + ElevenLabs subscription)**. Methodology: identical positive prompt per genre for both providers, Lyria additionally gets `--negative-prompt "vocals, singing, lyrics, spoken word, voice, humming"` (its key differentiator), duration matched at ~32.768s, randomized A/B assignment (seed=42), user evaluated blind. Result: **ElevenLabs 12-0**. Per the user: "each winner was a clear winner and a definite difference in quality and interpretation" — the cinematic genre where spike 4 found Lyria winning was the one genre both providers were closest on. Spike artifacts at `/tmp/genre-bakeoff/` with `results.json`, `mapping.json`, `prompts.json`, and blind samples.
+- **F13 confirmed from the other direction**: Lyria produces 1026 KB (48kHz/192kbps) vs ElevenLabs 512 KB (44.1kHz/128kbps). Higher bitrate and sample rate did not help — ElevenLabs won every genre. Spec-sheet metrics remain uncorrelated with perceived quality.
+
 ## [3.8.2] - 2026-04-16
 
 ### Headline

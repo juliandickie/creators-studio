@@ -31,9 +31,9 @@ argument-hint: "[generate|animate|sequence|extend|stitch|cost|status] <idea, pat
 | `/video extend <clip> [--to Ns]` | Extend a clip (+7s per hop, max 148s) — **DEPRECATED in v3.8.0**, requires `--acknowledge-veo-limitations` |
 | `/video lipsync --image FACE --audio AUDIO [--resolution 480p\|720p]` | **v3.8.1** lip-sync a face image to audio via Fabric 1.0 — pairs perfectly with `/video audio narrate` custom voices |
 | `/video stitch <clips...>` | Concatenate arbitrary clips via FFmpeg |
-| `/video audio pipeline --video V --text "..." --music-prompt "..." [--music-source lyria\|elevenlabs]` | **v3.7.1+v3.7.2** end-to-end: parallel TTS + music (Lyria default, ElevenLabs alt), mix, swap into video |
+| `/video audio pipeline --video V --text "..." --music-prompt "..." [--music-source lyria\|elevenlabs]` | **v3.7.1+v3.8.3** end-to-end: parallel TTS + music (ElevenLabs default, Lyria alt), mix, swap into video |
 | `/video audio narrate --text "..." [--voice ROLE]` | **v3.7.1** generate ElevenLabs TTS narration only |
-| `/video audio music --prompt "..." [--source lyria\|elevenlabs] [--negative-prompt "..."]` | **v3.7.2** generate background music — Lyria 2 default ($0.06/clip), ElevenLabs alternative |
+| `/video audio music --prompt "..." [--source lyria\|elevenlabs] [--negative-prompt "..."]` | **v3.8.3** generate background music — ElevenLabs default, Lyria alternative ($0.06/clip, supports negative-prompt) |
 | `/video audio mix --narration N --music M` | **v3.7.1** mix existing narration + music with side-chain ducking |
 | `/video audio swap --video V --audio A` | **v3.7.1** swap an audio file into a video (lossless video) |
 | `/video voice design --description "..."` | **v3.7.1** generate 3 voice previews from a text description |
@@ -235,7 +235,7 @@ See `references/video-audio.md` for VEO-native audio prompting and the 12 empiri
 
 **What it does:** strips the VEO video's audio entirely and replaces it with continuous ElevenLabs TTS narration + background music (**Google Lyria 2 by default** as of v3.7.2, ElevenLabs Music as the alternative) + FFmpeg ducked mix. The TTS and music API calls run in parallel for ~12s total latency.
 
-**Music source choice (v3.7.2):** Lyria is the default after winning the 5-way bake-off in spike 4 (Lyria > ElevenLabs > MusicGen > MiniMax > Stable Audio per user listening verdict). Use `--music-source elevenlabs` to opt into the alternative when you need custom durations >32.768s, prefer ElevenLabs's character for a specific genre, or want subscription-billed cost on the Creator tier. See `references/audio-pipeline.md` for the full decision matrix.
+**Music source choice (v3.8.3):** ElevenLabs Music is the default after a 12-genre blind A/B bake-off produced a decisive ElevenLabs 12-0 sweep over Lyria (session 19, 2026-04-16). Use `--music-source lyria` when you need `--negative-prompt` exclusion or lack an ElevenLabs subscription. See `references/audio-pipeline.md` for the full decision matrix and bake-off results.
 
 **Canonical command:**
 

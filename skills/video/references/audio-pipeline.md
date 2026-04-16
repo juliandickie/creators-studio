@@ -10,7 +10,7 @@ strategic reset session that informed its design.
 - Companion reference: `skills/video/references/video-audio.md` (VEO native audio)
 - Findings: spike 3 + spike 4 results in `~/Desktop/spike3-elevenlabs-audio/` and `~/Desktop/spike4-lyria/`
 
-**v3.7.2 update**: Google Lyria 2 is now the default music source after winning the 5-way bake-off in spike 4 (Lyria > ElevenLabs > MusicGen > MiniMax > Stable Audio per user listening verdict). ElevenLabs Music remains as the alternative via `--music-source elevenlabs`. Both are first-class providers.
+**v3.8.3 update**: ElevenLabs Music is now the default music source after a 12-genre blind A/B bake-off (session 19, 2026-04-16) produced a decisive **ElevenLabs 12-0 sweep** over Lyria across cinematic, corporate, electronic, lo-fi, classical, ambient, jazz, acoustic, hip-hop, synthwave, world, and funk genres. Per the user: "each winner was a clear winner with a definite difference in quality and interpretation." This overrides the v3.7.2 spike 4 finding where Lyria won a single-genre test on cinematic documentary — that result was a genre-specific anomaly, not a general quality signal (both providers were "very close and hard to pick" on cinematic, the one genre spike 4 tested). Lyria remains available via `--music-source lyria` and is still valuable when `negative_prompt` exclusion is needed or when the user lacks an ElevenLabs subscription. Both are first-class providers.
 
 **v3.7.4 update**: audio polish bundle. Five changes land in one release:
 
@@ -32,11 +32,11 @@ strategic reset session that informed its design.
 
 ## Music sources (v3.7.2 multi-provider)
 
-v3.7.2 supports two music providers, both first-class. Default is Lyria 2.
+v3.8.3 supports two music providers, both first-class. Default is ElevenLabs Music (flipped from Lyria in v3.8.3 after the 12-genre blind bake-off).
 
 ### Provider summary
 
-| | **Lyria 2 (default)** | **ElevenLabs Music (alternative)** |
+| | **Lyria 2 (alternative)** | **ElevenLabs Music (default, v3.8.3+)** |
 |---|---|---|
 | **Provider** | Google Vertex AI | ElevenLabs |
 | **Model** | `lyria-002` | `music_v1` |
@@ -51,7 +51,7 @@ v3.7.2 supports two music providers, both first-class. Default is Lyria 2.
 
 ### When to use which
 
-- **Use Lyria (default)** for:
+- **Use Lyria (`--music-source lyria`)** for:
   - Highest audio fidelity (the 48kHz advantage)
   - Predictable per-call cost — no quota anxiety
   - Prompts that benefit from explicit negative exclusions ("no vocals, no harsh percussion")
@@ -127,7 +127,7 @@ Google's official docs only document OAuth for Lyria, but spike 4 empirically ve
             │   ┌──────────────┐    ┌────────────────────────┐  │
             │   │ ElevenLabs   │    │  Music (--music-source)│  │
             │   │ TTS          │    │  ┌──────────────────┐  │  │
-            │   │ POST /v1/tts │    │  │ Lyria 2 (default)│  │  │
+            │   │ POST /v1/tts │    │  │ Lyria 2 (alt)    │  │  │
             │   │ eleven_v3    │    │  │ Vertex AI        │  │  │
             │   │ + audio tags │    │  │ POST .../predict │  │  │
             │   └──────┬───────┘    │  │ lyria-002        │  │  │
@@ -135,7 +135,7 @@ Google's official docs only document OAuth for Lyria, but spike 4 empirically ve
             │          │            │  ┌──────────────────┐  │  │
             │          │            │  │ ElevenLabs Music │  │  │
             │          │            │  │ POST /v1/music   │  │  │
-            │          │            │  │ music_v1 (alt)   │  │  │
+            │          │            │  │ music_v1 (def)   │  │  │
             │          │            │  └──────────────────┘  │  │
             │          │            └───────────┬────────────┘  │
             │          ▼                        ▼               │
@@ -175,23 +175,22 @@ The TTS call and the music call run in parallel via `concurrent.futures.ThreadPo
 ### One-shot pipeline (the canonical command)
 
 ```bash
-# v3.7.2: Lyria 2 is the default music source (no --music-source flag needed)
+# v3.8.3: ElevenLabs is the default music source (no --music-source flag needed)
 python3 skills/video/scripts/audio_pipeline.py pipeline \
   --video stitched-sequence.mp4 \
   --text "Each year... the seasons change across this valley, painting the forest in red and gold. [exhales] The river runs COLD here..." \
   --music-prompt "Cinematic nature documentary background score, slow and contemplative warm orchestral strings with soft piano, instrumental only, around 70 BPM" \
-  --music-negative-prompt "vocals, dissonance, harsh percussion, electronic synths" \
   --voice narrator \
   --out final.mp4
 
-# To use ElevenLabs Music instead (e.g. for custom durations >32.768s):
+# To use Lyria instead (e.g. for negative-prompt exclusion):
 python3 skills/video/scripts/audio_pipeline.py pipeline \
-  --music-source elevenlabs \
-  --music-length-ms 60000 \
+  --music-source lyria \
+  --music-negative-prompt "vocals, dissonance, harsh percussion, electronic synths" \
   --video v.mp4 --text "..." --music-prompt "..." --voice narrator --out final.mp4
 ```
 
-This runs all four stages: parallel TTS + music, FFmpeg ducked mix, FFmpeg audio-swap into the source video. Output is a final MP4 with the new audio swapped in. **The `--music-negative-prompt` flag is Lyria-specific** — ElevenLabs ignores it. Use it generously to actively exclude things you don't want (vocals, percussion, etc.).
+This runs all four stages: parallel TTS + music, FFmpeg ducked mix, FFmpeg audio-swap into the source video. Output is a final MP4 with the new audio swapped in. **The `--music-negative-prompt` flag is Lyria-specific** — ElevenLabs ignores it. Use it when you opt into Lyria via `--music-source lyria` to actively exclude things you don't want (vocals, percussion, etc.).
 
 ### Individual stages (for debugging or partial workflows)
 

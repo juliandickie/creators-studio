@@ -118,7 +118,7 @@ DEFAULT_VOICE_SETTINGS = {
 # (Lyria > ElevenLabs > MusicGen > MiniMax > Stable Audio per user listening verdict).
 # ElevenLabs Music is retained as the alternative for users who prefer its character
 # or want subscription-billed cost (Lyria is fixed $0.06 per call regardless of subscription).
-DEFAULT_MUSIC_SOURCE = "lyria"  # "lyria" | "elevenlabs"
+DEFAULT_MUSIC_SOURCE = "elevenlabs"  # "elevenlabs" | "lyria" — v3.8.3: flipped after 12-genre blind bake-off (ElevenLabs 12-0 sweep)
 DEFAULT_MUSIC_LENGTH_MS = 32000  # Lyria fixed at 32.768s; ElevenLabs configurable up to 600000
 
 # Lyria 2 defaults — google vertex AI lyria-002

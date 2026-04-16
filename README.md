@@ -10,7 +10,7 @@ AI image and video generation plugin for Claude Code where **Claude acts as Crea
 Unlike simple API wrappers, Claude interprets your intent, selects domain expertise, constructs optimized prompts, and orchestrates generation for the best possible results — for both still images and video clips with synchronized audio.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-3.8.2-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.8.3-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Origin](https://img.shields.io/badge/origin-AgriciDaniel%2Fbanana--claude-gray)](https://github.com/AgriciDaniel/banana-claude)
 
@@ -38,6 +38,10 @@ Unlike simple API wrappers, Claude interprets your intent, selects domain expert
 ## Features
 
 Built on [AgriciDaniel/banana-claude](https://github.com/AgriciDaniel/banana-claude), extended with features driven by production use and research analysis of Google's prompting guidance:
+
+### ElevenLabs Music as Default Provider (v3.8.3)
+
+A 12-genre blind A/B bake-off found ElevenLabs Music decisively outperforms Lyria 2 across every genre tested — cinematic, electronic, lo-fi, jazz, hip-hop, synthwave, and six more. ElevenLabs is now the default `--music-source`; Lyria remains available via `--music-source lyria` for its unique `negative_prompt` feature.
 
 ### Character Consistency via start_image (v3.8.2)
 
