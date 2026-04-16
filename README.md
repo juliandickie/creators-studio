@@ -676,18 +676,13 @@ the `/banana` command, and having both installed causes conflicts.
 
 ### Remove banana-claude first
 
-If installed as a plugin:
 ```bash
-claude plugin remove banana-claude
-```
+# Remove old banana-claude if installed
+claude plugin remove banana-claude 2>/dev/null || true
+# Remove legacy standalone skill install if present
+rm -rf ~/.claude/skills/banana 2>/dev/null || true
 
-If installed as a standalone skill:
-```bash
-rm -rf ~/.claude/skills/banana
-```
-
-Then install nano-banana-studio:
-```bash
+# Install nano-banana-studio as a plugin (required as of v3.8.4+)
 claude plugin add juliandickie/nano-banana-studio
 ```
 

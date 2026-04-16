@@ -317,19 +317,15 @@ cd /path/to/nano-banana-studio
 zip -r ../nano-banana-studio-vX.Y.Z.zip . -x ".git/*" ".DS_Store" "*/.DS_Store" \
   "*__pycache__/*" "*.pyc" ".github/*" "screenshots/*" "PROGRESS.md" \
   "ROADMAP.md" "CODEOWNERS" "CODE_OF_CONDUCT.md" "SECURITY.md" \
-  "CITATION.cff" ".gitattributes" ".gitignore" ".claude/*"
+  "CITATION.cff" ".gitattributes" ".gitignore" ".claude/*" "spikes/*"
 
-# Build skill zip (standalone, no plugin wrapper)
-mkdir -p /tmp/banana-skill/banana
-cp -r skills/banana/* /tmp/banana-skill/banana/
-cp agents/brief-constructor.md /tmp/banana-skill/banana/
-cd /tmp/banana-skill && zip -r /path/to/banana-skill-vX.Y.Z.zip banana/
-rm -rf /tmp/banana-skill
-
-# Create GitHub Release with zips attached
+# Create GitHub Release with plugin zip attached
+# NOTE: skill-only zips (banana-skill-vX.Y.Z.zip) are no longer built
+# as of v3.8.4. The plugin requires the full plugin structure to function
+# (two skills, agents, .claude-plugin/ manifest). Historical skill-only
+# zips at the workspace root are archived build artifacts — do not delete.
 gh release create vX.Y.Z \
   ../nano-banana-studio-vX.Y.Z.zip \
-  ../banana-skill-vX.Y.Z.zip \
   --title "vX.Y.Z" \
   --notes "See CHANGELOG.md for details"
 ```
@@ -339,8 +335,8 @@ gh release create vX.Y.Z \
 - `.claude-plugin/` contains ONLY `plugin.json` and `marketplace.json`. Never put skills, agents, or commands in this directory.
 - `skills/` and `agents/` must be at plugin root (not inside `.claude-plugin/`).
 - Plugin variable `${CLAUDE_PLUGIN_ROOT}` resolves to the plugin cache directory. Use for hook commands and MCP configs.
-- SKILL.md uses `${CLAUDE_SKILL_DIR}` for script paths -- this is a semantic marker Claude interprets based on context. Works in both plugin and standalone mode.
-- Relative paths in SKILL.md (`references/`, `scripts/`) resolve relative to SKILL.md location. These work in both modes.
+- SKILL.md uses `${CLAUDE_SKILL_DIR}` for script paths -- this is a semantic marker Claude interprets based on context.
+- Relative paths in SKILL.md (`references/`, `scripts/`) resolve relative to SKILL.md location.
 - Test locally with `claude --plugin-dir .` (loads plugin without installing).
 - After changes, run `/reload-plugins` in Claude Code to pick up updates without restarting.
 - Validate with `claude plugin validate .` or `/plugin validate .` before releasing.
