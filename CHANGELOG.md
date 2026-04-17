@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.1] - 2026-04-17
+
+### Headline
+
+**Honest platform coverage and max-quality upload specs.** The `/create-image social` command's platform coverage was previously framed as "46 platforms" — a misleading count because it was really 46 placements across 11 namespace prefixes, with shallow coverage (2-3 placements each, no profile photos, no ad variants) on Pinterest, Threads, Snapchat, Google Ads, and Spotify. v4.1.1 narrows scope to **38 placements across 6 platforms** with deep coverage (Instagram, Facebook, YouTube, LinkedIn, Twitter/X, TikTok), and — more importantly — upgrades every pixel spec to the **highest-quality upload dimensions each platform accepts**, not the minimum. The YouTube thumbnail alone jumps from 1280×720 to **3840×2160** (9× pixel count, 4K quality) at no extra generation cost.
+
+### Changed (breaking for removed platform keys)
+
+- **`PLATFORMS` dict in `social.py` rewritten** for 6-platform focus. Total: 38 placements (was 46). Retired platform keys: `pin-*` (3), `threads-*` (3), `snap-*` (2), `gads-*` (7), `spotify-*` (2). Scripts or workflows pinning these keys will error with "unknown platform" and should migrate to an equivalent on one of the 6 supported platforms.
+- **Max-quality upload specs across all placements**, authoritative source `dev-docs/SOP Graphic Sizes - Social Media Image and Video Specifications Guide.md`. Key upgrades:
+  - `yt-thumb`: 1280×720 → **3840×2160** (9× pixel count; YouTube accepts 4K thumbnails up to 50MB)
+  - `ig-profile`: 320×320 → **720×720** (SOP-recommended quality spec)
+  - `fb-profile`: new → 720×720
+  - `fb-ad`: 1080×1080 → **1440×1800** (4:5, SOP premium feed-ad spec)
+  - `fb-story-ad`: 1080×1920 → **1440×2560** (SOP premium story/reel ad spec)
+  - `ig-story-ad`: new at **1440×2560** (premium variant, replaces the 1080×1920 minimum path)
+  - `li-profile`, `yt-profile`, `x-profile`, `tt-profile`: all new, each at SOP-recommended quality
+  - `li-video-ad-frame`, `x-video-ad-frame`: new video-ad still-frame entries at 1920×1080
+  - `ig-reel-cover-grid`: new at 1080×1440 (3:4 grid thumbnail display variant)
+- **`x-header` ratio bug fixed**: was labeled `3:2` (incorrect; 1500/500 = 3.0 = **3:1**). Gemini doesn't support 3:1 natively, so the generation ratio is now `21:9` (closest supported at 2.33:1) with the resize+crop pass handling the ~11% vertical trim to reach exact 3:1. Previously, generating at 3:2 (1.5:1) required a destructive crop that discarded most of the image.
+- **`x-landscape` corrected** from 1600×900 to 1200×675 per SOP single-image feed spec.
+- **`x-ad` corrected** from 1600×900 (16:9) to 800×800 (1:1) per SOP image-ad spec.
+- **`GROUPS` dict updated**: removed references to retired platforms (Pinterest, Threads, Snapchat, Google Ads, Spotify). Added new cross-platform family groups: `all-squares` (1:1 everywhere), `all-profiles` (profile pics), `all-banners` (cover/header across platforms).
+
+### Added
+
+- **`references/social-platforms.md` fully rewritten** with per-platform spec tables for all 6 platforms (Instagram 8, Facebook 8, YouTube 4, LinkedIn 9, Twitter/X 6, TikTok 3). Includes a "Max-quality upload principle" section with a side-by-side v4.0.x → v4.1.1 comparison table showing the pixel-count jumps. Documents the Gemini-supported-ratio fallback (e.g., why `fb-cover` generates at 21:9 even though the true target is 2.7:1).
+- **Cross-platform family groups**: `all-feeds` (4 platforms' feed posts), `all-squares` (every platform's 1:1), `all-profiles` (all 6 profile pics), `all-banners` (all cover/header assets), `all-stories` (every 9:16 story surface), `all-ads` (every paid placement).
+
+### Fixed
+
+- **`x-header` generated at wrong aspect ratio** in v4.0.x and earlier. The `ratio: "3:2"` hint (1.5:1) meant Gemini generated at 4096×2731 pixels, then `resize_for_platform` cropped hard to 1500×500 (3:1) — discarding most of the vertical content. v4.1.1 uses `ratio: "21:9"` (2.33:1, closest supported), trimming only ~11% vertical to land on exact 3:1 pixel spec.
+
+### Platform count clarification
+
+The `/create-image social` feature's public framing changes from "46 platforms" to **"38 sizes and ratios across 6 platforms"** in README, CLAUDE.md, SKILL.md, and `references/social-platforms.md`. Historical entries (CHANGELOG v1.7.0, PROGRESS retrospective table) are left intact as they refer to what actually shipped at that point in time.
+
 ## [4.1.0] - 2026-04-17
 
 ### Headline
@@ -1071,6 +1108,7 @@ Real-API verification during the v3.5.0 release surfaced a critical distinction:
 - Batch variations, multi-turn chat, prompt inspiration
 - Install script with validation
 
+[4.1.1]: https://github.com/juliandickie/creators-studio/releases/tag/v4.1.1
 [4.1.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.1.0
 [4.0.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.0.0
 [3.8.4]: https://github.com/juliandickie/creators-studio/releases/tag/v3.8.4

@@ -12,7 +12,7 @@
 Let an AI that's been trained on the best practices for every model write the prompts for you, instead of spending hours teaching yourself to prompt-engineer a moving target.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-4.1.0-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.1.1-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <details>
@@ -71,7 +71,7 @@ Three creative surfaces, one Creative Director.
 
 ### 📷 Images
 
-**Brand-native visual assets across 46 social platforms, presentations, brand books, and product assets.** Claude reads your intent, picks a domain lens (Cinema, Product, Editorial, UI/Web, Logo, Landscape, etc.), applies your brand style guide if you have one, and generates at the correct aspect ratio and resolution for the target surface.
+**Brand-native visual assets across 38 sizes and ratios on 6 major platforms** (Instagram, Facebook, YouTube, LinkedIn, Twitter/X, TikTok) — presentations, brand books, and product assets. Claude reads your intent, picks a domain lens (Cinema, Product, Editorial, UI/Web, Logo, Landscape, etc.), applies your brand style guide if you have one, and generates at the correct aspect ratio and resolution for the target surface — at max-quality upload specs, not platform minimums.
 
 ![5-Input Creative Brief](screenshots/creative-brief.webp)
 
@@ -87,7 +87,7 @@ Three creative surfaces, one Creative Director.
 
 ![Content Pipeline](screenshots/content-pipeline.webp)
 
-**Key features:** 5-Input Creative Brief · 11 Domain Modes · 5-Component Prompt Formula · Edit-First refinements · Brand Style Guides · Asset Registry (save once, reuse everywhere) · Platform-native generation (46 platforms) · Slide decks and brand books · A/B prompt variation testing · Multi-format output · Session history with gallery export.
+**Key features:** 5-Input Creative Brief · 11 Domain Modes · 5-Component Prompt Formula · Edit-First refinements · Brand Style Guides · Asset Registry (save once, reuse everywhere) · Platform-native generation (38 sizes × 6 platforms at max-quality specs) · Slide decks and brand books · A/B prompt variation testing · Multi-format output · Session history with gallery export.
 
 ### 🎬 Video
 
@@ -239,7 +239,7 @@ Claude acts as Creative Director for every call — selecting domain modes, cons
 | `/create-image slides [plan\|prompts\|generate]` | Slide deck pipeline: content → design brief → prompts → batch images |
 | `/create-image inspire [category]` | Browse prompt database for ideas |
 | `/create-image batch <idea> [N]` | Generate N variations (default: 3) |
-| `/create-image social <idea> --platforms <list>` | Platform-native image generation (46 platforms, 4K, auto-crop) |
+| `/create-image social <idea> --platforms <list>` | Platform-native image generation (38 sizes × 6 platforms, max-quality upload specs, 4K generation + exact-dim crop) |
 | `/create-image brand` | Conversational brand guide builder (learn → refine → preview → save) |
 | `/create-image asset [list\|show\|create\|delete]` | Manage persistent character/product/object references |
 | `/create-image reverse <image-path>` | Analyze image → extract 5-Component Formula prompt |
@@ -367,7 +367,7 @@ creators-studio/                       # Claude Code Plugin
 │   │   ├── gemini-models.md           # Model specs, resolution tables, input limits
 │   │   ├── mcp-tools.md               # MCP tool parameters and responses
 │   │   ├── replicate.md               # Replicate backend API reference
-│   │   ├── social-platforms.md        # 46 platform specs and ratios
+│   │   ├── social-platforms.md        # 38 sizes × 6 platforms at max-quality specs
 │   │   ├── brand-builder.md           # Conversational brand guide flow
 │   │   ├── asset-registry.md          # Persistent asset system
 │   │   ├── reverse-prompt.md          # Image → prompt extraction

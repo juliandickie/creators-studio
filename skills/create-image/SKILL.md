@@ -28,7 +28,7 @@ argument-hint: "[generate|edit|chat|slides|social|brand|asset|reverse|book|batch
 | `/create-image slides [plan\|prompts\|generate]` | Slide deck pipeline |
 | `/create-image inspire [category]` | Browse prompt database for ideas |
 | `/create-image batch <idea> [N]` | Generate N variations (default: 3) |
-| `/create-image social <idea> --platforms <list>` | Platform-native image generation (46 platforms, 4K, auto-crop) |
+| `/create-image social <idea> --platforms <list>` | Platform-native image generation (38 sizes × 6 platforms, max-quality upload specs, 4K generation + exact-dim crop) |
 | `/create-image brand` | Conversational brand guide builder (learn → refine → preview → save) |
 | `/create-image asset [list\|show\|create\|delete]` | Manage persistent character/product/object references |
 | `/create-image reverse <image-path>` | Analyze image → extract 5-Component Formula prompt to recreate it |
@@ -192,7 +192,7 @@ Analyze an image and extract the prompt that would recreate it. See `references/
 
 ## /create-image social
 
-Generate platform-native images at correct ratios for 46 platforms. See `references/social-platforms.md` for specs. Script: `python3 ${CLAUDE_SKILL_DIR}/scripts/social.py generate --prompt "..." --platforms ig-feed,yt-thumb`
+Generate platform-native images at correct ratios for **38 sizes across 6 platforms** (Instagram, Facebook, YouTube, LinkedIn, Twitter/X, TikTok) — at max-quality upload specs, not platform minimums (v4.1.1+). See `references/social-platforms.md` for the full spec table. Script: `python3 ${CLAUDE_SKILL_DIR}/scripts/social.py generate --prompt "..." --platforms ig-feed,yt-thumb`
 
 ## /create-image brand
 
@@ -295,7 +295,7 @@ Load on-demand -- do NOT load all at startup:
 - `references/post-processing.md` -- ImageMagick/FFmpeg pipelines, green screen
 - `references/cost-tracking.md` -- Pricing table, usage guide
 - `references/presets.md` -- Brand Style Guide schema (17 fields)
-- `references/social-platforms.md` -- 46 social media platform specs, ratios, pixel targets, negative space
+- `references/social-platforms.md` -- 38 placement specs across 6 platforms (Instagram, Facebook, YouTube, LinkedIn, Twitter/X, TikTok), max-quality upload dimensions, safe zones
 - `references/brand-builder.md` -- Guided brand creation flow (learn → refine → preview → save)
 - `references/asset-registry.md` -- Persistent asset registry (characters, products, objects, environments)
 - `references/reverse-prompt.md` -- Image analysis → 5-Component Formula prompt extraction

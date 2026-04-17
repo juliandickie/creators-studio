@@ -7,7 +7,7 @@
 
 - **Repo:** https://github.com/juliandickie/creators-studio
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
-- **Current version:** 4.1.0
+- **Current version:** 4.1.1
 - **Local path:** `/Users/juliandickie/code/creators-studio-project/creators-studio/`
 - **Plugin layout:** `.claude-plugin/` + `skills/create-image/` (image) + `skills/create-video/` (video) + `agents/`
 
@@ -688,6 +688,41 @@ This was the scheduled post-v3.7.3 polish release closing the known-issues debt 
 - **Gemini output ratios are approximate, not exact.** The 1935×1080 example the user observed is real — Gemini's 2K 16:9 outputs aren't guaranteed to land exactly on 1920×1080 pixels. This invalidates the pre-v4.1.0 assumption that simple trims would suffice, and necessitates the inspect-first pipeline.
 - **Silent degradation is the worst of both UX worlds.** The pre-v4.1.0 `shutil.copy2()` fallback when ImageMagick was missing produced wrong-dimension outputs without telling the user anything. Structured warnings + explicit install prompts beat silent degradation every time. This principle now encoded in SKILL.md §Step 9.5 as a general rule, not just a one-off fix.
 - **Cross-skill imports work cleanly if the path is predictable.** `skills/create-image/scripts/vectorize.py` imports `_replicate_backend` from `../../create-video/scripts/` via a `sys.path.insert()` shim. No code duplication, no refactor needed. The same pattern could scale to any future image-side Replicate integration.
+
+### Session 22 (2026-04-17, continuing from session 21) — v4.1.1 platform count honesty + max-quality upload specs
+
+**Scope**: User flagged two related issues with `/create-image social` coverage: (1) the "46 platforms" framing was misleading — they were really 46 placements across 11 prefixes, with shallow (2-3 placements, no profiles, no ads) coverage on Pinterest, Threads, Snapchat, Google Ads, Spotify; (2) every pixel spec was sized at platform minimums (e.g. YouTube thumb at 1280×720), not at max upload quality (e.g. YouTube thumb at 3840×2160 per their January 2026 SOP doc).
+
+**What shipped:**
+
+1. **Scope narrowed to 6 platforms with deep coverage**: Instagram, Facebook, YouTube, LinkedIn, Twitter/X, TikTok. Total placements: 38 (was 46). Retired platform keys: `pin-*`, `threads-*`, `snap-*`, `gads-*`, `spotify-*`. Breaking change for any user or workflow pinning those keys.
+
+2. **Max-quality upload specs across all 38 placements**, sourced from `dev-docs/SOP Graphic Sizes - Social Media Image and Video Specifications Guide.md` (January 2026 update). Notable upgrades:
+   - `yt-thumb`: 1280×720 → **3840×2160** (9× pixel count, 4K — the headline upgrade)
+   - `ig-profile`: 320×320 → 720×720 (5.1× pixel count)
+   - `fb-ad`: 1080×1080 → 1440×1800 (2.2× — SOP premium feed-ad spec)
+   - `fb-story-ad`: 1080×1920 → 1440×2560 (1.8×)
+   - `ig-story-ad`: new at 1440×2560
+   - Profile pictures added for all 6 platforms (previously only `ig-profile` existed)
+   - Video-ad still frames added for LinkedIn + X at 1920×1080
+
+3. **`x-header` ratio bug fixed**. The Twitter/X header banner's true aspect ratio is 3:1 (1500/500 = 3.0), but v4.0.x had it labeled `3:2` (1.5:1) — meaning Gemini generated at 4096×2731 pixels and the crop discarded most of the vertical content. Gemini 3.1 doesn't support `3:1` natively, so v4.1.1 uses `21:9` (2.33:1, closest supported) as the generation ratio and crops ~11% vertical to land on exact 3:1.
+
+4. **`x-landscape` + `x-ad` corrected** to SOP specs: `x-landscape` went from 1600×900 to 1200×675 (SOP feed spec); `x-ad` went from 1600×900 16:9 to 800×800 1:1 (SOP image ad spec).
+
+5. **`GROUPS` dict rewritten** with new cross-platform family groups: `all-feeds`, `all-squares`, `all-stories`, `all-ads`, `all-profiles`, `all-banners` — multi-platform campaign shortcuts.
+
+6. **`references/social-platforms.md` fully rewritten** with per-platform spec tables, max-quality principle explanation with v4.0.x→v4.1.1 comparison table, group shortcut reference, safe-zone reference. Authoritative SOP doc cited.
+
+7. **Public framing updated** across README (Images section, Commands table, architecture tree), SKILL.md (command row + body), CLAUDE.md (file responsibilities table) from "46 platforms" to "38 sizes and ratios across 6 platforms."
+
+**Key decisions**:
+
+- **Breaking change acceptable for honest coverage**. Dropping 5 shallow-coverage platforms is technically a breaking API change (old platform keys error out), but the scope was dishonest — claiming "46 platforms" when 5 of them had 2-3 placements and no profile/ad variants. Depth beats breadth for creator-tool positioning. Users whose workflows pinned retired keys get a clear error and can migrate.
+- **Generation resolution unchanged**. Gemini still generates at 4K natively; the difference is only in the final crop target. No extra API cost, just better uploads.
+- **Gemini-supported-ratio fallback is the right pattern**. When a platform's true aspect ratio (e.g. 3:1 for x-header, 2.7:1 for fb-cover) isn't in Gemini's 14-ratio set, we pick the closest supported ratio and let `resize_for_platform` handle the crop. Better than forcing a destructive crop from a mismatched ratio.
+
+**Session spend**: $0 (doc + config changes only). **Cumulative: ~$1.10**.
 
 ## Expansion Roadmap
 

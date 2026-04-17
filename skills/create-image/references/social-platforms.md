@@ -1,228 +1,183 @@
-# Social Media Platform Specifications
+# Social Media Platform Specifications (v4.1.1+)
 
-Reference for generating platform-optimized images from a single prompt.
+Reference for generating platform-optimized images from a single prompt. This covers **38 placement specs across 6 platforms** at max-quality upload dimensions.
+
+> **Scope narrowed in v4.1.1** from 11 platforms (46 shallow placements) to **6 platforms with deep coverage**: Instagram, Facebook, YouTube, LinkedIn, Twitter/X, TikTok. Pinterest, Threads, Snapchat, Google Ads, and Spotify were retired because coverage was 2-3 placements each with no profile photos or ad variants. Authoritative source for all specs: [`dev-docs/SOP Graphic Sizes - Social Media Image and Video Specifications Guide.md`](../../../dev-docs/SOP%20Graphic%20Sizes%20-%20Social%20Media%20Image%20and%20Video%20Specifications%20Guide.md) (January 2026 update).
+
+## Max-quality upload principle
+
+Every spec in this file targets the **highest-quality dimensions each platform accepts**, not the minimum required for upload. The difference is significant:
+
+| Placement | v4.0.x (minimum) | v4.1.1 (max quality) | Pixel-count ratio |
+|---|---|---|---|
+| YouTube Thumbnail | 1280×720 | **3840×2160** (4K) | **9× more pixels** |
+| Instagram Profile | 320×320 | **720×720** | 5.1× |
+| Facebook Feed Ad | 1080×1080 | **1440×1800** (4:5) | 2.2× |
+| Facebook Story Ad | 1080×1920 | **1440×2560** | 1.8× |
+| Instagram Story Ad | 1080×1920 | **1440×2560** | 1.8× |
+
+Generation still happens at 4K natively (via Gemini's `imageSize: "4K"`); the final crop produces max-quality platform-spec outputs. The trim ratio is small for most placements, so quality is preserved. Upload size limits for all platforms accommodate these dimensions.
 
 ## Generation Strategy
 
-1. **Generate at the nearest Nano Banana native ratio at 4K resolution** -- this avoids distortion and maximizes quality.
-2. **Crop to exact platform pixels** using ImageMagick `convert -gravity center -crop WxH+0+0 +repage`.
-3. **Save both versions** -- the uncropped original (reusable across platforms sharing the same ratio) and the cropped platform-specific file.
+1. **Generate at the nearest Gemini-supported aspect ratio at 4K**. See the `ratio` column below — that's what's passed to Gemini's `aspect_ratio` parameter.
+2. **Inspect → resize → crop to exact target pixels** via `resize_for_platform()` (v4.1.0+). Checks actual Gemini output dimensions (may be slightly off the requested ratio), scales to match target ratio, crops to exact spec.
+3. **Tool fallback chain**: ImageMagick (preferred) → sips (same-ratio cases) → structured missing-tool warning if neither handles the ratio change. Never silent degradation.
 
 ## Output Modes
 
 | Mode | Flag | Description |
 |------|------|-------------|
 | Complete | `--mode complete` | Full image with text overlays baked in (hero banners, ads with CTA) |
-| Image Only | `--mode image-only` | Clean image, no text -- for posts where text is added in-app or via design tool |
-
-Image Only is the default. Use Complete when the platform placement expects a finished visual (ads, covers).
+| Image Only | `--mode image-only` (default) | Clean image, no text — for posts where text is added in-app or via design tool |
 
 ---
 
-## Nano Banana 2 Native Ratios
+## Instagram (8 placements)
 
-```
-1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9, 1:4, 4:1, 1:8, 8:1
-```
+Feed grid shifted to 3:4 vertical thumbnails in 2025; 4:5 portrait is now the preferred organic feed format.
 
----
+| Key | Name | Pixels | Ratio | Notes |
+|---|---|---|---|---|
+| `ig-profile` | Profile Picture | 720×720 | 1:1 | Circular crop. Keep subject in center 70%. Upgraded from 320×320 minimum. |
+| `ig-feed` | Feed Portrait | 1080×1350 | 4:5 | **Preferred organic feed format.** Bottom 20% may be obscured by caption overlay. |
+| `ig-square` | Feed Square | 1080×1080 | 1:1 | Center subject; edges may clip on older devices. |
+| `ig-landscape` | Feed Landscape | 1080×566 | 16:9 | 1.91:1 crop from 16:9 generation. |
+| `ig-story` | Story / Reel | 1080×1920 | 9:16 | Top 14% and bottom 35% reserved for UI (safe zones). |
+| `ig-reel-cover` | Reel Cover (full) | 1080×1920 | 9:16 | Full cover image; center of frame is the visible thumbnail. |
+| `ig-reel-cover-grid` | Reel Grid Thumbnail | 1080×1440 | 3:4 | Profile-grid display variant of the reel cover. |
+| `ig-story-ad` | Story Ad (premium) | 1440×2560 | 9:16 | **SOP premium quality spec** — not the 1080×1920 minimum. |
 
-## Platform Specifications
+## Facebook (8 placements)
 
-### Instagram
+Meta Ads ecosystem offers extensive placement options. Feed ad specs upgraded in v4.1.1 to the 1440×X premium variants.
 
-| Placement | Pixels | Ratio | Nearest Native Ratio | Generate At | Negative Space Notes |
-|-----------|--------|-------|----------------------|-------------|----------------------|
-| Feed Portrait | 1080x1350 | 4:5 | 4:5 | 3200x4000 | Keep subject centered; bottom 20% may be cropped by caption overlay |
-| Feed Square | 1080x1080 | 1:1 | 1:1 | 4096x4096 | Center subject; edges may clip on older devices |
-| Feed Landscape | 1080x566 | ~1.91:1 | 16:9 | 4096x2304 | Crop top/bottom from 16:9; avoid key content in extreme top/bottom |
-| Story / Reel | 1080x1920 | 9:16 | 9:16 | 2304x4096 | Top 15% and bottom 25% obscured by UI (username, CTA buttons) |
-| Reel Cover | 1080x1920 | 9:16 | 9:16 | 2304x4096 | Center of frame is the visible thumbnail; edges heavily cropped in grid view |
-| Profile Picture | 320x320 | 1:1 | 1:1 | 4096x4096 | Circular crop -- keep subject in center 70% |
+| Key | Name | Pixels | Ratio | Notes |
+|---|---|---|---|---|
+| `fb-profile` | Profile Picture | 720×720 | 1:1 | Quality-recommended spec (displays 176×176 desktop, 196×196 mobile). |
+| `fb-cover` | Cover Photo | 851×315 | 21:9 | Design size; desktop displays 820×312, mobile 640×360. Safe zone: center 640×312. Generates at 21:9 (closest supported) then crops ~10% vertical to reach 2.7:1. |
+| `fb-feed` | Feed Square | 1080×1080 | 1:1 | Organic square post. |
+| `fb-landscape` | Feed Landscape | 1200×630 | 16:9 | 1.91:1 — link preview crops tighter. |
+| `fb-portrait` | Feed Portrait | 1080×1350 | 4:5 | Truncated in feed with See More. |
+| `fb-story` | Story / Reel | 1080×1920 | 9:16 | Top 14% profile bar; bottom 20% CTA. |
+| `fb-ad` | Feed Ad (premium) | 1440×1800 | 4:5 | **SOP premium feed ad spec** (was 1080×1080 in v4.0.x). Bottom 20% ad copy overlay. |
+| `fb-story-ad` | Story Ad (premium) | 1440×2560 | 9:16 | **SOP premium story/reel ad spec.** Safe zones top 360px, bottom 900px. |
 
-### Facebook
+## YouTube (4 placements)
 
-| Placement | Pixels | Ratio | Nearest Native Ratio | Generate At | Negative Space Notes |
-|-----------|--------|-------|----------------------|-------------|----------------------|
-| Feed Square | 1080x1080 | 1:1 | 1:1 | 4096x4096 | Center subject |
-| Feed Landscape | 1200x630 | ~1.91:1 | 16:9 | 4096x2304 | Crop from 16:9; link preview crops tighter |
-| Feed Portrait | 1080x1350 | 4:5 | 4:5 | 3200x4000 | Truncated in feed with "See More" -- put hook in top 60% |
-| Story / Reel | 1080x1920 | 9:16 | 9:16 | 2304x4096 | Top 14% is profile bar; bottom 20% is CTA area |
-| Cover Photo | 820x312 | ~2.63:1 | 21:9 | 4096x1756 | Crop from 21:9; mobile crops to ~640x360, keep subject in center band |
-| Feed Ad | 1080x1080 | 1:1 | 1:1 | 4096x4096 | Bottom 20% overlaid with ad copy |
-| Story Ad | 1080x1920 | 9:16 | 9:16 | 2304x4096 | Bottom 25% is CTA button area |
+YouTube supports the widest resolution range among the six platforms (240p to 8K).
 
-### YouTube
+| Key | Name | Pixels | Ratio | Notes |
+|---|---|---|---|---|
+| `yt-profile` | Channel Icon | 800×800 | 1:1 | Displays as circle at 98×98. |
+| `yt-thumb` | **Thumbnail (4K)** | **3840×2160** | 16:9 | **v4.1.1 major upgrade: 4K thumbnail** (was 1280×720 minimum in v4.0.x). YouTube accepts thumbnail uploads up to 50MB for 4K. Bottom-right has timestamp overlay. |
+| `yt-banner` | Channel Banner | 2560×1440 | 16:9 | Safe zone: center 1546×423 for visibility across all devices. |
+| `yt-shorts` | Shorts Cover | 1080×1920 | 9:16 | Center subject; top/bottom cropped in browse. |
 
-| Placement | Pixels | Ratio | Nearest Native Ratio | Generate At | Negative Space Notes |
-|-----------|--------|-------|----------------------|-------------|----------------------|
-| Thumbnail | 1280x720 | 16:9 | 16:9 | 4096x2304 | Bottom-right corner often has timestamp overlay; avoid text there |
-| Channel Banner | 2560x1440 | 16:9 | 16:9 | 4096x2304 | Safe area is center 1546x423 on desktop; TV shows full image |
-| Shorts Thumbnail | 1080x1920 | 9:16 | 9:16 | 2304x4096 | Center subject; top/bottom cropped in browse view |
+## LinkedIn (9 placements)
 
-### LinkedIn
+Document carousels and native video drive organic reach on LinkedIn.
 
-| Placement | Pixels | Ratio | Nearest Native Ratio | Generate At | Negative Space Notes |
-|-----------|--------|-------|----------------------|-------------|----------------------|
-| Feed Landscape | 1200x627 | ~1.91:1 | 16:9 | 4096x2304 | Standard share image; crops from 16:9 |
-| Feed Portrait | 1080x1350 | 4:5 | 4:5 | 3200x4000 | Truncated in feed; top portion is most visible |
-| Feed Square | 1080x1080 | 1:1 | 1:1 | 4096x4096 | Safe choice for LinkedIn |
-| Banner / Hero | 1584x396 | 4:1 | 4:1 | 4096x1024 | Exactly 4:1 native; subject in center band |
-| Carousel Slide | 1080x1080 | 1:1 | 1:1 | 4096x4096 | Keep margins; swipe arrows overlay edges |
-| Carousel Slide (Portrait) | 1080x1350 | 4:5 | 4:5 | 3200x4000 | More vertical real estate for carousels |
-| Sponsored Content Ad | 1200x627 | ~1.91:1 | 16:9 | 4096x2304 | Same as feed landscape |
+| Key | Name | Pixels | Ratio | Notes |
+|---|---|---|---|---|
+| `li-profile` | Profile Picture | 400×400 | 1:1 | Displays as circle. Same spec as company logo. |
+| `li-banner` | Profile Banner | 1584×396 | 4:1 | Keep subject in center band. |
+| `li-landscape` | Feed Landscape | 1200×627 | 16:9 | 1.91:1 standard share image. |
+| `li-portrait` | Feed Portrait | 1080×1350 | 4:5 | Truncated in feed; top portion most visible. |
+| `li-square` | Feed Square | 1080×1080 | 1:1 | Safe choice for LinkedIn. |
+| `li-carousel` | Carousel Slide | 1080×1080 | 1:1 | Keep margins; swipe arrows overlay edges. |
+| `li-carousel-portrait` | Carousel Portrait | 1080×1350 | 4:5 | More vertical real estate for document-style carousels. |
+| `li-ad` | Single Image Ad | 1200×628 | 16:9 | Also supports 1200×1200 square per SOP. |
+| `li-video-ad-frame` | Video Ad Still | 1920×1080 | 16:9 | Video ad thumbnail / still frame at 1080p. |
 
-### Twitter / X
+## Twitter/X (6 placements)
 
-| Placement | Pixels | Ratio | Nearest Native Ratio | Generate At | Negative Space Notes |
-|-----------|--------|-------|----------------------|-------------|----------------------|
-| Feed Landscape | 1600x900 | 16:9 | 16:9 | 4096x2304 | Standard in-feed image; crops from center on mobile |
-| Feed Square | 1080x1080 | 1:1 | 1:1 | 4096x4096 | Displayed with slight letterboxing |
-| Header / Banner | 1500x500 | 3:1 | 3:2 | 4096x2731 | Crop from 3:2 (heavy top/bottom crop); keep subject in narrow center band |
-| In-Feed Ad | 1600x900 | 16:9 | 16:9 | 4096x2304 | Bottom may have ad label overlay |
+X Premium subscribers have extended video limits; image specs unchanged.
 
-### TikTok
+| Key | Name | Pixels | Ratio | Notes |
+|---|---|---|---|---|
+| `x-profile` | Profile Picture | 400×400 | 1:1 | Circular display. |
+| `x-header` | Header Banner | 1500×500 | 21:9 | **v4.1.1 FIX**: was labeled `3:2` in v4.0.x — true target is 3:1 (1500/500 = 3.0), but Gemini doesn't support 3:1 natively; generates at 21:9 (2.33:1, closest supported) then crops ~11% vertical. Safe zone: 100px buffer top/bottom; profile photo overlaps bottom-left. |
+| `x-landscape` | Feed Landscape | 1200×675 | 16:9 | **v4.1.1 CORRECTED** from 1600×900. SOP spec for single-image feed posts. Crops from center on mobile. |
+| `x-square` | Feed Square | 1080×1080 | 1:1 | Displayed with slight letterboxing on some devices. |
+| `x-ad` | Image Ad | 800×800 | 1:1 | **v4.1.1 CORRECTED** from 1600×900 landscape to SOP-spec 1:1. SOP also allows 800×418 (1.91:1). |
+| `x-video-ad-frame` | Video Ad Still | 1920×1080 | 16:9 | Video ad thumbnail / still frame at 1080p. |
 
-| Placement | Pixels | Ratio | Nearest Native Ratio | Generate At | Negative Space Notes |
-|-----------|--------|-------|----------------------|-------------|----------------------|
-| Feed / Video Cover | 1080x1920 | 9:16 | 9:16 | 2304x4096 | Bottom 25% has caption/music overlay; top 10% has following/search |
-| In-Feed Ad | 1080x1920 | 9:16 | 9:16 | 2304x4096 | CTA button in bottom 20%; keep subject in center 50% |
+## TikTok (3 placements)
 
-### Pinterest
+Vertical-first platform; 9:16 content receives algorithmic preference across all placements.
 
-| Placement | Pixels | Ratio | Nearest Native Ratio | Generate At | Negative Space Notes |
-|-----------|--------|-------|----------------------|-------------|----------------------|
-| Standard Pin | 1000x1500 | 2:3 | 2:3 | 2731x4096 | Optimal ratio for Pinterest grid; bottom may show title overlay |
-| Long Pin | 1000x2100 | ~1:2.1 | 1:4 | 1024x4096 | Crop from 1:4; tall pins get more grid space but may be truncated |
-| Square Pin | 1000x1000 | 1:1 | 1:1 | 4096x4096 | Less grid presence than portrait but cleaner crop |
-
-### Threads
-
-| Placement | Pixels | Ratio | Nearest Native Ratio | Generate At | Negative Space Notes |
-|-----------|--------|-------|----------------------|-------------|----------------------|
-| Feed Portrait | 1080x1350 | 4:5 | 4:5 | 3200x4000 | Same as Instagram feed portrait |
-| Feed Vertical | 1080x1920 | 9:16 | 9:16 | 2304x4096 | Full vertical; bottom has interaction bar |
-| Feed Square | 1080x1080 | 1:1 | 1:1 | 4096x4096 | Safe default |
-
-### Snapchat
-
-| Placement | Pixels | Ratio | Nearest Native Ratio | Generate At | Negative Space Notes |
-|-----------|--------|-------|----------------------|-------------|----------------------|
-| Story | 1080x1920 | 9:16 | 9:16 | 2304x4096 | Top 15% has header bar; bottom 20% has swipe-up/reply |
-| Snap Ad | 1080x1920 | 9:16 | 9:16 | 2304x4096 | Bottom 30% is CTA; keep subject in upper 60% |
-
-### Google Ads
-
-| Placement | Pixels | Ratio | Nearest Native Ratio | Generate At | Negative Space Notes |
-|-----------|--------|-------|----------------------|-------------|----------------------|
-| Responsive Landscape | 1200x628 | ~1.91:1 | 16:9 | 4096x2304 | Crop from 16:9; Google may auto-crop further |
-| Responsive Square | 1200x1200 | 1:1 | 1:1 | 4096x4096 | Center subject; ad text overlaid below |
-| Display Leaderboard | 728x90 | ~8:1 | 8:1 | 4096x512 | Extreme horizontal; use for patterns/textures or simple centered subject |
-| Display Skyscraper | 160x600 | ~1:3.75 | 1:4 | 1024x4096 | Crop from 1:4; narrow vertical -- text must be large |
-| Display Half-Page | 300x600 | 1:2 | 1:4 | 1024x4096 | Crop from 1:4; keep subject in upper half |
-| Display Rectangle | 300x250 | 6:5 | 5:4 | 4096x3277 | Crop from 5:4; compact format, center everything |
-| Performance Max | 1200x628 | ~1.91:1 | 16:9 | 4096x2304 | Same as responsive landscape; Google auto-crops aggressively |
-
-### Spotify
-
-| Placement | Pixels | Ratio | Nearest Native Ratio | Generate At | Negative Space Notes |
-|-----------|--------|-------|----------------------|-------------|----------------------|
-| Playlist / Album Cover | 3000x3000 | 1:1 | 1:1 | 4096x4096 | Circular crop on some views; keep subject in center 80% |
-| Artist Banner | 2660x1140 | ~2.33:1 | 21:9 | 4096x1756 | Crop from 21:9; text overlays on left side |
+| Key | Name | Pixels | Ratio | Notes |
+|---|---|---|---|---|
+| `tt-profile` | Profile Picture | 720×720 | 1:1 | Displays at 200×200 but upload at 720×720 for quality. |
+| `tt-feed` | Feed / Cover | 1080×1920 | 9:16 | 9:16 preferred. Avoid top and bottom 120 pixels due to UI overlays. |
+| `tt-ad` | In-Feed / TopView Ad | 1080×1920 | 9:16 | Both in-feed ads and TopView ads use same 1080×1920 9:16 spec. |
 
 ---
 
-## Cropping Commands (ImageMagick)
+## Group Shortcuts
 
-After generating at the native ratio, crop to exact platform pixels:
+Shortcuts that expand to multiple platform keys for multi-channel campaigns.
+
+### Per-platform groups
+
+| Group | Expands to |
+|---|---|
+| `instagram` | `ig-feed, ig-square, ig-story, ig-reel-cover` |
+| `facebook` | `fb-feed, fb-landscape, fb-portrait, fb-story` |
+| `youtube` | `yt-thumb, yt-banner, yt-shorts` |
+| `linkedin` | `li-landscape, li-square, li-portrait, li-banner` |
+| `twitter` | `x-landscape, x-square, x-header` |
+| `tiktok` | `tt-feed` |
+
+### Cross-platform family groups
+
+| Group | Expands to | Use case |
+|---|---|---|
+| `all-feeds` | `ig-feed, fb-portrait, li-portrait, x-landscape` | A standard post across all 4 feed-based platforms |
+| `all-squares` | `ig-square, fb-feed, li-square, x-square` | 1:1 asset for every major platform |
+| `all-stories` | `ig-story, fb-story, tt-feed` | 9:16 vertical content for Stories/Reels/TikTok |
+| `all-ads` | `fb-ad, fb-story-ad, ig-story-ad, li-ad, x-ad, tt-ad` | Every paid-placement ad variant |
+| `all-profiles` | `ig-profile, fb-profile, yt-profile, li-profile, x-profile, tt-profile` | Profile pictures for every platform |
+| `all-banners` | `fb-cover, yt-banner, li-banner, x-header` | Cover/banner for every platform |
+
+---
+
+## Usage
 
 ```bash
-# Basic center crop
-convert input.png -gravity center -crop WIDTHxHEIGHT+0+0 +repage output.png
+# Single placement
+/create-image social "product launch hero" --platforms yt-thumb
 
-# Examples
-convert original_16x9.png -gravity center -crop 1280x720+0+0 +repage youtube_thumb.png
-convert original_4x5.png -gravity center -crop 1080x1350+0+0 +repage ig_feed.png
-convert original_9x16.png -gravity center -crop 1080x1920+0+0 +repage ig_story.png
-convert original_1x1.png -gravity center -crop 1080x1080+0+0 +repage ig_square.png
-convert original_21x9.png -gravity center -crop 820x312+0+0 +repage fb_cover.png
-convert original_4x1.png -gravity center -crop 1584x396+0+0 +repage linkedin_banner.png
-convert original_8x1.png -gravity center -crop 728x90+0+0 +repage google_leaderboard.png
+# Multiple specific placements
+/create-image social "product launch hero" --platforms ig-feed,yt-thumb,li-landscape
 
-# Resize then crop (when generated image is larger than needed)
-convert input.png -resize WIDTHxHEIGHT^ -gravity center -crop WIDTHxHEIGHT+0+0 +repage output.png
+# Per-platform group
+/create-image social "product launch hero" --platforms instagram
+
+# Cross-platform family
+/create-image social "product launch hero" --platforms all-stories
 ```
 
----
+Platforms sharing the same generation ratio are grouped automatically — if Instagram feed (4:5) and Facebook portrait (4:5) both need the same ratio, **only one Gemini API call is made** and cropped to both specs. Minimizes cost and API calls.
 
-## Platform Shorthand Names
+## Safe Zones Reference
 
-Use these shorthands with the `--platforms` flag in `social.py`:
+For placements with UI overlays, keep the key subject within the central safe zone:
 
-| Shorthand | Platform & Placement |
-|-----------|---------------------|
-| `ig-feed` | Instagram Feed Portrait (1080x1350) |
-| `ig-square` | Instagram Feed Square (1080x1080) |
-| `ig-landscape` | Instagram Feed Landscape (1080x566) |
-| `ig-story` | Instagram Story / Reel (1080x1920) |
-| `ig-reel-cover` | Instagram Reel Cover (1080x1920) |
-| `ig-profile` | Instagram Profile Picture (320x320) |
-| `fb-feed` | Facebook Feed Square (1080x1080) |
-| `fb-landscape` | Facebook Feed Landscape (1200x630) |
-| `fb-portrait` | Facebook Feed Portrait (1080x1350) |
-| `fb-story` | Facebook Story / Reel (1080x1920) |
-| `fb-cover` | Facebook Cover Photo (820x312) |
-| `fb-ad` | Facebook Feed Ad (1080x1080) |
-| `fb-story-ad` | Facebook Story Ad (1080x1920) |
-| `yt-thumb` | YouTube Thumbnail (1280x720) |
-| `yt-banner` | YouTube Channel Banner (2560x1440) |
-| `yt-shorts` | YouTube Shorts Thumbnail (1080x1920) |
-| `li-landscape` | LinkedIn Feed Landscape (1200x627) |
-| `li-portrait` | LinkedIn Feed Portrait (1080x1350) |
-| `li-square` | LinkedIn Feed Square (1080x1080) |
-| `li-banner` | LinkedIn Banner (1584x396) |
-| `li-carousel` | LinkedIn Carousel Slide (1080x1080) |
-| `li-carousel-portrait` | LinkedIn Carousel Portrait (1080x1350) |
-| `li-ad` | LinkedIn Sponsored Content (1200x627) |
-| `x-landscape` | Twitter/X Feed Landscape (1600x900) |
-| `x-square` | Twitter/X Feed Square (1080x1080) |
-| `x-header` | Twitter/X Header (1500x500) |
-| `x-ad` | Twitter/X In-Feed Ad (1600x900) |
-| `tt-feed` | TikTok Feed / Cover (1080x1920) |
-| `tt-ad` | TikTok In-Feed Ad (1080x1920) |
-| `pin-standard` | Pinterest Standard Pin (1000x1500) |
-| `pin-long` | Pinterest Long Pin (1000x2100) |
-| `pin-square` | Pinterest Square Pin (1000x1000) |
-| `threads-portrait` | Threads Feed Portrait (1080x1350) |
-| `threads-vertical` | Threads Feed Vertical (1080x1920) |
-| `threads-square` | Threads Feed Square (1080x1080) |
-| `snap-story` | Snapchat Story (1080x1920) |
-| `snap-ad` | Snapchat Ad (1080x1920) |
-| `gads-landscape` | Google Ads Responsive Landscape (1200x628) |
-| `gads-square` | Google Ads Responsive Square (1200x1200) |
-| `gads-leaderboard` | Google Ads Display Leaderboard (728x90) |
-| `gads-skyscraper` | Google Ads Display Skyscraper (160x600) |
-| `gads-half-page` | Google Ads Display Half-Page (300x600) |
-| `gads-rectangle` | Google Ads Display Rectangle (300x250) |
-| `gads-pmax` | Google Ads Performance Max (1200x628) |
-| `spotify-cover` | Spotify Playlist/Album Cover (3000x3000) |
-| `spotify-banner` | Spotify Artist Banner (2660x1140) |
+| Placement | Safe zone | Obscured by |
+|---|---|---|
+| `ig-feed` | Avoid bottom 20% | Caption overlay |
+| `ig-story` / `fb-story` / `ig-story-ad` / `fb-story-ad` | Avoid top 14% + bottom 35% | Profile bar + reply/CTA |
+| `fb-cover` | Center 640×312 | Edges crop on mobile |
+| `yt-thumb` | Avoid bottom-right corner | Timestamp overlay |
+| `yt-banner` | Center 1546×423 | Only visible area across devices |
+| `li-banner` | Center band | Cropped on mobile |
+| `x-header` | 100px buffer top/bottom | Profile photo overlaps bottom-left |
+| `tt-feed` / `tt-ad` | Avoid top 120px + bottom 120px | UI overlays |
 
-### Group Shorthands
+## See also
 
-| Shorthand | Expands To |
-|-----------|-----------|
-| `instagram` | `ig-feed,ig-square,ig-story` |
-| `facebook` | `fb-feed,fb-landscape,fb-story` |
-| `youtube` | `yt-thumb,yt-banner` |
-| `linkedin` | `li-landscape,li-square,li-banner` |
-| `twitter` | `x-landscape,x-header` |
-| `tiktok` | `tt-feed` |
-| `pinterest` | `pin-standard` |
-| `threads` | `threads-portrait,threads-square` |
-| `snapchat` | `snap-story` |
-| `google-ads` | `gads-landscape,gads-square` |
-| `spotify` | `spotify-cover` |
-| `all-feeds` | `ig-feed,fb-feed,li-landscape,x-landscape,threads-portrait` |
-| `all-stories` | `ig-story,fb-story,snap-story,tt-feed` |
-| `all-ads` | `fb-ad,fb-story-ad,li-ad,x-ad,tt-ad,gads-landscape,gads-square,snap-ad` |
+- [`dev-docs/SOP Graphic Sizes - Social Media Image and Video Specifications Guide.md`](../../../dev-docs/SOP%20Graphic%20Sizes%20-%20Social%20Media%20Image%20and%20Video%20Specifications%20Guide.md) — authoritative source for all specs (January 2026 update)
+- [`../scripts/social.py`](../scripts/social.py) — the platform generator CLI
+- [`../scripts/social.py::resize_for_platform`](../scripts/social.py) — v4.1.0 exact-dimension enforcer

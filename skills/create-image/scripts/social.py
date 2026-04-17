@@ -36,92 +36,97 @@ API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 # Platform definitions
 # ---------------------------------------------------------------------------
 
+# PLATFORMS dict — 6 platforms, 38 placements, max-quality specs (v4.1.1+)
+#
+# Scope narrowed from 11 platforms (v4.0.x) to 6 (Instagram, Facebook, YouTube,
+# LinkedIn, Twitter/X, TikTok) in v4.1.1 to reflect honest coverage — the
+# previous 46 "platforms" were actually 46 placements across 11 prefixes
+# with shallow (2-3 placement) coverage on Pinterest, Threads, Snapchat,
+# Google Ads, Spotify.
+#
+# All pixel specs upgraded to SOP-recommended MAX-QUALITY values, not minimum
+# platform requirements. Authoritative source for every spec below is:
+# dev-docs/SOP Graphic Sizes - Social Media Image and Video Specifications Guide.md
+# (January 2026 update).
+#
+# Key upgrades from v4.0.x → v4.1.1:
+# - yt-thumb:        1280×720  → 3840×2160  (9× pixel count, 4K quality)
+# - ig-profile:       320×320  → 720×720    (quality-recommended spec)
+# - fb-profile:       (new)    → 720×720    (quality-recommended spec)
+# - fb-ad:          1080×1080  → 1440×1800  (SOP premium feed ad)
+# - fb-story-ad:    1080×1920  → 1440×2560  (SOP premium story ad)
+# - ig-story-ad:    1080×1920  → 1440×2560  (SOP premium story ad — new key)
+# - x-header:       3:2 ratio  → 3:1 ratio  (bug fix; 1500/500 = 3:1)
+# - x-landscape:   1600×900    → 1200×675   (SOP-correct single-image feed spec)
+# - x-ad:          1600×900    → 800×800    (SOP-correct image ad spec)
+
 PLATFORMS = {
-    # --- Instagram ---
-    "ig-feed":        {"name": "Instagram Feed Portrait",       "pixels": (1080, 1350), "ratio": "4:5",  "resolution": "4K", "notes": "Bottom 20% may be obscured by caption overlay"},
-    "ig-square":      {"name": "Instagram Feed Square",         "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "Center subject; edges may clip on older devices"},
-    "ig-landscape":   {"name": "Instagram Feed Landscape",      "pixels": (1080, 566),  "ratio": "16:9", "resolution": "4K", "notes": "Crop top/bottom from 16:9"},
-    "ig-story":       {"name": "Instagram Story / Reel",        "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Top 15% and bottom 25% obscured by UI"},
-    "ig-reel-cover":  {"name": "Instagram Reel Cover",          "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Center of frame is visible thumbnail"},
-    "ig-profile":     {"name": "Instagram Profile Picture",     "pixels": (320, 320),   "ratio": "1:1",  "resolution": "4K", "notes": "Circular crop -- keep subject in center 70%"},
+    # ═══ Instagram (8 placements) ═══════════════════════════════════════════
+    "ig-profile":           {"name": "Instagram Profile Picture",       "pixels": (720, 720),   "ratio": "1:1",  "resolution": "4K", "notes": "Circular crop -- keep subject in center 70%. SOP-recommended 720x720 (was 320x320 minimum in v4.0.x)."},
+    "ig-feed":              {"name": "Instagram Feed Portrait",         "pixels": (1080, 1350), "ratio": "4:5",  "resolution": "4K", "notes": "Preferred organic feed format. Bottom 20% may be obscured by caption overlay."},
+    "ig-square":            {"name": "Instagram Feed Square",           "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "Center subject; edges may clip on older devices."},
+    "ig-landscape":         {"name": "Instagram Feed Landscape",        "pixels": (1080, 566),  "ratio": "16:9", "resolution": "4K", "notes": "1.91:1 crop from 16:9 source."},
+    "ig-story":             {"name": "Instagram Story / Reel",          "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Top 14% and bottom 35% reserved for UI (safe zones)."},
+    "ig-reel-cover":        {"name": "Instagram Reel Cover (full)",     "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Full reel cover image. Center of frame is the visible thumbnail."},
+    "ig-reel-cover-grid":   {"name": "Instagram Reel Grid Thumbnail",   "pixels": (1080, 1440), "ratio": "3:4",  "resolution": "4K", "notes": "Profile-grid display variant of the reel cover."},
+    "ig-story-ad":          {"name": "Instagram Story Ad (premium)",    "pixels": (1440, 2560), "ratio": "9:16", "resolution": "4K", "notes": "SOP premium quality spec for Stories Ads (1440x2560, not 1080x1920)."},
 
-    # --- Facebook ---
-    "fb-feed":        {"name": "Facebook Feed Square",          "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "Center subject"},
-    "fb-landscape":   {"name": "Facebook Feed Landscape",       "pixels": (1200, 630),  "ratio": "16:9", "resolution": "4K", "notes": "Crop from 16:9; link preview crops tighter"},
-    "fb-portrait":    {"name": "Facebook Feed Portrait",        "pixels": (1080, 1350), "ratio": "4:5",  "resolution": "4K", "notes": "Truncated in feed with See More"},
-    "fb-story":       {"name": "Facebook Story / Reel",         "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Top 14% is profile bar; bottom 20% is CTA"},
-    "fb-cover":       {"name": "Facebook Cover Photo",          "pixels": (820, 312),   "ratio": "21:9", "resolution": "4K", "notes": "Mobile crops to ~640x360; keep subject centered"},
-    "fb-ad":          {"name": "Facebook Feed Ad",              "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "Bottom 20% overlaid with ad copy"},
-    "fb-story-ad":    {"name": "Facebook Story Ad",             "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Bottom 25% is CTA button area"},
+    # ═══ Facebook (8 placements) ═════════════════════════════════════════════
+    "fb-profile":           {"name": "Facebook Profile Picture",        "pixels": (720, 720),   "ratio": "1:1",  "resolution": "4K", "notes": "SOP quality spec 720x720 (displays 176x176 desktop, 196x196 mobile)."},
+    "fb-cover":             {"name": "Facebook Cover Photo",            "pixels": (851, 315),   "ratio": "21:9", "resolution": "4K", "notes": "Design-size 851x315; desktop displays 820x312, mobile 640x360. Safe zone is center 640x312."},
+    "fb-feed":              {"name": "Facebook Feed Square",            "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "Organic square post."},
+    "fb-landscape":         {"name": "Facebook Feed Landscape",         "pixels": (1200, 630),  "ratio": "16:9", "resolution": "4K", "notes": "1.91:1 — link preview crops tighter."},
+    "fb-portrait":          {"name": "Facebook Feed Portrait",          "pixels": (1080, 1350), "ratio": "4:5",  "resolution": "4K", "notes": "Truncated in feed with See More."},
+    "fb-story":             {"name": "Facebook Story / Reel",           "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Top 14% profile bar; bottom 20% CTA."},
+    "fb-ad":                {"name": "Facebook Feed Ad (premium)",      "pixels": (1440, 1800), "ratio": "4:5",  "resolution": "4K", "notes": "SOP premium feed ad spec 1440x1800 (was 1080x1080 in v4.0.x). Bottom 20% ad copy overlay."},
+    "fb-story-ad":          {"name": "Facebook Story Ad (premium)",     "pixels": (1440, 2560), "ratio": "9:16", "resolution": "4K", "notes": "SOP premium story/reel ad spec 1440x2560. Safe zones top 360px, bottom 900px."},
 
-    # --- YouTube ---
-    "yt-thumb":       {"name": "YouTube Thumbnail",             "pixels": (1280, 720),  "ratio": "16:9", "resolution": "4K", "notes": "Bottom-right corner has timestamp overlay"},
-    "yt-banner":      {"name": "YouTube Channel Banner",        "pixels": (2560, 1440), "ratio": "16:9", "resolution": "4K", "notes": "Safe area is center 1546x423 on desktop"},
-    "yt-shorts":      {"name": "YouTube Shorts Thumbnail",      "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Center subject; top/bottom cropped in browse"},
+    # ═══ YouTube (4 placements) ══════════════════════════════════════════════
+    "yt-profile":           {"name": "YouTube Channel Icon",            "pixels": (800, 800),   "ratio": "1:1",  "resolution": "4K", "notes": "Displays as circle at 98x98."},
+    "yt-thumb":             {"name": "YouTube Thumbnail (4K)",          "pixels": (3840, 2160), "ratio": "16:9", "resolution": "4K", "notes": "4K max-quality upload per v4.1.1 (was 1280x720 minimum in v4.0.x). YouTube supports up to 50MB for 4K thumbnails. Bottom-right has timestamp overlay."},
+    "yt-banner":            {"name": "YouTube Channel Banner",          "pixels": (2560, 1440), "ratio": "16:9", "resolution": "4K", "notes": "Safe zone is center 1546x423 for visibility across all devices."},
+    "yt-shorts":            {"name": "YouTube Shorts Cover",            "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Center subject; top/bottom cropped in browse."},
 
-    # --- LinkedIn ---
-    "li-landscape":   {"name": "LinkedIn Feed Landscape",       "pixels": (1200, 627),  "ratio": "16:9", "resolution": "4K", "notes": "Standard share image"},
-    "li-portrait":    {"name": "LinkedIn Feed Portrait",        "pixels": (1080, 1350), "ratio": "4:5",  "resolution": "4K", "notes": "Truncated in feed; top portion most visible"},
-    "li-square":      {"name": "LinkedIn Feed Square",          "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "Safe choice for LinkedIn"},
-    "li-banner":      {"name": "LinkedIn Banner",               "pixels": (1584, 396),  "ratio": "4:1",  "resolution": "4K", "notes": "Keep subject in center band"},
-    "li-carousel":    {"name": "LinkedIn Carousel Slide",       "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "Keep margins; swipe arrows overlay edges"},
-    "li-carousel-portrait": {"name": "LinkedIn Carousel Portrait", "pixels": (1080, 1350), "ratio": "4:5", "resolution": "4K", "notes": "More vertical real estate"},
-    "li-ad":          {"name": "LinkedIn Sponsored Content",     "pixels": (1200, 627),  "ratio": "16:9", "resolution": "4K", "notes": "Same as feed landscape"},
+    # ═══ LinkedIn (9 placements) ═════════════════════════════════════════════
+    "li-profile":           {"name": "LinkedIn Profile Picture",        "pixels": (400, 400),   "ratio": "1:1",  "resolution": "4K", "notes": "Displays as circle. Also company logo spec."},
+    "li-banner":            {"name": "LinkedIn Banner",                 "pixels": (1584, 396),  "ratio": "4:1",  "resolution": "4K", "notes": "Keep subject in center band."},
+    "li-landscape":         {"name": "LinkedIn Feed Landscape",         "pixels": (1200, 627),  "ratio": "16:9", "resolution": "4K", "notes": "1.91:1 standard share image."},
+    "li-portrait":          {"name": "LinkedIn Feed Portrait",          "pixels": (1080, 1350), "ratio": "4:5",  "resolution": "4K", "notes": "Truncated in feed; top portion most visible."},
+    "li-square":            {"name": "LinkedIn Feed Square",            "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "Safe choice for LinkedIn."},
+    "li-carousel":          {"name": "LinkedIn Carousel Slide",         "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "Keep margins; swipe arrows overlay edges."},
+    "li-carousel-portrait": {"name": "LinkedIn Carousel Portrait",      "pixels": (1080, 1350), "ratio": "4:5",  "resolution": "4K", "notes": "More vertical real estate for document-style carousels."},
+    "li-ad":                {"name": "LinkedIn Single Image Ad",        "pixels": (1200, 628),  "ratio": "16:9", "resolution": "4K", "notes": "SOP single image ad spec (also supports 1200x1200 square)."},
+    "li-video-ad-frame":    {"name": "LinkedIn Video Ad Still",         "pixels": (1920, 1080), "ratio": "16:9", "resolution": "4K", "notes": "Video ad thumbnail / still frame at 1080p."},
 
-    # --- Twitter / X ---
-    "x-landscape":    {"name": "Twitter/X Feed Landscape",      "pixels": (1600, 900),  "ratio": "16:9", "resolution": "4K", "notes": "Crops from center on mobile"},
-    "x-square":       {"name": "Twitter/X Feed Square",         "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "Displayed with slight letterboxing"},
-    "x-header":       {"name": "Twitter/X Header",              "pixels": (1500, 500),  "ratio": "3:2",  "resolution": "4K", "notes": "Crop from 3:2; keep subject in center band"},
-    "x-ad":           {"name": "Twitter/X In-Feed Ad",          "pixels": (1600, 900),  "ratio": "16:9", "resolution": "4K", "notes": "Bottom may have ad label overlay"},
+    # ═══ Twitter/X (6 placements) ════════════════════════════════════════════
+    "x-profile":            {"name": "Twitter/X Profile Picture",       "pixels": (400, 400),   "ratio": "1:1",  "resolution": "4K", "notes": "Circular display."},
+    "x-header":             {"name": "Twitter/X Header Banner",         "pixels": (1500, 500),  "ratio": "21:9", "resolution": "4K", "notes": "v4.1.1 FIX: was incorrectly labeled 3:2 in v4.0.x. True target aspect is 3:1 (1500/500 = 3.0); Gemini generates at 21:9 (2.33:1, closest supported ratio) then crops ~11% vertical to exact 3:1. Safe zone: 100px buffer top/bottom; profile photo overlaps bottom-left."},
+    "x-landscape":          {"name": "Twitter/X Feed Landscape",        "pixels": (1200, 675),  "ratio": "16:9", "resolution": "4K", "notes": "v4.1.1 CORRECTED to SOP spec (was 1600x900 in v4.0.x). Crops from center on mobile."},
+    "x-square":             {"name": "Twitter/X Feed Square",           "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "Displayed with slight letterboxing on some devices."},
+    "x-ad":                 {"name": "Twitter/X Image Ad",              "pixels": (800, 800),   "ratio": "1:1",  "resolution": "4K", "notes": "v4.1.1 CORRECTED to SOP spec 800x800 1:1 (was 1600x900 16:9 in v4.0.x). SOP also allows 800x418 (1.91:1)."},
+    "x-video-ad-frame":     {"name": "Twitter/X Video Ad Still",        "pixels": (1920, 1080), "ratio": "16:9", "resolution": "4K", "notes": "Video ad thumbnail / still frame at 1080p (SOP: 1920x1080 16:9 or 1200x1200 1:1 accepted)."},
 
-    # --- TikTok ---
-    "tt-feed":        {"name": "TikTok Feed / Cover",           "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Bottom 25% has caption/music overlay"},
-    "tt-ad":          {"name": "TikTok In-Feed Ad",             "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "CTA button in bottom 20%"},
-
-    # --- Pinterest ---
-    "pin-standard":   {"name": "Pinterest Standard Pin",        "pixels": (1000, 1500), "ratio": "2:3",  "resolution": "4K", "notes": "Optimal ratio for Pinterest grid"},
-    "pin-long":       {"name": "Pinterest Long Pin",            "pixels": (1000, 2100), "ratio": "1:4",  "resolution": "4K", "notes": "Crop from 1:4; tall pins get more grid space"},
-    "pin-square":     {"name": "Pinterest Square Pin",          "pixels": (1000, 1000), "ratio": "1:1",  "resolution": "4K", "notes": "Less grid presence than portrait"},
-
-    # --- Threads ---
-    "threads-portrait":  {"name": "Threads Feed Portrait",      "pixels": (1080, 1350), "ratio": "4:5",  "resolution": "4K", "notes": "Same as Instagram feed portrait"},
-    "threads-vertical":  {"name": "Threads Feed Vertical",      "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Full vertical; bottom has interaction bar"},
-    "threads-square":    {"name": "Threads Feed Square",        "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "Safe default"},
-
-    # --- Snapchat ---
-    "snap-story":     {"name": "Snapchat Story",                "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Top 15% header; bottom 20% swipe-up/reply"},
-    "snap-ad":        {"name": "Snapchat Ad",                   "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Bottom 30% is CTA; subject in upper 60%"},
-
-    # --- Google Ads ---
-    "gads-landscape":   {"name": "Google Ads Responsive Landscape", "pixels": (1200, 628),  "ratio": "16:9", "resolution": "4K", "notes": "Google may auto-crop further"},
-    "gads-square":      {"name": "Google Ads Responsive Square",    "pixels": (1200, 1200), "ratio": "1:1",  "resolution": "4K", "notes": "Ad text overlaid below"},
-    "gads-leaderboard": {"name": "Google Ads Display Leaderboard",  "pixels": (728, 90),    "ratio": "8:1",  "resolution": "4K", "notes": "Extreme horizontal; patterns or simple subject"},
-    "gads-skyscraper":  {"name": "Google Ads Display Skyscraper",   "pixels": (160, 600),   "ratio": "1:4",  "resolution": "4K", "notes": "Narrow vertical; text must be large"},
-    "gads-half-page":   {"name": "Google Ads Display Half-Page",    "pixels": (300, 600),   "ratio": "1:4",  "resolution": "4K", "notes": "Keep subject in upper half"},
-    "gads-rectangle":   {"name": "Google Ads Display Rectangle",    "pixels": (300, 250),   "ratio": "5:4",  "resolution": "4K", "notes": "Compact format; center everything"},
-    "gads-pmax":        {"name": "Google Ads Performance Max",      "pixels": (1200, 628),  "ratio": "16:9", "resolution": "4K", "notes": "Google auto-crops aggressively"},
-
-    # --- Spotify ---
-    "spotify-cover":    {"name": "Spotify Playlist/Album Cover",  "pixels": (3000, 3000), "ratio": "1:1",  "resolution": "4K", "notes": "Circular crop on some views; center 80%"},
-    "spotify-banner":   {"name": "Spotify Artist Banner",         "pixels": (2660, 1140), "ratio": "21:9", "resolution": "4K", "notes": "Text overlays on left side"},
+    # ═══ TikTok (3 placements) ═══════════════════════════════════════════════
+    "tt-profile":           {"name": "TikTok Profile Picture",          "pixels": (720, 720),   "ratio": "1:1",  "resolution": "4K", "notes": "Displays at 200x200 but upload at 720x720 for quality."},
+    "tt-feed":              {"name": "TikTok Feed / Cover",             "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "9:16 preferred. Avoid top and bottom 120 pixels due to UI overlays."},
+    "tt-ad":                {"name": "TikTok In-Feed / TopView Ad",     "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Both in-feed ads and TopView ads use same 1080x1920 9:16 spec at SOP-recommended quality."},
 }
 
-# Group shorthands expand to multiple platform keys
+# Group shorthands expand to multiple platform keys (v4.1.1: 6 platforms)
 GROUPS = {
-    "instagram":   ["ig-feed", "ig-square", "ig-story"],
-    "facebook":    ["fb-feed", "fb-landscape", "fb-story"],
-    "youtube":     ["yt-thumb", "yt-banner"],
-    "linkedin":    ["li-landscape", "li-square", "li-banner"],
-    "twitter":     ["x-landscape", "x-header"],
-    "tiktok":      ["tt-feed"],
-    "pinterest":   ["pin-standard"],
-    "threads":     ["threads-portrait", "threads-square"],
-    "snapchat":    ["snap-story"],
-    "google-ads":  ["gads-landscape", "gads-square"],
-    "spotify":     ["spotify-cover"],
-    "all-feeds":   ["ig-feed", "fb-feed", "li-landscape", "x-landscape", "threads-portrait"],
-    "all-stories": ["ig-story", "fb-story", "snap-story", "tt-feed"],
-    "all-ads":     ["fb-ad", "fb-story-ad", "li-ad", "x-ad", "tt-ad", "gads-landscape", "gads-square", "snap-ad"],
+    "instagram":    ["ig-feed", "ig-square", "ig-story", "ig-reel-cover"],
+    "facebook":     ["fb-feed", "fb-landscape", "fb-portrait", "fb-story"],
+    "youtube":      ["yt-thumb", "yt-banner", "yt-shorts"],
+    "linkedin":     ["li-landscape", "li-square", "li-portrait", "li-banner"],
+    "twitter":      ["x-landscape", "x-square", "x-header"],
+    "tiktok":       ["tt-feed"],
+    # Cross-platform family groups — useful for multi-channel campaigns
+    "all-feeds":    ["ig-feed", "fb-portrait", "li-portrait", "x-landscape"],
+    "all-squares":  ["ig-square", "fb-feed", "li-square", "x-square"],
+    "all-stories":  ["ig-story", "fb-story", "tt-feed"],
+    "all-ads":      ["fb-ad", "fb-story-ad", "ig-story-ad", "li-ad", "x-ad", "tt-ad"],
+    "all-profiles": ["ig-profile", "fb-profile", "yt-profile", "li-profile", "x-profile", "tt-profile"],
+    "all-banners":  ["fb-cover", "yt-banner", "li-banner", "x-header"],
 }
 
 # 4K generation sizes for each native ratio
