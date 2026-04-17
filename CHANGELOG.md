@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-04-17
+
+### Headline
+
+**Three tool-awareness + capability upgrades in one release.** v4.1.0 ships (1) a new `/create-image vectorize` command backed by Recraft Vectorize for raster → SVG conversion at $0.01/call, closing the long-standing gap where AI-generated logos couldn't scale without distortion; (2) an exact-dimension enforcer on `/create-image social` that inspects actual Gemini output pixels, detects ratio drift, and resizes+crops to exact platform specs (replaces the silent "copy unchanged when tool missing" fallback); (3) a full install-prompt UX that teaches users explicitly which optional tools unlock which features, with a 3-option choice pattern (install / proceed degraded / cancel) documented in `SKILL.md` §Step 9.5.
+
+### Added
+
+- **`/create-image vectorize <image>` subcommand** backed by **Recraft Vectorize** on Replicate (~$0.01 flat per output image, 8-20s typical wall time). New `skills/create-image/scripts/vectorize.py` runner with pre-flight size validation (5 MB / 16 MP / 256-4096 px), poll loop, SVG download, and cost logging. Imports `_replicate_backend.py` cross-skill for HTTP + auth plumbing — zero duplicated Replicate code.
+- **`recraft-ai/recraft-vectorize` registered in `_replicate_backend.py::REPLICATE_MODELS`** with the full model card specs (input formats, size caps, pricing). New `RECRAFT_IMAGE_MIME_MAP` that accepts WEBP (Kling's doesn't — kept separate to avoid weakening Kling's validation). New helpers: `recraft_image_path_to_data_uri()`, `validate_recraft_image()`, `build_recraft_request_body()`.
+- **`recraft-ai/recraft-vectorize` pricing entry in `cost_tracker.py` PRICING dict** with a new `per_call` pricing mode ($0.01 flat, resolution arg ignored). `_lookup_cost()` gets a new branch for `per_call` alongside the existing `per_second` (Replicate video) and `per_clip` (Lyria) modes.
+- **`skills/create-image/references/vectorize.md`** reference doc (~180 lines) covering the canonical workflow, best-practice vectorization prompts (isolated subject + pure background + flat design + limited colors), pre-flight validation, cost model, integration with other commands, known limitations, and troubleshooting. Cites `dev-docs/recraft-ai-recraft-vectorize-llms.md` as the authoritative source.
+- **Exact-dimension enforcer in `social.py`**: new `inspect_dimensions()` helper (tries `magick identify` → `identify` → `sips -g pixelWidth/Height` in order) and refactored `crop_image()` → `resize_for_platform()` that inspects the source, detects ratio drift (0.5% tolerance), and picks the right path: pure downscale (same ratio, fastest) or resize-to-cover + center-crop (ratio change). Returns a structured dict with `method`, `tool`, `source_dimensions`, `output_dimensions`, and a `warning` field. Fixes the silent "copy unchanged when magick missing" degradation that left user outputs at Gemini's native ~3840×2048 instead of the platform's exact spec like 1920×1080 or 1080×1080.
+- **`sips` fallback path in `resize_for_platform()`** for the same-ratio pure-downscale case when ImageMagick is missing — preserves correct output dimensions for the majority of social platform targets (any platform whose ratio matches a supported Gemini output). Emits an informational warning so the user knows ImageMagick would handle the remaining ratio-change cases.
+- **Optional-tool + API-credential checks in `validate_setup.py`** (reachable via `/create-image status`). Shows a ✓/✗ for `ImageMagick`, `ffmpeg`, `cwebp`, plus ElevenLabs / Replicate / Vertex API keys, with a one-line "unlocks: ..." summary per tool/key. When any optional tool is missing, a "To install missing tools on macOS" block appears with per-tool `brew install` commands. This replaces the previous "ElevenLabs key configured" one-liner with a comprehensive feature-mapping view.
+- **`multiformat.py::convert_image_with_backend()` wrapper** that appends the `backend` and `warning` fields to the JSON result, making the tool selection visible to the orchestrator (so Claude can surface "using sips fallback — install ImageMagick for X" messaging).
+- **`SKILL.md` §Step 9.5 "Handle missing-tool warnings"** new rule documenting the 3-option choice pattern Claude must present when a script returns `method: copy_fallback` or a non-null `warning` — never silently accept a degraded output. Includes proactive-check guidance (shell out `which magick` before `/create-image social` with aggressive ratio platforms) and reactive-check guidance (after the call, surface any warning verbatim).
+- **`setup.md` "Optional Tools" + "API Credentials" sections** — the first feature-mapping table inside the user-facing setup flow. Users running `/create-image setup` now hear about which tools unlock which features without digging into references.
+- **README Requirements section upgrade** from a flat bullet list to two feature-mapping tables: "Optional command-line tools — each unlocks specific features" (ImageMagick/ffmpeg/cwebp with install commands) and "Optional API credentials — each activates specific model providers" (Replicate/ElevenLabs/Vertex).
+
+### Changed
+
+- **`crop_image()` → `resize_for_platform()` rename in `social.py`**, with a back-compat shim preserving the old name for any external caller. The new function signature returns a dict instead of bool, carrying full context (source dims, output dims, method, tool, warning).
+- **`social.py::cmd_generate` result dict per platform** now includes `method`, `tool`, `source_dimensions`, `output_dimensions`, and `warning` fields (in addition to the existing `platform`, `name`, `pixels`, `ratio`, `original`, `cropped`, `success`). Console output format upgraded from `"cropped"`/"copied"` to `"resized+cropped 3840x2048 → 1920x1080 via magick"` showing the actual transformation.
+- **Dynamic warning string when ImageMagick-missing + ratio mismatch**: the previous error was a generic "no ImageMagick"; v4.1.0 identifies whether the missing-tool case is (a) salvageable via sips (same ratio), or (b) hard-blocked (ratio change needs gravity+crop which sips can't do), and surfaces the specific install hint accordingly.
+
+### Fixed
+
+- **Silent dimension corruption in `/create-image social` when ImageMagick is absent.** Pre-v4.1.0, missing ImageMagick triggered a `shutil.copy2()` fallback that produced platform outputs at Gemini's native ~3840×2048 dimensions instead of the platform's exact spec (1920×1080 for YouTube thumbnail, 1080×1920 for TikTok, etc.). Social media upload endpoints reject or re-compress these, degrading quality. Now: if the ratio matches, sips handles the downscale correctly; if the ratio differs, a structured `copy_fallback` + `warning` result is returned so the orchestrator can prompt the user before proceeding.
+- **Lyria `per_clip` branch was previously unreachable dead code** (covered in v3.8.4 but worth reiterating since it's now part of the broader per-pricing-mode dispatch — `per_call` (Recraft), `per_clip` (Lyria), `per_second` (Kling/DreamActor/Fabric/VEO), resolution-keyed (Gemini) are all live paths).
+
+### Research
+
+- **End-to-end Recraft Vectorize validation (2026-04-17, $0.01 spend)**: `screenshots/character-consistency.webp` (85 KB editorial-neon infographic, 2752×1536) vectorized successfully in 8.1 seconds. Output: valid SVG, 91 KB, 128 vector paths, preserved viewBox at source dimensions, renderable in any SVG-aware tool. Confirms the integration path end-to-end and validates the $0.01 pricing matches Replicate's billing record.
+
 ## [4.0.0] - 2026-04-17
 
 ### Headline
@@ -1036,6 +1071,7 @@ Real-API verification during the v3.5.0 release surfaced a critical distinction:
 - Batch variations, multi-turn chat, prompt inspiration
 - Install script with validation
 
+[4.1.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.1.0
 [4.0.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.0.0
 [3.8.4]: https://github.com/juliandickie/creators-studio/releases/tag/v3.8.4
 [3.8.3]: https://github.com/juliandickie/creators-studio/releases/tag/v3.8.3

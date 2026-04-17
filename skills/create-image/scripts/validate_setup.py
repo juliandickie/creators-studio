@@ -115,9 +115,39 @@ def main() -> int:
         except OSError as e:
             results.append(check("Output directory writable", False, str(e)))
 
-    # 10. ElevenLabs (optional, v3.7.1+) -- non-blocking informational check.
-    # Only relevant if the user wants the audio replacement pipeline. We never
-    # fail validation on missing ElevenLabs config; we just surface its state.
+    # 10. Optional tool checks (v4.1.0+) — do NOT fail validation; inform user
+    # which features are available given what's installed.
+    print()
+    print("Optional tools (not required for generation, unlock specific features):")
+    optional_tools = [
+        ("ImageMagick (magick/convert)",
+         shutil.which("magick") or shutil.which("convert"),
+         "exact-dimension crop for /create-image social, post-processing pipelines, green-screen transparency"),
+        ("ffmpeg",
+         shutil.which("ffmpeg"),
+         "/create-video audio pipeline, stitch, lipsync audio mixing, video concat/trim/convert"),
+        ("cwebp (libwebp)",
+         shutil.which("cwebp"),
+         "efficient WebP encoding for /create-image formats (fallback path when ImageMagick is missing)"),
+    ]
+    for label, path, unlocks in optional_tools:
+        mark = "✓" if path else "✗"
+        status = str(path) if path else "not installed"
+        print(f"  [{mark}] {label:32s} {status}")
+        print(f"       unlocks: {unlocks}")
+
+    missing_tools = [label for label, path, _ in optional_tools if not path]
+    if missing_tools:
+        print()
+        print("  To install missing tools on macOS:")
+        if any("ImageMagick" in t for t in missing_tools):
+            print("    brew install imagemagick")
+        if any("ffmpeg" in t for t in missing_tools):
+            print("    brew install ffmpeg")
+        if any("cwebp" in t for t in missing_tools):
+            print("    brew install webp")
+
+    # 11. ElevenLabs + Replicate + Vertex config (optional) — informational only.
     config_path = Path.home() / ".banana" / "config.json"
     if config_path.exists():
         try:
@@ -125,19 +155,30 @@ def main() -> int:
                 banana_config = json.load(f)
         except (json.JSONDecodeError, OSError):
             banana_config = {}
-        eleven_key = banana_config.get("elevenlabs_api_key")
-        if eleven_key:
-            print(f"  [INFO] ElevenLabs API key configured (v3.7.1 audio pipeline available)")
+        print()
+        print("API credentials (features activated when keys are configured):")
+        if banana_config.get("elevenlabs_api_key"):
+            print(f"  [✓] ElevenLabs API key                → /create-video audio pipeline, voice design, TTS narration")
+        else:
+            print(f"  [✗] ElevenLabs API key                → not configured (audio pipeline + voice features unavailable)")
+        if banana_config.get("replicate_api_token"):
+            print(f"  [✓] Replicate API token               → Kling video, Fabric lipsync, Recraft vectorize, nano-banana-2 fallback")
+        else:
+            print(f"  [✗] Replicate API token               → not configured (video + lipsync + vectorize unavailable)")
+        if banana_config.get("vertex_api_key"):
+            print(f"  [✓] Vertex AI key                     → VEO backup, Lyria 2 music")
+        else:
+            print(f"  [✗] Vertex AI key                     → not configured (VEO + Lyria unavailable)")
         custom_voices = banana_config.get("custom_voices", {}) or {}
         if custom_voices:
             roles = ", ".join(sorted(custom_voices.keys()))
-            print(f"  [INFO] Custom voices configured ({len(custom_voices)}): {roles}")
+            print(f"  [i] Custom voices ({len(custom_voices)}): {roles}")
 
     # Summary
     passed = sum(1 for r in results if r)
     total = len(results)
     print(f"\n{'=' * 40}")
-    print(f"Results: {passed}/{total} checks passed")
+    print(f"Results: {passed}/{total} required checks passed")
 
     if passed == total:
         print("Status: Ready to generate images!")

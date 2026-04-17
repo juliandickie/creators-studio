@@ -186,6 +186,17 @@ def convert_image(input_path, output_dir, formats, sizes, quality, magick_cmd, b
     }
 
 
+def convert_image_with_backend(input_path, output_dir, formats, sizes, quality, magick_cmd, backend):
+    """Wrapper that adds backend metadata to the result."""
+    result = convert_image(input_path, output_dir, formats, sizes, quality, magick_cmd, backend)
+    result["backend"] = backend
+    result["warning"] = (
+        "Using sips + cwebp fallback (ImageMagick unavailable). For JPEG-from-transparent inputs "
+        "or advanced post-processing, install ImageMagick: brew install imagemagick"
+    ) if backend == "sips" else None
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Subcommand handlers
 # ---------------------------------------------------------------------------
@@ -210,7 +221,7 @@ def cmd_convert(args):
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_dir = OUTPUT_DIR / f"multiformat_{ts}"
 
-    result = convert_image(input_path, output_dir, formats, sizes, quality, magick_cmd, backend)
+    result = convert_image_with_backend(input_path, output_dir, formats, sizes, quality, magick_cmd, backend)
     print(json.dumps(result, indent=2))
 
 

@@ -45,6 +45,7 @@ argument-hint: "[generate|edit|chat|slides|social|brand|asset|reverse|book|batch
 | `/create-image deck --images DIR --output PATH` | Assemble slide images into editable .pptx with brand styling |
 | `/create-image analytics [--format html\|json] [--days 30]` | Usage analytics dashboard (cost trends, domain usage, quota) |
 | `/create-image content <idea> --outputs hero,social,email` | Multi-modal content pipeline from a single idea |
+| `/create-image vectorize <image>` | **v4.1.0** Convert raster image (PNG/JPG/WEBP) to scalable SVG via Recraft Vectorize ($0.01/call) |
 
 ## Creative Director Pipeline
 
@@ -114,6 +115,26 @@ If needed, use ImageMagick for cropping, format conversion, background removal. 
 | Invalid API key | Inform user, suggest running `/create-image setup` to reconfigure |
 | MCP unavailable | Use fallback chain (Step 7) |
 | Vague request | Ask clarifying questions |
+
+### Step 9.5: Handle missing-tool warnings (v4.1.0+)
+
+Scripts may return results with `method: "copy_fallback"` or a top-level `warning` field pointing at a missing optional tool (ImageMagick, ffmpeg, cwebp, etc.). These are NOT hard errors — the API call succeeded — but they signal feature degradation.
+
+**Before running a command that will degrade, OR after seeing a `copy_fallback` result, present the user with a 3-option choice:**
+
+> *"This feature works best with `<tool>` installed. Without it, \<describe the degradation, e.g. "output keeps the generated dimensions instead of the platform's exact pixel spec">. You have three options:*
+>
+> *1. Install it now (~2 min): `brew install <tool>`*
+> *2. Proceed anyway with reduced quality*
+> *3. Cancel and revisit later*
+>
+> *Which would you prefer?"*
+
+**When to check proactively** (before the call): `/create-image social` with platforms that have aggressive ratio shifts (9:16, 21:9, 4:1, etc.) — without ImageMagick, the dimensions won't be exact. Shell out to `which magick` first; if missing, prompt before generating.
+
+**When to check reactively** (after the call): when a script's JSON result includes `method: "copy_fallback"` or `warning` is non-null. Surface the warning verbatim and then present the choice.
+
+Never silently accept a `copy_fallback` result — always communicate what happened. See `scripts/validate_setup.py` for the canonical list of optional tools and what each unlocks.
 
 ### Step 10: Log Cost + History
 
@@ -232,6 +253,24 @@ Convert any generated image to multiple formats and sizes. Generate once, conver
 python3 ${CLAUDE_SKILL_DIR}/scripts/multiformat.py convert --input PATH --formats png,webp,jpeg --sizes 4k,2k,1k
 ```
 See `references/multi-format.md` for size tables, format specs, and prerequisites.
+
+## /create-image vectorize
+
+**v4.1.0+.** Convert a raster image (PNG/JPG/WEBP) to a scalable SVG vector via Recraft Vectorize. Closes the gap where AI-generated logos distort when scaled up.
+
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/vectorize.py --image ~/Documents/creators_generated/logo.png
+```
+
+**Best-practice prompts for vectorization** (apply these when user asks for a logo that will be vectorized):
+- Isolated subject on **pure white** or **pure black** background
+- Flat design, **minimal gradients**, limited color palette (1-5 distinct colors)
+- Explicit "logo" or "icon" language in the prompt
+- Request 1:1 aspect ratio for square logo bounds
+
+Recraft accepts PNG/JPG/WEBP up to 5 MB, 256-4096 px per side, 16 MP max. Pricing is flat **$0.01 per output image**, regardless of input dimensions. Output SVG typically 50 KB to 1 MB, 128-500 vector paths.
+
+See `references/vectorize.md` for the full workflow, prompt tuning, and troubleshooting.
 
 ## /create-image history
 

@@ -12,7 +12,7 @@
 Let an AI that's been trained on the best practices for every model write the prompts for you, instead of spending hours teaching yourself to prompt-engineer a moving target.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-4.0.0-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.1.0-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <details>
@@ -256,6 +256,7 @@ Claude acts as Creative Director for every call — selecting domain modes, cons
 | `/create-image deck --images DIR --output PATH` | Assemble slide images into editable .pptx with brand styling |
 | `/create-image analytics [--format html\|json]` | Usage analytics dashboard (cost trends, domain usage, quota) |
 | `/create-image content <idea> --outputs hero,social,email` | Multi-modal content pipeline from a single idea |
+| `/create-image vectorize <image>` | **v4.1.0** Convert raster (PNG/JPG/WEBP) → scalable SVG via Recraft Vectorize ($0.01/call) |
 
 ### 🎬 Video Commands
 
@@ -515,12 +516,30 @@ See [CHANGELOG.md](CHANGELOG.md) for the full release notes including technical 
 
 ## Requirements
 
+**Required for all workflows:**
 - [Claude Code](https://claude.ai/claude-code)
 - [Git](https://git-scm.com/)
-- [Node.js 18+](https://nodejs.org/) (for the MCP server)
-- [Python 3.6+](https://www.python.org/) — system Python is fine; all scripts use `urllib.request` with zero pip dependencies
-- [FFmpeg](https://ffmpeg.org/) — optional, for audio pipeline and video stitching
-- [ImageMagick](https://imagemagick.org/) — optional, for image post-processing
+- [Node.js 18+](https://nodejs.org/) — for the MCP server
+- [Python 3.6+](https://www.python.org/) — system Python is fine; all plugin scripts use `urllib.request` with zero pip dependencies
+- Google AI API key — [free tier](https://aistudio.google.com/apikey), no credit card required
+
+**Optional command-line tools — each unlocks specific features:**
+
+| Tool | Install (macOS) | Unlocks |
+|---|---|---|
+| [ImageMagick](https://imagemagick.org/) | `brew install imagemagick` | `/create-image social` exact-dimension crop · green-screen transparency · post-processing pipelines |
+| [FFmpeg](https://ffmpeg.org/) | `brew install ffmpeg` | `/create-video audio pipeline` · `stitch` · `lipsync` audio mixing · video concat/trim/convert |
+| [cwebp](https://developers.google.com/speed/webp) | `brew install webp` | Efficient WebP encoding path for `/create-image formats` (fallback when ImageMagick is missing) |
+
+Run `/create-image status` to see which of these are installed on your machine.
+
+**Optional API credentials — each activates specific model providers:**
+
+| Credential | Configure via | Activates |
+|---|---|---|
+| Replicate API token | `/create-image setup replicate` | Kling v3 video, Fabric lipsync, Recraft vectorize, Gemini-via-Replicate fallback |
+| ElevenLabs API key | `/create-video audio status` | `/create-video audio` pipeline, TTS narration, voice design + cloning |
+| Vertex AI key | Manual `~/.banana/config.json` edit | VEO 3.1 video backup, Lyria 2 music |
 
 ## Uninstall
 

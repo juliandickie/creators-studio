@@ -95,6 +95,40 @@ For first-time users, provide this quick start:
 >
 > **First image:** `/create-image generate "a cozy coffee shop at golden hour"`
 
+## Optional Tools (v4.1.0+)
+
+Creators Studio works out-of-the-box for most image/video generation with just a Google AI API key. These optional command-line tools unlock specific features. Run `/create-image status` to see which are installed on the user's machine and what each enables.
+
+| Tool | macOS install | Unlocks |
+|---|---|---|
+| **ImageMagick** | `brew install imagemagick` | `/create-image social` exact-dimension crop (without it, social outputs may not match platform upload pixel specs); green-screen transparency; most post-processing recipes in `references/post-processing.md` |
+| **ffmpeg** | `brew install ffmpeg` | `/create-video audio pipeline`, `/create-video stitch`, `/create-video lipsync` (audio handoff), video concat/trim/convert |
+| **cwebp (libwebp)** | `brew install webp` | Efficient WebP encoding path for `/create-image formats` when ImageMagick isn't present |
+| **imagemagick-full** (optional) | `brew install imagemagick-full` | *Keg-only.* Adds Liquid Rescale (content-aware resize), librsvg (high-quality SVG rendering), Ghostscript (PDF rendering), libraw (camera raws). Not currently used by any shipped feature — install only when a future release requires it. |
+
+### When to prompt the user for install
+
+When a user invokes a command that needs an optional tool that isn't installed — e.g. `/create-image social` with platforms that require aggressive ratio shifts (TikTok 9:16, LinkedIn 4:1), and `which magick` returns empty — present the 3-option choice pattern documented in SKILL.md §Step 9.5:
+
+1. Install now — one-liner
+2. Proceed with degraded output
+3. Cancel
+
+Do NOT silently degrade. Always communicate what the user is giving up by not installing.
+
+### API credentials (activate specific model providers)
+
+The `~/.banana/config.json` file holds all API credentials. Missing credentials degrade specific model paths, not the whole plugin:
+
+| Credential | Activates |
+|---|---|
+| `google_ai_api_key` | **Required** — core Gemini image generation |
+| `replicate_api_token` | Kling v3 video, Fabric lipsync, Recraft vectorize, Gemini-via-Replicate fallback |
+| `elevenlabs_api_key` | `/create-video audio` pipeline, TTS narration, voice design/cloning |
+| `vertex_api_key` + `vertex_project_id` + `vertex_location` | VEO 3.1 video backup, Lyria 2 music |
+
+Same UX rule: if a user invokes a feature whose credential isn't configured, prompt them with install/configure steps rather than silently failing.
+
 ## Sharing with Friends
 
 Copy-paste this message:

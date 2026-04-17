@@ -7,7 +7,7 @@
 
 - **Repo:** https://github.com/juliandickie/creators-studio
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
-- **Current version:** 4.0.0
+- **Current version:** 4.1.0
 - **Local path:** `/Users/juliandickie/code/creators-studio-project/creators-studio/`
 - **Plugin layout:** `.claude-plugin/` + `skills/create-image/` (image) + `skills/create-video/` (video) + `agents/`
 
@@ -662,6 +662,32 @@ This was the scheduled post-v3.7.3 polish release closing the known-issues debt 
 **Session spend**: $0 (code + docs only, no API calls). **Cumulative: ~$9.34** (unchanged since session 19).
 
 **Next session**: README rebrand polish in the screenshots folder — the screenshots are already committed-as-modified (file compression + old filename cleanup), but the README body references them by alt text and caption. Also needs the What's New in This Fork section to get v3.8.4 + v4.0.0 entries in the sales-copy-not-changelog style per the CLAUDE.md §3 rule.
+
+### Session 21 (2026-04-17, continuing from session 20) — v4.1.0 ImageMagick awareness + Recraft Vectorize + exact-dim enforcer
+
+**Scope**: Three tool/capability upgrades informed by a post-v4.0.0 conversation about which ImageMagick features actually matter for Creators Studio's workflows, and a user-provided Replicate model card for raster→SVG vectorization.
+
+**What shipped:**
+
+1. **`/create-image vectorize` via Recraft Vectorize** (Replicate, $0.01 flat per output image). Closes the gap where Gemini-generated logos couldn't scale without distortion. Backend registration in `_replicate_backend.py` (new `recraft-ai/recraft-vectorize` entry, RECRAFT_IMAGE_MIME_MAP with WEBP support, validator + request-body builder + data-URI helper), new `skills/create-image/scripts/vectorize.py` runner (cross-skill imports `_replicate_backend` from create-video), cost_tracker PRICING entry with new `per_call` pricing mode (alongside `per_second`, `per_clip`, and resolution-keyed), `references/vectorize.md` reference doc (~180 lines).
+
+2. **Exact-dimension enforcer on `/create-image social`**. User observed that Gemini's 2K 16:9 outputs don't hit exact 1920×1080 pixel counts, and the pre-v4.1.0 `crop_image()` silently copied the source unchanged when ImageMagick was missing, leaving platform uploads at Gemini's native ~3840×2048 instead of the required exact spec. New `inspect_dimensions()` helper tries `magick identify` → `identify` → `sips -g pixelWidth/Height` in order. `crop_image()` → `resize_for_platform()` refactor returns a structured dict (method, tool, source_dimensions, output_dimensions, warning) and implements a three-path dispatch: (a) ImageMagick available → resize-to-cover + center-crop, (b) same-ratio + sips available → pure downscale, (c) ratio-change + no ImageMagick → structured missing_tool warning instead of silent copy.
+
+3. **Install-prompt UX across the plugin** — teach users which optional tools unlock which features, with a 3-option choice pattern (install / proceed degraded / cancel). New optional-tool + API-credential checks in `validate_setup.py` showing ✓/✗ with "unlocks: ..." summaries and per-tool `brew install` hints. New `convert_image_with_backend()` wrapper in `multiformat.py` surfacing the backend choice in JSON output. New `SKILL.md` §Step 9.5 rule on handling `missing_tool` warnings. New `setup.md` "Optional Tools" + "API Credentials" sections. README Requirements upgraded from flat bullet list to two feature-mapping tables.
+
+**Decisions:**
+
+- **Drop Liquid Rescale from v4.1.0 scope.** Early discussion floated `imagemagick-full` (liblqr for content-aware cropping) but the user correctly re-scoped the cropping use case: `/create-image social` already generates at native ratio per platform group, so ratio-change crops are small trims (Gemini ~1935×1080 → exact 1920×1080) where center-crop is 95%+ fine. Liquid Rescale's value collapses; not worth the PATH shuffling. `imagemagick-full` stays installed on the user's machine as inert-but-ready for a future release if we ever need it.
+- **Use Recraft over potrace** for raster→SVG. potrace is monochrome-only and requires preprocessing for multi-color logos. Recraft is AI-based, handles multi-color natively, outputs editable paths, commercial-use-licensed, $0.01 flat. Trivially better for brand logo work.
+- **Per-call pricing as a first-class mode in `cost_tracker._lookup_cost()`** — alongside the existing `per_second` (video) and `per_clip` (Lyria) modes. The `resolution` arg is passed as `"N/A"` for per_call and ignored.
+
+**Session spend**: ~$0.01 (single end-to-end Recraft validation on `screenshots/character-consistency.webp` — produced 91 KB SVG, 128 paths, 8.1s wall time). **Cumulative: ~$1.10**.
+
+**Key insights**:
+
+- **Gemini output ratios are approximate, not exact.** The 1935×1080 example the user observed is real — Gemini's 2K 16:9 outputs aren't guaranteed to land exactly on 1920×1080 pixels. This invalidates the pre-v4.1.0 assumption that simple trims would suffice, and necessitates the inspect-first pipeline.
+- **Silent degradation is the worst of both UX worlds.** The pre-v4.1.0 `shutil.copy2()` fallback when ImageMagick was missing produced wrong-dimension outputs without telling the user anything. Structured warnings + explicit install prompts beat silent degradation every time. This principle now encoded in SKILL.md §Step 9.5 as a general rule, not just a one-off fix.
+- **Cross-skill imports work cleanly if the path is predictable.** `skills/create-image/scripts/vectorize.py` imports `_replicate_backend` from `../../create-video/scripts/` via a `sys.path.insert()` shim. No code duplication, no refactor needed. The same pattern could scale to any future image-side Replicate integration.
 
 ## Expansion Roadmap
 

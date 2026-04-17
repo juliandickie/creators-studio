@@ -129,6 +129,12 @@ PRICING = {
     "veed/fabric-1.0": {
         "per_second": 0.15,
     },
+    # Recraft Vectorize (v4.1.0+). Raster → SVG for logo/icon vectorization.
+    # Flat per-call pricing confirmed from Replicate's billing page on 2026-04-17.
+    # The `resolution` arg to _lookup_cost() is ignored for per_call pricing.
+    "recraft-ai/recraft-vectorize": {
+        "per_call": 0.01,
+    },
 }
 
 
@@ -205,6 +211,13 @@ def _lookup_cost(model, resolution, batch=False):
     # Per-clip models (Lyria)
     if "per_clip" in model_pricing:
         return model_pricing["per_clip"]
+
+    # Per-call models (Recraft Vectorize). Flat fee regardless of input dims.
+    if "per_call" in model_pricing:
+        cost = model_pricing["per_call"]
+        if batch:
+            cost *= BATCH_DISCOUNT
+        return round(cost, 4)
 
     # Standard resolution-keyed models (Gemini image-gen)
     valid_resolutions = {"512", "1K", "2K", "4K"}

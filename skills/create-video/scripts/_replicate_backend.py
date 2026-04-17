@@ -133,6 +133,21 @@ REPLICATE_MODELS = {
         # and update this field before release.
         "price_usd_per_call_estimate": 0.30,
     },
+    # v4.1.0: Recraft Vectorize — AI-based raster-to-SVG for logo/icon work.
+    # Closes the gap where Gemini-generated logos can't scale without
+    # distortion. Output is editable SVG (Illustrator/Figma compatible).
+    # See dev-docs/recraft-ai-recraft-vectorize-llms.md for the canonical
+    # input schema and licensing (commercial use permitted).
+    "recraft-ai/recraft-vectorize": {
+        "family": "recraft",
+        "display_name": "Recraft Vectorize",
+        "image_formats": ["png", "jpg", "jpeg", "webp"],
+        "max_image_bytes": 5 * 1024 * 1024,       # 5 MB per model card
+        "max_megapixels": 16,                      # 16 MP per model card
+        "min_dimension_px": 256,                   # 256 px min per model card
+        "max_dimension_px": 4096,                  # 4096 px max per model card
+        "price_usd_per_call": 0.01,                # $0.01/output image confirmed 2026-04-17
+    },
 }
 
 
@@ -183,6 +198,24 @@ AUDIO_MIME_MAP = {
     ".wav": "audio/wav",
     ".m4a": "audio/mp4",
     ".aac": "audio/aac",
+}
+
+
+# ─── Recraft Vectorize parameter constraints (v4.1.0+) ─────────────
+# Sourced from dev-docs/recraft-ai-recraft-vectorize-llms.md. Recraft accepts
+# WEBP in addition to PNG/JPG (Kling doesn't), so we maintain a separate MIME
+# map rather than widening the Kling-specific one.
+
+MAX_RECRAFT_IMAGE_BYTES = 5 * 1024 * 1024       # 5 MB per model card
+RECRAFT_MAX_MEGAPIXELS = 16                      # 16 MP per model card
+RECRAFT_MIN_DIMENSION_PX = 256
+RECRAFT_MAX_DIMENSION_PX = 4096
+
+RECRAFT_IMAGE_MIME_MAP = {
+    ".png":  "image/png",
+    ".jpg":  "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
 }
 
 
@@ -607,6 +640,92 @@ def build_fabric_request_body(image, audio, resolution="720p"):
             "image": image,
             "audio": audio,
             "resolution": resolution,
+        }
+    }
+
+
+# ─── Recraft Vectorize helpers (v4.1.0+) ───────────────────────────
+
+def recraft_image_path_to_data_uri(path):
+    """Read an image file and return a data URI for Recraft Vectorize.
+
+    Format: "data:{mime};base64,{base64_data}"
+
+    Unlike image_path_to_data_uri() (Kling), this accepts WEBP too per the
+    Recraft model card. Enforces the 5 MB cap. Pixel-dimension validation
+    is optional and handled by validate_recraft_image() separately.
+
+    Raises ReplicateValidationError if the file is missing, has an
+    unsupported extension, or exceeds the 5 MB limit.
+    """
+    p = Path(path)
+    if not p.exists():
+        raise ReplicateValidationError(f"Image not found: {path}")
+    ext = p.suffix.lower()
+    mime = RECRAFT_IMAGE_MIME_MAP.get(ext)
+    if not mime:
+        raise ReplicateValidationError(
+            f"Unsupported image format '{ext}'. "
+            f"Recraft Vectorize accepts: {', '.join(sorted(RECRAFT_IMAGE_MIME_MAP))}"
+        )
+    size = p.stat().st_size
+    if size > MAX_RECRAFT_IMAGE_BYTES:
+        mb = size / (1024 * 1024)
+        cap_mb = MAX_RECRAFT_IMAGE_BYTES / (1024 * 1024)
+        raise ReplicateValidationError(
+            f"Image file too large ({mb:.1f} MB). "
+            f"Recraft Vectorize limit is {cap_mb:.0f} MB per the model card. "
+            f"Downscale with: magick input.png -resize 2048x input.png "
+            f"(or cwebp -q 85 input.png -o input.webp for WEBP)."
+        )
+    with open(p, "rb") as f:
+        raw = f.read()
+    b64 = base64.b64encode(raw).decode("ascii")
+    return f"data:{mime};base64,{b64}"
+
+
+def validate_recraft_image(image, *, dimensions=None):
+    """Validate a Recraft Vectorize input image against model-card constraints.
+
+    - `image`: path (file will be checked), HTTPS URL (assumed valid), or data URI
+    - `dimensions`: optional (width, height) tuple for pixel-dimension bounds check
+
+    Extension + size checks are handled by recraft_image_path_to_data_uri()
+    when the caller converts a local path. This function is for the final
+    belt-and-suspenders check of pixel dimensions IF the caller has them.
+    """
+    if dimensions is not None:
+        w, h = dimensions
+        if w < RECRAFT_MIN_DIMENSION_PX or h < RECRAFT_MIN_DIMENSION_PX:
+            raise ReplicateValidationError(
+                f"Image too small ({w}x{h}). Recraft requires both dimensions "
+                f"≥ {RECRAFT_MIN_DIMENSION_PX} px."
+            )
+        if w > RECRAFT_MAX_DIMENSION_PX or h > RECRAFT_MAX_DIMENSION_PX:
+            raise ReplicateValidationError(
+                f"Image too large ({w}x{h}). Recraft max dimension is "
+                f"{RECRAFT_MAX_DIMENSION_PX} px per side."
+            )
+        mp = (w * h) / 1_000_000
+        if mp > RECRAFT_MAX_MEGAPIXELS:
+            raise ReplicateValidationError(
+                f"Image exceeds {RECRAFT_MAX_MEGAPIXELS} MP ({mp:.1f} MP at "
+                f"{w}x{h}). Downscale before submitting."
+            )
+
+
+def build_recraft_request_body(image):
+    """Build the JSON dict to serialize for Recraft Vectorize predictions.
+
+    Wraps the single input parameter in the Replicate-required `{"input": {...}}`
+    envelope. The simplest builder in this module — Recraft takes one argument.
+
+    `image` can be an HTTPS URL or a data URI (use
+    recraft_image_path_to_data_uri() to convert local paths).
+    """
+    return {
+        "input": {
+            "image": image,
         }
     }
 

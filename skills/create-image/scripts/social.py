@@ -275,35 +275,146 @@ def generate_image(prompt, model, aspect_ratio, resolution, api_key, image_only=
 
 
 # ---------------------------------------------------------------------------
-# ImageMagick cropping
+# Platform-exact resize + crop (v4.1.0 — inspect source, resize to ratio, crop to spec)
 # ---------------------------------------------------------------------------
 
-def crop_image(input_path, output_path, target_w, target_h):
-    """Crop an image to exact dimensions using ImageMagick.
+def inspect_dimensions(path):
+    """Return (width, height) of an image, or None if no inspection tool is available.
 
-    Uses -resize to scale down to cover the target, then -crop to exact pixels.
-    Falls back to a copy if ImageMagick is not available.
+    Tries `magick identify` → `identify` (ImageMagick 6) → `sips` (macOS builtin) in order.
     """
-    convert_cmd = shutil.which("magick") or shutil.which("convert")
-    if not convert_cmd:
-        # No ImageMagick -- just copy the original
-        shutil.copy2(input_path, output_path)
-        return False
+    magick = shutil.which("magick")
+    if magick:
+        try:
+            r = subprocess.run([magick, "identify", "-format", "%w %h", str(path)],
+                               check=True, capture_output=True, text=True, timeout=10)
+            parts = r.stdout.strip().split()
+            if len(parts) >= 2:
+                return int(parts[0]), int(parts[1])
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
+            pass
 
-    cmd = [
-        convert_cmd, str(input_path),
-        "-resize", f"{target_w}x{target_h}^",
-        "-gravity", "center",
-        "-crop", f"{target_w}x{target_h}+0+0",
-        "+repage",
-        str(output_path),
-    ]
-    try:
-        subprocess.run(cmd, check=True, capture_output=True, timeout=30)
-        return True
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
-        shutil.copy2(input_path, output_path)
-        return False
+    identify = shutil.which("identify")
+    if identify:
+        try:
+            r = subprocess.run([identify, "-format", "%w %h", str(path)],
+                               check=True, capture_output=True, text=True, timeout=10)
+            parts = r.stdout.strip().split()
+            if len(parts) >= 2:
+                return int(parts[0]), int(parts[1])
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
+            pass
+
+    sips = shutil.which("sips")
+    if sips:
+        try:
+            w = subprocess.run([sips, "-g", "pixelWidth", str(path)],
+                               check=True, capture_output=True, text=True, timeout=5)
+            h = subprocess.run([sips, "-g", "pixelHeight", str(path)],
+                               check=True, capture_output=True, text=True, timeout=5)
+            w_match = re.search(r"pixelWidth:\s*(\d+)", w.stdout)
+            h_match = re.search(r"pixelHeight:\s*(\d+)", h.stdout)
+            if w_match and h_match:
+                return int(w_match.group(1)), int(h_match.group(1))
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            pass
+
+    return None
+
+
+def resize_for_platform(input_path, output_path, target_w, target_h):
+    """Produce an exact-dimension output matching a platform's upload spec.
+
+    Pipeline:
+      1. Inspect source dimensions
+      2. Compare source ratio to target ratio
+      3. If ratio matches (within 0.5%): pure downscale (sips or magick — both work)
+      4. If ratio differs: resize-to-cover + center-crop (ImageMagick required)
+      5. If no suitable tool for step 4: copy + emit missing_tool warning
+
+    Returns dict:
+      {
+        "success": bool,
+        "method": "resize_only" | "resize_and_crop" | "copy_fallback",
+        "tool": "magick" | "convert" | "sips" | None,
+        "source_dimensions": [w, h] | None,
+        "output_dimensions": [w, h],
+        "warning": str | None,
+      }
+    """
+    target_ratio = target_w / target_h
+    src_dims = inspect_dimensions(input_path)
+    magick = shutil.which("magick") or shutil.which("convert")
+
+    # Path A — ImageMagick available: handles both pure-resize and resize+crop
+    if magick:
+        cmd = [
+            magick, str(input_path),
+            "-resize", f"{target_w}x{target_h}^",
+            "-gravity", "center",
+            "-crop", f"{target_w}x{target_h}+0+0",
+            "+repage",
+            str(output_path),
+        ]
+        try:
+            subprocess.run(cmd, check=True, capture_output=True, timeout=30)
+            method = "resize_and_crop"
+            if src_dims:
+                src_ratio = src_dims[0] / src_dims[1]
+                if abs(src_ratio - target_ratio) < 0.005:
+                    method = "resize_only"  # ratio matched — 0 pixels cropped
+            return {
+                "success": True,
+                "method": method,
+                "tool": Path(magick).name,
+                "source_dimensions": list(src_dims) if src_dims else None,
+                "output_dimensions": [target_w, target_h],
+                "warning": None,
+            }
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+            pass  # fall through to sips attempt
+
+    # Path B — no magick, but ratio matches and sips is available: pure downscale
+    sips = shutil.which("sips")
+    if sips and src_dims:
+        src_ratio = src_dims[0] / src_dims[1]
+        if abs(src_ratio - target_ratio) < 0.005:
+            try:
+                subprocess.run(
+                    [sips, "--resampleHeightWidth", str(target_h), str(target_w),
+                     str(input_path), "--out", str(output_path)],
+                    check=True, capture_output=True, timeout=30,
+                )
+                return {
+                    "success": True,
+                    "method": "resize_only",
+                    "tool": "sips",
+                    "source_dimensions": list(src_dims),
+                    "output_dimensions": [target_w, target_h],
+                    "warning": "Used sips (ImageMagick unavailable). Same-ratio downscale only; ratio-change crops still need ImageMagick.",
+                }
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+                pass
+
+    # Path C — full fallback: copy unchanged, emit structured missing-tool warning
+    shutil.copy2(input_path, output_path)
+    src_ratio_str = f" (source ratio ≠ target ratio)" if (
+        src_dims and abs((src_dims[0] / src_dims[1]) - target_ratio) >= 0.005
+    ) else ""
+    return {
+        "success": False,
+        "method": "copy_fallback",
+        "tool": None,
+        "source_dimensions": list(src_dims) if src_dims else None,
+        "output_dimensions": list(src_dims) if src_dims else None,  # unchanged!
+        "warning": f"ImageMagick required for exact-dimension crop to {target_w}×{target_h}{src_ratio_str}. Install: brew install imagemagick",
+    }
+
+
+# Back-compat shim for any external caller still using the old name
+def crop_image(input_path, output_path, target_w, target_h):
+    """DEPRECATED: use resize_for_platform(). Returns bool for legacy callers."""
+    return resize_for_platform(input_path, output_path, target_w, target_h)["success"]
 
 
 # ---------------------------------------------------------------------------
@@ -371,16 +482,24 @@ def cmd_generate(args):
         generated_originals[ratio] = str(original_path)
         print("OK")
 
-        # Crop for each platform in this ratio group
+        # Resize + crop for each platform in this ratio group
         for k in keys:
             spec = PLATFORMS[k]
             target_w, target_h = spec["pixels"]
             cropped_filename = f"{k}_{target_w}x{target_h}.png"
             cropped_path = output_dir / cropped_filename
 
-            used_magick = crop_image(original_path, cropped_path, target_w, target_h)
-            method = "cropped" if used_magick else "copied (no ImageMagick)"
-            print(f"    -> {k}: {target_w}x{target_h} ({method})")
+            sizing = resize_for_platform(original_path, cropped_path, target_w, target_h)
+            src_dims_str = f"{sizing['source_dimensions'][0]}x{sizing['source_dimensions'][1]}" if sizing["source_dimensions"] else "unknown"
+            out_dims_str = f"{sizing['output_dimensions'][0]}x{sizing['output_dimensions'][1]}" if sizing["output_dimensions"] else "unchanged"
+            method_label = {
+                "resize_only":     f"resized {src_dims_str} → {out_dims_str} via {sizing['tool']}",
+                "resize_and_crop": f"resized+cropped {src_dims_str} → {out_dims_str} via {sizing['tool']}",
+                "copy_fallback":   f"COPIED UNCHANGED ({src_dims_str}) — missing_tool",
+            }.get(sizing["method"], sizing["method"])
+            print(f"    -> {k}: target {target_w}x{target_h} ({method_label})")
+            if sizing["warning"]:
+                print(f"       ⚠️  {sizing['warning']}")
 
             results.append({
                 "platform": k,
@@ -389,7 +508,12 @@ def cmd_generate(args):
                 "ratio": ratio,
                 "original": str(original_path),
                 "cropped": str(cropped_path),
-                "success": True,
+                "success": sizing["success"],
+                "method": sizing["method"],
+                "tool": sizing["tool"],
+                "source_dimensions": sizing["source_dimensions"],
+                "output_dimensions": sizing["output_dimensions"],
+                "warning": sizing["warning"],
             })
 
         # Brief pause between ratio groups to avoid rate limits
