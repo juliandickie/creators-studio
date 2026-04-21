@@ -126,7 +126,7 @@ def _convert_one(magick_cmd, backend, input_path, output_path, width, height, fm
                                capture_output=True, text=True, check=True)
                 os.remove(tmp_out)
             else:
-                os.rename(tmp_out, str(output_path).replace(".webp", ".png"))
+                os.replace(tmp_out, str(output_path).replace(".webp", ".png"))
                 print(f"Warning: cwebp not found, saved as PNG instead of WebP", file=sys.stderr)
     else:
         if fmt == "jpeg":
