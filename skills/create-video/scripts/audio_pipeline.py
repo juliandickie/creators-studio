@@ -183,7 +183,7 @@ def _atomic_write_config(config: dict) -> None:
             f.flush()
             os.fsync(f.fileno())
         os.chmod(tmp_path, 0o600)
-        os.rename(tmp_path, CONFIG_PATH)
+        os.replace(tmp_path, CONFIG_PATH)
     except Exception:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
