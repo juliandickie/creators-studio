@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.3] - 2026-04-21
+
+### Fixed
+
+- **Windows: `os.rename` → `os.replace` for atomic config writes** ([PR #1](https://github.com/juliandickie/creators-studio/pull/1) by @creators-idd). `_atomic_write_config` in `skills/create-video/scripts/audio_pipeline.py` used `os.rename` to promote a tempfile to `~/.banana/config.json`. On Windows, `os.rename` raises `FileExistsError [WinError 183]` when the target already exists, so every config-mutating subcommand (`voice-clone`, `voice-promote`, `voice-measure`, `voice-design`) crashed on the save step after the first write — the ElevenLabs API call succeeded but the local config save always failed, leaving a stray `~/.banana/.config.*.tmp` file that required manual cleanup. Same swap applied to the webp → png fallback in `skills/create-image/scripts/multiformat.py` for consistency. `os.replace` has atomic-overwrite semantics on both POSIX and Windows (see [Python docs](https://docs.python.org/3/library/os.html#os.replace)); no behavior change on macOS or Linux where both functions resolve to the same `rename(2)` syscall. Brings all three atomic-promote sites (`audio_pipeline.py:186`, `multiformat.py:129`, and the pre-existing `history.py:57`) onto the same `os.replace` idiom. No dependency, CLI, or config-schema changes.
+
 ## [4.1.2] - 2026-04-17
 
 ### Headline
@@ -1154,6 +1160,7 @@ Real-API verification during the v3.5.0 release surfaced a critical distinction:
 - Batch variations, multi-turn chat, prompt inspiration
 - Install script with validation
 
+[4.1.3]: https://github.com/juliandickie/creators-studio/releases/tag/v4.1.3
 [4.1.2]: https://github.com/juliandickie/creators-studio/releases/tag/v4.1.2
 [4.1.1]: https://github.com/juliandickie/creators-studio/releases/tag/v4.1.1
 [4.1.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.1.0
