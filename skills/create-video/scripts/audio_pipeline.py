@@ -84,7 +84,9 @@ import argparse
 import base64
 import concurrent.futures
 import json
+import logging
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -94,6 +96,119 @@ import urllib.parse
 import urllib.request
 from datetime import date
 from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# v4.2.1: Lyria migration to Replicate via the shared ProviderBackend
+# abstraction (v4.2.0). Replaces the inline Vertex URL + API-key path used
+# up through v3.8.4. See docs/superpowers/specs/ for the sub-project B
+# design document and references/models/lyria-*.md for per-model details.
+# ---------------------------------------------------------------------------
+
+_plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+if _plugin_root not in sys.path:
+    sys.path.insert(0, _plugin_root)
+
+from scripts.backends._replicate import ReplicateBackend as _ReplicateBackend  # noqa: E402
+from scripts.backends._base import ProviderAuthError as _ProviderAuthError  # noqa: E402
+from scripts.backends._base import ProviderError as _ProviderError  # noqa: E402
+from scripts.registry import registry as _reg  # noqa: E402
+
+_logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Lyria intent detection + version resolution (v4.2.1)
+# ---------------------------------------------------------------------------
+
+
+class LyriaUpgradeGateError(RuntimeError):
+    """Raised when auto-detection routes to Lyria 3 Pro without --confirm-upgrade.
+
+    Prevents silent 2x cost surprises when a user passes --music-source lyria
+    without an explicit --lyria-version and the prompt contains song-structure
+    indicators that would otherwise auto-upgrade to the more expensive Pro model.
+    """
+
+
+_LYRIC_STRUCTURE_INDICATORS = frozenset({
+    "[verse", "[chorus", "[bridge", "[hook",
+    "[intro", "[outro", "[pre-chorus", "[refrain",
+})
+_TIMESTAMP_INDICATOR = re.compile(r"\[\d+:\d{2}\s*-\s*\d+:\d{2}\]")
+_EXPLICIT_INSTRUMENTAL = frozenset({
+    "instrumental only", "no vocals", "no lyrics",
+})
+
+
+def detect_lyrics_intent(prompt: str) -> bool:
+    """Return True if the prompt appears to request a structured full-song
+    generation (lyrics, verses, timestamps). Used for auto-routing Lyria 3
+    Clip vs Lyria 3 Pro.
+
+    Explicit 'instrumental only' / 'no vocals' / 'no lyrics' markers ALWAYS
+    return False, even in the presence of structure tags — user intent to
+    exclude vocals wins.
+    """
+    lower = prompt.lower()
+    if any(ind in lower for ind in _EXPLICIT_INSTRUMENTAL):
+        return False
+    if any(ind in lower for ind in _LYRIC_STRUCTURE_INDICATORS):
+        return True
+    if _TIMESTAMP_INDICATOR.search(prompt):
+        return True
+    return False
+
+
+_LYRIA_VERSION_MAP = {
+    "2":     "lyria-2",
+    "3":     "lyria-3",
+    "3-pro": "lyria-3-pro",
+}
+
+
+def resolve_lyria_version(
+    prompt: str,
+    *,
+    explicit_version: str | None,
+    confirm_upgrade: bool,
+    has_negative_prompt: bool,
+) -> str:
+    """Pick canonical Lyria model ID based on flags + prompt.
+
+    Precedence:
+      1. explicit_version ('2', '3', '3-pro') — always wins, no gate.
+      2. has_negative_prompt — auto-route to lyria-2 (the only Lyria that
+         accepts negative_prompt).
+      3. detect_lyrics_intent(prompt) AND NOT confirm_upgrade — raise
+         LyriaUpgradeGateError to prevent silent 2x cost upgrade.
+      4. detect_lyrics_intent(prompt) AND confirm_upgrade — route to
+         lyria-3-pro.
+      5. Default — route to lyria-3 (Clip, cheapest).
+    """
+    if explicit_version is not None:
+        if explicit_version not in _LYRIA_VERSION_MAP:
+            raise ValueError(
+                f"Invalid --lyria-version {explicit_version!r}. "
+                f"Must be one of: {list(_LYRIA_VERSION_MAP.keys())}"
+            )
+        return _LYRIA_VERSION_MAP[explicit_version]
+
+    if has_negative_prompt:
+        return "lyria-2"
+
+    if detect_lyrics_intent(prompt):
+        if not confirm_upgrade:
+            raise LyriaUpgradeGateError(
+                "Detected song structure in prompt — full-song generation "
+                "requires Lyria 3 Pro ($0.08/file vs Lyria 3 Clip $0.04/file).\n"
+                "  - Pass --confirm-upgrade to proceed with Lyria 3 Pro.\n"
+                "  - Pass --lyria-version 3 to force the cheaper Lyria 3 Clip.\n"
+                "  - Pass --lyria-version 3-pro for explicit Pro (same as confirm)."
+            )
+        return "lyria-3-pro"
+
+    return "lyria-3"
+
 
 # ---------------------------------------------------------------------------
 # Constants
