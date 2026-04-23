@@ -804,6 +804,57 @@ This was the scheduled post-v3.7.3 polish release closing the known-issues debt 
 
 **Session spend**: $0 (no generation calls — all tests HTTP-mocked). **Cumulative: ~$1.10**.
 
+### Session 25 (2026-04-23 → 2026-04-24) — v4.2.1 Sub-Project B: Vertex Retirement + Lyria 3 Upgrade
+
+**Scope**: Finish the Vertex AI retirement started in v4.2.0. Delete `_vertex_backend.py` (958 lines). Route VEO 3.1 (all three tiers) through `ReplicateBackend` via `google/veo-3.1-*` slugs. Migrate `audio_pipeline.py` Lyria code from inline Vertex URL construction to `ReplicateBackend.submit()`. Upgrade Lyria 2 → Lyria 3 as within-Lyria default. Keep Lyria 2 registered for `negative_prompt` workflows. Add Lyria 3 Pro as a first-class model for full-song generation. Register ElevenLabs Music in the registry (with `(direct)` sentinel slug) to honor the multi-model principle even though ElevenLabs isn't yet a `ProviderBackend`.
+
+**Process**: Subagent-driven execution. Fresh subagent per task batch, two-stage review (spec then code quality) for the riskiest phases. Inline for mechanical work (reference docs, meta-docs, release). One critical bug caught by code-quality review in Tasks 3-5 that spec review missed — `NameError` in `video_generate.py` cost-logging that would have silently failed every Kling cost call post-release. Single-character fix but a real regression caught. Demonstrates the two-stage review pattern's value.
+
+**Design decisions locked in** (see `docs/superpowers/specs/2026-04-23-subproject-b-vertex-retirement-lyria-upgrade-design.md`, 4 spec iterations):
+
+- Keep `cost_tracker.py` with key-as-discriminator dispatch (existing pattern), NOT the spec's original `mode`-field approach. Minimizes file churn.
+- `--confirm-upgrade` hard-gate for Lyria 3 Pro auto-routing prevents silent 2x cost surprises.
+- `elevenlabs-music` registered with `(direct)` sentinel slug honors the multi-model principle without requiring ElevenLabs to be refactored into a ProviderBackend in this release.
+- Multi-model principle codified: every family registers ≥2 models.
+
+**What shipped** (17 commits on `feature/vertex-retirement-v4.2.1`):
+
+1. `scripts/backends/_canonical.py` — `duration_s.enum` validator shape (VEO uses enum `{4,6,8}`)
+2. `skills/create-image/scripts/cost_tracker.py` — three new pricing modes (`per_second_by_resolution`, `per_second_by_audio`, `per_second_by_resolution_and_audio`) via key-as-discriminator. `_lookup_cost()` gains keyword-only `duration_s` + `audio_enabled` kwargs. CLI `--duration-s` + `--audio-enabled` flags.
+3. `scripts/registry/models.json` — 7 new entries (VEO x3, Lyria x3, ElevenLabs Music), 2 pricing corrections (Kling v3, v3 Omni), `family_defaults.music = elevenlabs-music`.
+4. `scripts/backends/_replicate.py` — `music-generation` task type, `_MODEL_PARAM_DROPS` + `_filter_unsupported_params()` for per-model canonical-param filtering with WARN logging.
+5. `skills/create-video/scripts/audio_pipeline.py` — `generate_music_lyria` + `generate_music_lyria_extended` refactored to use `ReplicateBackend`. New helpers: `detect_lyrics_intent()`, `resolve_lyria_version()`, `LyriaUpgradeGateError`. New CLI flags: `--lyria-version {2,3,3-pro}`, `--confirm-upgrade`. Vertex URL/auth code deleted.
+6. `skills/create-video/scripts/video_generate.py` — Vertex import + `_select_backend` vertex branch removed. `--backend vertex-ai` deprecated alias with auto-route. Legacy Vertex model IDs auto-translate. `--provider veo` deprecated alias. Net -89 lines.
+7. `skills/create-video/scripts/_vertex_backend.py` — DELETED (958 lines).
+8. Reference docs: `references/models/veo-3.1.md` (placeholder replaced), new `lyria-2.md`, `lyria-3.md`, `lyria-3-pro.md`, `elevenlabs-music.md`. `references/providers/replicate.md` updated with v4.2.1 additions.
+9. Tests: new `tests/test_lyria_migration.py` (17 tests), new `tests/test_cost_tracker.py` (18 tests post-fix), extensions to `test_canonical.py`, `test_registry.py`, `test_replicate_backend.py`. Total: 137 tests (up from 74).
+
+**Behavior changes for users**:
+
+- `--music-source lyria` without `--lyria-version` now produces output from **Lyria 3 Clip** (via Replicate) instead of Lyria 2 (via Vertex). Cost drops from $0.06 to $0.04 per 30s clip. User may notice subtle quality difference — bake-off will quantify post-C.
+- `--music-source lyria --negative-prompt "drums"` auto-selects Lyria 2 (only variant that accepts `negative_prompt`).
+- `--music-source lyria` with a prompt containing `[Verse]`, `[Chorus]`, or timestamp ranges aborts with `LyriaUpgradeGateError` unless `--confirm-upgrade` is passed. Auto-routing would use Lyria 3 Pro at 2x the cost of Clip.
+- `--provider veo` still works but logs deprecation; routes through Replicate `google/veo-3.1-fast`. Removed in v4.3.0.
+- `--backend vertex-ai` same behavior. Removed in v4.3.0.
+- Users with Vertex config (`vertex_api_key` etc.) see zero errors — keys silently ignored by the migration shim.
+
+**Surprise finding — Kling pricing inversion**:
+
+The v3.8.0 spike 5 narrative was "Kling v3 is 7.5x cheaper than VEO at comparable quality." That claim was based on `$0.02/s` for Kling, which turned out to be wrong (carried forward from an outdated source). At verified Replicate rates:
+
+| 8s @ 1080p with audio | Cost |
+|---|---|
+| VEO 3.1 Lite | $0.64 |
+| VEO 3.1 Fast | $1.20 |
+| Kling v3 pro-audio | $2.69 |
+| VEO 3.1 Standard | $3.20 |
+
+VEO Lite is now ~4× **cheaper** than Kling at comparable settings. Doesn't change v4.2.1's default (Kling's quality advantage per the 8-of-15 shot-type scoreboard stands), but queues a post-sub-project-C re-evaluation bake-off with fresh data.
+
+**One latent bug fixed as freebie**: `subprocess` was never imported in `video_generate.py` — cost-log shell-out at end of `main()` would have raised `NameError` silently (swallowed by bare except). Fixed during Task 20 when the file was already being edited.
+
+**Session spend**: $0 (all tests HTTP-mocked; Task 20 implementer ran one empirical Replicate VEO call to verify the deprecation path, but it's a one-off verification not billed to this session). **Cumulative: ~$1.10**.
+
 ## Expansion Roadmap
 
 See `ROADMAP.md` for the full prioritized feature roadmap.
