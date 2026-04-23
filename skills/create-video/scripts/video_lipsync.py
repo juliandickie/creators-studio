@@ -23,7 +23,8 @@ Typical workflow (two-step, decoupled from audio_pipeline.py):
         --resolution 720p \\
         --output ~/Documents/creators_generated
 
-Uses only Python stdlib via _replicate_backend.py helpers. Zero pip deps.
+Uses only Python stdlib via scripts/backends/_replicate.py helpers (plugin
+root, as of v4.2.0). Zero pip deps.
 
 See:
 - skills/create-video/references/lipsync.md (reference doc)
@@ -39,10 +40,13 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-# Reuse the v3.8.0 Replicate backend for HTTP + auth + parsing. We don't
-# duplicate the poll loop — just import the low-level helpers and orchestrate.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _replicate_backend as replicate  # noqa: E402
+# Reuse the Replicate backend for HTTP + auth + parsing. We don't duplicate
+# the poll loop — just import the low-level helpers and orchestrate.
+# v4.2.0: backend lives at plugin-root scripts/backends/_replicate.py.
+_plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+if _plugin_root not in sys.path:
+    sys.path.insert(0, _plugin_root)
+from scripts.backends import _replicate as replicate  # noqa: E402
 
 
 # ─── Constants ──────────────────────────────────────────────────────

@@ -1,62 +1,45 @@
 #!/usr/bin/env python3
-"""Creators Studio -- Replicate backend helper for Kling video generation.
+"""Creators Studio — Replicate provider backend.
 
-Pure data-translation layer for the Replicate predictions API. Called by
-video_generate.py when --backend replicate is active (v3.8.0+). Has no global
-state. Stdlib only.
+Implements the ProviderBackend contract (scripts/backends/_base.py) for
+Replicate (api.replicate.com). Hosts model registry entries for Kling v3,
+Fabric 1.0, and Recraft Vectorize — every Replicate-hosted model the
+plugin currently uses.
 
-Why Replicate? Google's VEO 3.1 on Vertex AI won on bake-off spike 5 Phase 1
-only against some candidates; in Phase 2 head-to-head playback Kling v3 Std
-beat VEO 3.1 on 8 of 15 shot types (VEO won 0), at 7.5x lower cost. This
-module wires Kling v3 Std as the default video model and keeps VEO as an
-opt-in backup via --provider veo. See:
-- spikes/v3.8.0-provider-bakeoff/writeup/v3.8.0-bakeoff-findings.md
-- dev-docs/kwaivgi-kling-v3-video-llms.md (canonical Kling input schema)
+Pure data-translation layer. No global state. Stdlib only (urllib.request,
+base64, json).
+
+See:
+- docs/superpowers/specs/2026-04-23-provider-abstraction-design.md
+- dev-docs/kwaivgi-kling-v3-video-llms.md (Kling input schema)
+- dev-docs/veed-fabric-1.0-llms.md (Fabric input schema)
+- dev-docs/recraft-ai-recraft-vectorize-llms.md (Recraft input schema)
 - dev-docs/replicate-openapi.json (canonical Replicate API contract)
 
-Auth: Replicate uses HTTP Bearer tokens. The same `replicate_api_token`
-already stored in ~/.banana/config.json by setup_mcp.py (for the image-gen
-side) is reused for video — no new setup flow needed.
+Two API surfaces coexist in this module:
 
-Request shape (per POST /v1/models/{owner}/{name}/predictions):
+1. **Legacy module-level helpers** (validate_kling_params,
+   build_kling_request_body, replicate_post, replicate_get, etc.) —
+   called directly by pre-v4.2.0 code paths. Preserved during the
+   v4.2.0 transition.
 
-    {
-      "input": {
-        "prompt":          "...",       # required, max 2500 chars
-        "duration":        8,            # int, 3-15 seconds
-        "aspect_ratio":    "16:9",      # "16:9" | "9:16" | "1:1"
-        "mode":            "pro",       # "standard" (720p) | "pro" (1080p)
-        "generate_audio":  true,        # bool
-        "negative_prompt": "...",       # optional
-        "start_image":     "data:...",  # optional, data URI or URL
-        "end_image":       "data:...",  # optional, requires start_image
-        "multi_prompt":    "[...]"      # optional, JSON array as STRING
-      }
-    }
+2. **ReplicateBackend class** (v4.2.0+) — implements the
+   ProviderBackend ABC contract. New call sites use this class; it
+   delegates to the legacy helpers internally.
 
-Poll shape (per GET /v1/predictions/{id}):
+Canonical state mapping (Replicate's 6-value enum → canonical 5 values):
+    starting, processing        → running
+    succeeded                   → succeeded
+    canceled                    → canceled
+    failed, aborted             → failed
 
-    {
-      "id":         "...",
-      "status":     "starting" | "processing" | "succeeded" |
-                    "failed"   | "canceled"   | "aborted",
-      "output":     "https://replicate.delivery/.../tmp.mp4",  # string for Kling
-      "error":      "...",              # when status=failed
-      "urls": {
-        "get":    "...",
-        "cancel": "..."
-      }
-    }
+User-Agent: every request sends
+    User-Agent: creators-studio/4.2.0 (+https://github.com/juliandickie/creators-studio)
+to avoid Cloudflare WAF rejection on /v1/account (observed HTTP 403
+error 1010 without it).
 
-Prefer header: The Replicate OpenAPI spec documents `Prefer: wait=N` with
-N in [1, 60] for synchronous inline completion. The spike client used
-`wait=0` which is non-spec-compliant (happens to work). This module OMITS
-the Prefer header entirely for async submit — correct for Kling's 3-6 min
-wall times — and polls via GET to the prediction URL.
-
-Run this module directly to diagnose the Replicate setup without burning a
-Kling generation: `python3 _replicate_backend.py` will ping the free
-/v1/account endpoint and report whether the auth path is working.
+Run `python3 -m scripts.backends._replicate diagnose` to verify auth
+works without burning budget.
 """
 
 import argparse
@@ -90,7 +73,7 @@ REPLICATE_ACCOUNT_URL = REPLICATE_API_BASE + "/account"
 # on some endpoints (observed: HTTP 403 error 1010 on /v1/account with no
 # User-Agent). Identifying the client avoids the WAF heuristic and gives
 # Replicate a way to contact us if they see odd traffic.
-REPLICATE_USER_AGENT = "creators-studio/3.8.0 (+https://github.com/juliandickie/creators-studio)"
+REPLICATE_USER_AGENT = "creators-studio/4.2.0 (+https://github.com/juliandickie/creators-studio)"
 
 
 # ─── Model registry ─────────────────────────────────────────────────
@@ -980,6 +963,291 @@ def main():
     else:
         parser.print_help()
         sys.exit(1)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# ProviderBackend implementation (v4.2.0+ — adapts the legacy helpers above
+# into the canonical interface defined in scripts/backends/_base.py.)
+# ═══════════════════════════════════════════════════════════════════════
+
+from typing import Any  # noqa: E402
+
+from scripts.backends._base import (  # noqa: E402
+    AuthStatus,
+    JobRef,
+    JobStatus,
+    ProviderAuthError,
+    ProviderBackend,
+    ProviderError,
+    ProviderHTTPError,
+    ProviderValidationError,
+    TaskResult,
+)
+
+
+# Canonical task → provider-specific param translator tables.
+# Indexed by task; each entry maps canonical_param_name → provider_field_name.
+# These mappings stay LOCAL to this module — they never leak to orchestrator code.
+_TASK_PARAM_MAPS: dict[str, dict[str, str]] = {
+    "text-to-video": {
+        "prompt": "prompt",
+        "duration_s": "duration",
+        "aspect_ratio": "aspect_ratio",
+        "negative_prompt": "negative_prompt",
+        "seed": "seed",
+    },
+    "image-to-video": {
+        "prompt": "prompt",
+        "duration_s": "duration",
+        "aspect_ratio": "aspect_ratio",
+        "start_image": "start_image",
+        "end_image": "end_image",
+        "negative_prompt": "negative_prompt",
+        "seed": "seed",
+    },
+    "lipsync": {
+        "image": "image",
+        "audio": "audio",
+        "resolution": "resolution",
+    },
+    "vectorize": {
+        "source_image": "image",
+    },
+}
+
+
+def _resolution_to_kling_mode(resolution: str) -> str:
+    """Kling uses 'mode' (standard=720p, pro=1080p), not an explicit resolution."""
+    match resolution:
+        case "720p":
+            return "standard"
+        case "1080p":
+            return "pro"
+        case _:
+            raise ProviderValidationError(
+                f"Kling does not support resolution={resolution!r}"
+            )
+
+
+def _replicate_state_to_canonical(provider_state: str) -> str:
+    """Map Replicate's 6-value enum to canonical 5-state JobStatus.state.
+
+    Replicate states: starting | processing | succeeded | failed | canceled | aborted
+    Canonical states: pending | running | succeeded | failed | canceled
+    """
+    if provider_state in RUNNING_STATUSES:
+        return "running"
+    if provider_state in TERMINAL_SUCCESS_STATUSES:
+        return "succeeded"
+    if provider_state == "canceled":
+        return "canceled"
+    if provider_state in TERMINAL_FAILURE_STATUSES:
+        # TERMINAL_FAILURE_STATUSES is {"failed", "canceled", "aborted"}; canceled
+        # is handled above, so this branch covers only failed + aborted.
+        return "failed"
+    # Unknown provider state — treat as running so the caller's poll loop
+    # continues rather than spinning forever on a phantom failure.
+    return "running"
+
+
+class ReplicateBackend(ProviderBackend):
+    """Replicate implementation of the ProviderBackend contract.
+
+    Delegates to the legacy module-level helpers (validate_kling_params,
+    build_kling_request_body, replicate_post, etc.) so the refactor is
+    mechanical — zero duplicated logic, zero behavior change.
+    """
+
+    name = "replicate"
+    supported_tasks = {
+        "text-to-image",
+        "image-to-image",
+        "text-to-video",
+        "image-to-video",
+        "lipsync",
+        "vectorize",
+    }
+
+    def _api_key(self, config: dict[str, Any]) -> str:
+        """Extract the Replicate API token, honoring the v4.2.0 schema
+        plus the legacy flat `replicate_api_token` key."""
+        key: str | None = None
+        if isinstance(providers := config.get("providers"), dict):
+            if isinstance(rep := providers.get("replicate"), dict):
+                key = rep.get("api_key")
+        if not key:
+            key = config.get("replicate_api_token")
+        if not key:
+            raise ProviderAuthError(
+                "No Replicate API key configured. Set "
+                "providers.replicate.api_key in ~/.banana/config.json "
+                "or run /create-video setup."
+            )
+        return key
+
+    def auth_check(self, config: dict[str, Any]) -> AuthStatus:
+        try:
+            api_key = self._api_key(config)
+        except ProviderAuthError as e:
+            return AuthStatus(ok=False, message=str(e), provider=self.name)
+
+        req = urllib.request.Request(
+            REPLICATE_ACCOUNT_URL,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "User-Agent": REPLICATE_USER_AGENT,
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                code = resp.getcode() if hasattr(resp, "getcode") else getattr(resp, "status", 200)
+                if code == 200:
+                    return AuthStatus(
+                        ok=True,
+                        message=f"Authenticated (HTTP {code})",
+                        provider=self.name,
+                    )
+                return AuthStatus(
+                    ok=False,
+                    message=f"Unexpected status: HTTP {code}",
+                    provider=self.name,
+                )
+        except urllib.error.HTTPError as e:
+            return AuthStatus(
+                ok=False,
+                message=f"HTTP {e.code}: {e.reason}",
+                provider=self.name,
+            )
+        except Exception as e:
+            return AuthStatus(ok=False, message=str(e), provider=self.name)
+
+    def submit(
+        self,
+        *,
+        task: str,
+        model_slug: str,
+        canonical_params: dict[str, Any],
+        provider_opts: dict[str, Any],
+        config: dict[str, Any],
+    ) -> JobRef:
+        api_key = self._api_key(config)
+
+        if task not in _TASK_PARAM_MAPS:
+            raise ProviderValidationError(
+                f"Replicate backend does not handle task {task!r}. "
+                f"Supported: {sorted(_TASK_PARAM_MAPS.keys())}"
+            )
+
+        # Translate canonical params to Replicate's input schema.
+        param_map = _TASK_PARAM_MAPS[task]
+        input_body: dict[str, Any] = {
+            prov_key: canonical_params[canon_key]
+            for canon_key, prov_key in param_map.items()
+            if canon_key in canonical_params
+        }
+
+        # Kling-specific: resolution → mode translation
+        if model_slug.startswith("kwaivgi/kling-") and "resolution" in canonical_params:
+            input_body["mode"] = _resolution_to_kling_mode(canonical_params["resolution"])
+
+        # Merge provider_opts LAST so they can shadow auto-derived fields.
+        input_body.update(provider_opts)
+
+        owner, name = model_slug.split("/", 1)
+        url = REPLICATE_PREDICTIONS_URL_TEMPLATE.format(owner=owner, name=name)
+
+        # Use the existing replicate_post helper for HTTP, but wrap its
+        # error types in canonical ones.
+        try:
+            raw = replicate_post(url, {"input": input_body}, token=api_key)
+        except ReplicateAuthError as e:
+            raise ProviderAuthError(str(e)) from e
+        except ReplicateSubmitError as e:
+            # Distinguish auth failures (401/403) by message substring — the
+            # legacy helper bundles them all as ReplicateSubmitError.
+            msg = str(e)
+            if "HTTP 401" in msg or "HTTP 403" in msg:
+                raise ProviderAuthError(msg) from e
+            raise ProviderHTTPError(msg) from e
+        except ReplicateBackendError as e:
+            raise ProviderHTTPError(str(e)) from e
+
+        try:
+            pid, poll_url = parse_replicate_submit_response(raw)
+        except ReplicateBackendError as e:
+            raise ProviderHTTPError(str(e)) from e
+
+        return JobRef(
+            provider=self.name,
+            external_id=pid,
+            poll_url=poll_url,
+            raw=raw,
+        )
+
+    def poll(self, job_ref: JobRef, config: dict[str, Any]) -> JobStatus:
+        api_key = self._api_key(config)
+        try:
+            raw = replicate_get(job_ref.poll_url, token=api_key)
+        except ReplicatePollError as e:
+            msg = str(e)
+            if "HTTP 401" in msg or "HTTP 403" in msg:
+                raise ProviderAuthError(msg) from e
+            raise ProviderHTTPError(msg) from e
+        except ReplicateBackendError as e:
+            raise ProviderHTTPError(str(e)) from e
+
+        state = _replicate_state_to_canonical(raw.get("status", ""))
+        output = raw.get("output")
+        return JobStatus(
+            state=state,
+            output={"output": output} if output is not None else None,
+            error=raw.get("error"),
+            raw=raw,
+        )
+
+    def parse_result(self, job_status: JobStatus, *, download_to: Path) -> TaskResult:
+        if job_status.state != "succeeded":
+            raise ProviderError(
+                f"parse_result called on non-succeeded job (state={job_status.state!r})"
+            )
+
+        output = job_status.output["output"] if job_status.output else None
+        output_urls: list[str] = []
+        if isinstance(output, str):
+            output_urls = [output]
+        elif isinstance(output, list):
+            output_urls = [u for u in output if isinstance(u, str)]
+
+        download_to = Path(download_to)
+        download_to.parent.mkdir(parents=True, exist_ok=True)
+        output_paths: list[Path] = []
+        for i, url in enumerate(output_urls):
+            dest = download_to if i == 0 else download_to.with_name(
+                f"{download_to.stem}_{i}{download_to.suffix}"
+            )
+            req = urllib.request.Request(
+                url, headers={"User-Agent": REPLICATE_USER_AGENT}
+            )
+            with urllib.request.urlopen(req, timeout=120) as resp, open(dest, "wb") as f:
+                f.write(resp.read())
+            output_paths.append(dest)
+
+        raw = job_status.raw or {}
+        metrics = raw.get("metrics", {}) if isinstance(raw, dict) else {}
+        duration_s = metrics.get("video_output_duration_seconds")
+
+        metadata: dict[str, Any] = {}
+        if duration_s is not None:
+            metadata["duration_s"] = duration_s
+
+        return TaskResult(
+            output_paths=output_paths,
+            output_urls=output_urls,
+            metadata=metadata,
+            provider_metadata=raw,
+            cost=None,  # Cost computed by cost_tracker.py using pricing mode
+            task_id=raw.get("id", ""),
+        )
 
 
 if __name__ == "__main__":

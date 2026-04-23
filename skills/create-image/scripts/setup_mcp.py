@@ -73,11 +73,82 @@ def remove_mcp() -> None:
         print(f"'{MCP_NAME}' not found in settings.")
 
 
+# ─── v4.2.0 config migration ────────────────────────────────────────────
+#
+# Before v4.2.0, API keys lived as flat top-level keys in ~/.banana/config.json:
+#     {"replicate_api_token": "r8_...", "google_api_key": "AIza...", ...}
+#
+# As of v4.2.0, they live under a provider-scoped schema so the plugin can
+# support additional marketplaces (Kie.ai, HF Inference Providers, ...) by
+# adding more `providers.<name>.api_key` entries without schema churn:
+#     {"providers": {"replicate": {"api_key": "r8_..."}, ...}}
+#
+# The migration shim runs on every load_banana_config() call so existing
+# user configs keep working without forcing a re-paste of API keys. When
+# the user next writes to config (e.g., via /create-video setup), the new
+# schema is persisted. See spec §8.
+
+_V4_2_0_KEYMAP: dict[str, tuple[str, str]] = {
+    "replicate_api_token":   ("replicate",  "api_key"),
+    "google_api_key":        ("gemini",     "api_key"),
+    "elevenlabs_api_key":    ("elevenlabs", "api_key"),
+    "vertex_api_key":        ("vertex",     "api_key"),
+    "vertex_project_id":     ("vertex",     "project_id"),
+    "vertex_location":       ("vertex",     "location"),
+    "kie_api_key":           ("kie",        "api_key"),     # future-proof for sub-project C
+}
+
+
+def migrate_config_to_v4_2_0(config: dict | None) -> dict:
+    """Rewrite old flat API-key config into the v4.2.0 providers schema.
+
+    Non-auth keys (custom_voices, named_creator_triggers, ...) pass through
+    unchanged. When both old flat keys and the new providers.<name>.api_key
+    form are present, NEW wins (explicit migration already happened once;
+    old key is stale).
+
+    Tolerates None/falsy input for defensive reasons — the config file may
+    be absent or malformed during first-run.
+    """
+    if not config:
+        return {}
+
+    out: dict = {}
+    # Seed with existing providers block if present.
+    existing_providers = config.get("providers") or {}
+    if isinstance(existing_providers, dict):
+        out["providers"] = {
+            k: dict(v) if isinstance(v, dict) else v
+            for k, v in existing_providers.items()
+        }
+    else:
+        out["providers"] = {}
+
+    # Copy all non-migrated keys verbatim.
+    for k, v in config.items():
+        if k in _V4_2_0_KEYMAP or k == "providers":
+            continue
+        out[k] = v
+
+    # Apply migrations: only fill the new path if it isn't already set.
+    for old_key, (provider, field) in _V4_2_0_KEYMAP.items():
+        old_val = config.get(old_key)
+        if old_val is None:
+            continue
+        prov_block = out["providers"].setdefault(provider, {})
+        if field not in prov_block:  # NEW wins when both present
+            prov_block[field] = old_val
+
+    return out
+
+
 def load_banana_config():
     if not BANANA_CONFIG.exists():
         return {}
     with open(BANANA_CONFIG, "r") as f:
-        return json.load(f)
+        raw = json.load(f)
+    # Auto-migrate on every read so old configs keep working.
+    return migrate_config_to_v4_2_0(raw)
 
 
 def save_banana_config(config):

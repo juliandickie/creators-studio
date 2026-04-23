@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2026-04-23
+
+### Headline
+
+**Provider-agnostic architecture foundation.** The plugin is now marketplace-neutral. Bring your own API key for Replicate today, and the architecture is ready for Kie.ai, Hugging Face Inference Providers, fal.ai, or any future marketplace to land as a **one-file addition**. Zero user-visible behavior change: every existing command produces identical output from identical input. This release delivers **sub-project A** of a four-part multi-provider roadmap (A: foundation, B: Vertex retirement, C: Kie.ai + Suno music, D: HF Inference Providers).
+
+### Added
+
+- **`scripts/backends/_base.py`** — `ProviderBackend` abstract base class + canonical types (`JobRef`, `JobStatus`, `TaskResult`, `AuthStatus`, `CanonicalImage`) + exception hierarchy (`ProviderError` → Validation/HTTP/Auth). Every provider backend implements this contract. Stdlib only.
+- **`scripts/backends/_canonical.py`** — canonical image normalizer (Path/bytes/URL/data-URI → data URI with stdlib MIME sniffing across PNG/JPEG/GIF/WebP) + constraint validator (duration, aspect ratio, resolution, prompt length, source-image byte limits). Runs BEFORE any HTTP call so invalid params never burn budget.
+- **`scripts/registry/models.json`** — single-source-of-truth model registry seeded with all 6 currently-used models: `kling-v3`, `kling-v3-omni`, `fabric-1.0`, `dreamactor-m2.0`, `recraft-vectorize`, `nano-banana-2`. Adding a new model is a one-JSON-entry change; upgrading a model is a field edit.
+- **`scripts/registry/registry.py`** — typed loader + query API (`load_registry()`, `get_model()`, `models_by_family()`, `providers_for_model()`, `family_default()`, `validate()`). Structural validation runs at startup to catch malformed entries before runtime.
+- **`scripts/routing.py`** — two-stage resolution. (1) `resolve_model()`: explicit `--model` flag > config `defaults.<family>_model` > registry family default. (2) `resolve_provider()`: explicit `--provider` flag > config `defaults.<family>` > `default_provider` > first-with-configured-api-key in registry insertion order.
+- **`scripts/backends/_replicate.py`** — `ReplicateBackend` class implementing `ProviderBackend`. Delegates to the existing legacy helpers (`validate_kling_params`, `build_kling_request_body`, `replicate_post`, `replicate_get`, parse/poll helpers) so the refactor is mechanical — zero duplicated logic.
+- **Config migration shim** in `setup_mcp.py`: `migrate_config_to_v4_2_0()` rewrites old flat keys (`replicate_api_token`, `google_api_key`, `elevenlabs_api_key`, `vertex_*`, `kie_api_key`) into the new `providers.<name>.{api_key,project_id,location}` schema. Runs automatically on every `load_banana_config()` call. When both old and new forms are present, new wins.
+- **`references/providers/`** — new reference catalog: `replicate.md` (auth, polling, Cloudflare User-Agent rule, 6-value status enum, pricing modes, known quirks, diagnose command) + `gemini-direct.md` (backend refactor deferred; documentation-only placeholder).
+- **`references/models/`** — new per-model reference catalog: `kling-v3.md`, `kling-v3-omni.md`, `nano-banana-2.md`, `fabric-1.0.md`, `dreamactor-m2.0.md`, `recraft-vectorize.md`, `veo-3.1.md` (placeholder). Each entry documents capabilities, canonical constraints matching the registry, pricing, authoritative source under `dev-docs/`.
+- **Test suite at `tests/`** — 74 tests using stdlib `unittest`. Zero new pip dependencies. HTTP calls mocked via `urllib.request.urlopen` patches — no network required. Run from plugin root: `python3 -m unittest discover tests`. Files: `test_base.py`, `test_canonical.py`, `test_registry.py`, `test_routing.py`, `test_replicate_backend.py`, `test_setup_mcp_migration.py` + fixtures at `tests/fixtures/*.json`.
+
+### Changed
+
+- **`skills/create-video/scripts/_replicate_backend.py` → `scripts/backends/_replicate.py`** (file moved to plugin root + refactored to implement the new `ProviderBackend` interface). All legacy module-level helpers preserved so the diagnose CLI and pre-v4.2.0 call paths keep working.
+- **Call-site migration**: `video_generate.py`, `video_lipsync.py`, `video_sequence.py`, and `vectorize.py` now import from `scripts.backends._replicate` via a plugin-root sys.path shim. The public alias (`import ... as replicate`) is preserved, so the rest of each file is unchanged.
+- **Shared abstraction code now lives at plugin-root `scripts/`** — not per-skill. Supersedes the v4.1.0 cross-skill import pattern (which routed through `skills/create-video/scripts/`). Skills reach in via a sys.path shim. This unblocks future shared infrastructure beyond the provider abstraction.
+- **`.gitignore` cleanup**: removed the stale `/scripts/` root-level exclusion from the pre-v4.0.0 nano-banana era. The plugin-root `scripts/` directory is now intentional shared infrastructure.
+
+### Breaking changes
+
+- **Python floor lifted from 3.6+ to 3.12+.** Inherited 3.6+ constraint dates to the 2023-era `banana-claude` fork and is retired. All new code uses PEP 604 union syntax (`X | None`), built-in generics (`list[int]`, `dict[str, Any]`), `dataclass(slots=True)`, `match`/`case` pattern matching, and PEP 695 `type` aliases. Existing per-skill scripts keep their current Python idiom — they modernize lazily when edited for other reasons. Users on Python 3.11 or older will need to upgrade; Claude Code ships modern Python by default and this affects almost no one in practice.
+
+### Preserved (deliberately)
+
+- **`~/.banana/` config directory path.** The v4.0.0 rule ("product branding can rename freely, user state paths touch carefully") still applies. Existing API keys, custom voices, preset overrides, cost ledger, and session history keep working with zero user action required. Cosmetic rename to `~/.creators-studio/` is queued as v4.2.2 with a dedicated migration plan.
+- **Zero behavior change for end users.** All existing commands (`/create-image generate`, `/create-image social`, `/create-video generate`, `/create-video lipsync`, `/create-image vectorize`, etc.) produce identical output from identical inputs. The new `--provider` flag is optional; no other user-visible changes.
+- **Fallback chain**: MCP (primary) → Direct Gemini API → Replicate. Ordering survives this refactor.
+- **`@ycse/nanobanana-mcp` MCP package name** is NOT renamed — it's a third-party upstream dependency the plugin doesn't own.
+- **Gemini direct (`generate.py`, `edit.py`) and ElevenLabs (`audio_pipeline.py`)** are NOT yet refactored into `ProviderBackend` implementations. They continue to work via their current direct-call code paths. The refactors are queued as follow-ups — non-blocking and unrelated to the provider abstraction's correctness.
+
+### Deferred (explicit follow-up releases)
+
+- **v4.2.1 — Sub-project B: Vertex retirement.** Route VEO 3.1 (all tiers) + Lyria 3 through `scripts/backends/_replicate.py` using `google/veo-3.1-*` and `google/lyria-3` slugs. Delete `_vertex_backend.py`. Retire `vertex_*` setup flow (migration shim continues to read legacy keys).
+- **v4.2.2 — Config directory rename.** Centralize path constants into a shared `scripts/config.py`, auto-migrate `~/.banana/` → `~/.creators-studio/` on first run, leave `.banana.bak` as a rollback safety net.
+- **v4.3.0 — Sub-project C: Kie.ai backend.** New `scripts/backends/_kie.py`. Unlocks Suno music (Kie-exclusive). Users with existing Kie.ai billing can run `--provider kie` for shared models.
+- **v4.4.0+ — Sub-project D: Hugging Face Inference Providers backend.** One `scripts/backends/_hf.py` unlocks ~17 underlying providers for image + video tasks. Gated on confirming HF supports image-to-video specifically.
+
+### Design documents
+
+- Architecture spec: `docs/superpowers/specs/2026-04-23-provider-abstraction-design.md`
+- Implementation plan (sub-project A): `docs/superpowers/plans/2026-04-23-provider-abstraction-subproject-a.md`
+
 ## [4.1.3] - 2026-04-21
 
 ### Fixed
@@ -1160,6 +1210,7 @@ Real-API verification during the v3.5.0 release surfaced a critical distinction:
 - Batch variations, multi-turn chat, prompt inspiration
 - Install script with validation
 
+[4.2.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.2.0
 [4.1.3]: https://github.com/juliandickie/creators-studio/releases/tag/v4.1.3
 [4.1.2]: https://github.com/juliandickie/creators-studio/releases/tag/v4.1.2
 [4.1.1]: https://github.com/juliandickie/creators-studio/releases/tag/v4.1.1

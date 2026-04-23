@@ -12,7 +12,7 @@
 Let an AI that's been trained on the best practices for every model write the prompts for you, instead of spending hours teaching yourself to prompt-engineer a moving target.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-4.1.3-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.2.0-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <details>
@@ -389,8 +389,7 @@ creators-studio/                       # Claude Code Plugin
 │   ├── SKILL.md                       # Video Creative Director orchestrator (~295 lines)
 │   ├── scripts/
 │   │   ├── video_generate.py          # Async video API with --backend/--provider routing
-│   │   ├── _vertex_backend.py         # Vertex AI helper (Lite, i2v, Scene Ext v2)
-│   │   ├── _replicate_backend.py      # Kling + Fabric HTTP plumbing
+│   │   ├── _vertex_backend.py         # Vertex AI helper (being retired in v4.2.1)
 │   │   ├── video_sequence.py          # Multi-shot pipeline + review gate
 │   │   ├── video_lipsync.py           # Fabric 1.0 standalone runner
 │   │   ├── video_extend.py            # DEPRECATED in v3.8.0 (hard-gated)
@@ -405,7 +404,29 @@ creators-studio/                       # Claude Code Plugin
 │       ├── video-sequences.md         # Multi-shot production
 │       ├── audio-pipeline.md          # Full audio architecture
 │       ├── image-to-video.md          # Animate-a-still
-│       └── social-platforms.md        # v4.1.2: 37 video placements × 14 platforms with duration ranges (feeds /create-video social in v4.2.0)
+│       └── social-platforms.md        # v4.1.2: 37 video placements × 14 platforms with duration ranges
+├── scripts/                           # v4.2.0+ shared provider abstraction (plugin-root)
+│   ├── backends/
+│   │   ├── _base.py                   # ProviderBackend ABC + canonical types
+│   │   ├── _canonical.py              # Image normalizer + constraint validator
+│   │   └── _replicate.py              # Replicate backend (Kling, Fabric, Recraft)
+│   ├── registry/
+│   │   ├── models.json                # Canonical model registry
+│   │   └── registry.py                # Typed loader + query API
+│   └── routing.py                     # Two-stage model + provider resolution
+├── references/                        # v4.2.0+ shared provider/model reference catalog
+│   ├── providers/                     # One per provider (auth, polling, pricing, quirks)
+│   │   ├── replicate.md
+│   │   └── gemini-direct.md           # (placeholder; backend refactor deferred)
+│   └── models/                        # One per canonical model (capabilities, constraints, prompt notes)
+│       ├── kling-v3.md, kling-v3-omni.md
+│       ├── nano-banana-2.md
+│       ├── fabric-1.0.md, dreamactor-m2.0.md
+│       ├── recraft-vectorize.md
+│       └── veo-3.1.md                 # (placeholder; content lands in v4.2.1)
+├── tests/                             # v4.2.0+ stdlib unittest suite, zero pip deps
+│   ├── fixtures/                      # Frozen sample provider responses
+│   └── test_*.py                      # 74 tests across 6 modules
 └── agents/
     ├── brief-constructor.md           # Image prompt subagent
     └── video-brief-constructor.md     # Video prompt subagent
@@ -416,7 +437,14 @@ creators-studio/                       # Claude Code Plugin
 ## Release History
 
 <details>
-<summary><b>📜 v4.0.0 (current) — Rebrand to Creators Studio · 2026-04-17</b></summary>
+<summary><b>🔌 v4.2.0 (current) — Provider-Agnostic Architecture · 2026-04-23</b></summary>
+
+The plugin is now marketplace-neutral. Bring your own API key for Replicate today; the architecture is ready for Kie.ai, Hugging Face Inference Providers, fal.ai, or any future marketplace to ship as a **one-file addition**. New `scripts/backends/` abstraction, canonical task schema, model registry, and two-stage routing — all tested (74 tests) with zero behavior change for existing commands. Python floor lifted 3.6 → 3.12.
+
+</details>
+
+<details>
+<summary><b>📜 v4.0.0 — Rebrand to Creators Studio · 2026-04-17</b></summary>
 
 Full rebrand from `nano-banana-studio` to **Creators Studio** — *Imagine · Direct · Generate. Creative Engine for Claude Code.* The old name anchored the plugin to a single Google model at a moment when Kling, ElevenLabs Music, and Fabric had already become best-in-class for their respective surfaces; the new identity is model-agnostic so future swaps don't require a rebrand. Commands change to `/create-image` and `/create-video`. Your `~/.banana/` config, API keys, custom voices, and presets carry forward unchanged — zero config loss on upgrade.
 
