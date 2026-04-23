@@ -2141,23 +2141,43 @@ def main() -> None:
     p_narr.add_argument("--out", help="Output mp3 path (default: ~/Documents/creators_audio/narration_TS.mp3)")
     p_narr.add_argument("--api-key")
 
-    # music (multi-provider, v3.7.2+)
-    p_music = sub.add_parser("music", help="Generate background music (Lyria default, ElevenLabs alternative)")
+    # music (multi-provider, v3.7.2+ / v4.2.1 Lyria→Replicate migration)
+    p_music = sub.add_parser("music", help="Generate background music (ElevenLabs default, Lyria alternative)")
     p_music.add_argument("--prompt", required=True)
     p_music.add_argument("--source", choices=["lyria", "elevenlabs"], default=DEFAULT_MUSIC_SOURCE,
                          help=f"Music provider (default: {DEFAULT_MUSIC_SOURCE}). "
-                              "Lyria: $0.06 fixed, 32.768s, 48kHz/192kbps, supports negative_prompt, Vertex auth. "
-                              "ElevenLabs: subscription, configurable length, 44.1kHz/128kbps, no negative_prompt.")
+                              "Lyria via Replicate: 3 variants ($0.04-$0.08/call, 30-180 s). "
+                              "ElevenLabs: subscription-billed, 3000-300000 ms, no negative_prompt.")
     p_music.add_argument("--negative-prompt", default=None,
-                         help="What to avoid (Lyria only — ElevenLabs ignores this)")
+                         help="What to avoid (Lyria 2 only — auto-routes to Lyria 2 when set; "
+                              "other Lyria variants + ElevenLabs ignore this)")
+    p_music.add_argument("--lyria-version", choices=["2", "3", "3-pro"], default=None,
+                         help="Force a specific Lyria variant: "
+                              "2 (negative_prompt support, $0.06/call, 30 s), "
+                              "3 (Clip, default, $0.04/call, 30 s), "
+                              "3-pro (full songs up to 180 s, $0.08/call). "
+                              "Without this flag, auto-detection picks from the prompt "
+                              "(negative_prompt → 2; song-structure tags → 3-pro gated; default → 3).")
+    p_music.add_argument("--confirm-upgrade", action="store_true", default=False,
+                         help="Acknowledge the 2x cost upgrade when auto-detection would route "
+                              "to Lyria 3 Pro. Required when --lyria-version is absent AND the "
+                              "prompt contains song-structure markers (e.g. [Verse], [Chorus], "
+                              "timestamp ranges). Bypasses the gate in LyriaUpgradeGateError.")
     p_music.add_argument("--length-ms", type=int, default=DEFAULT_MUSIC_LENGTH_MS,
-                         help="Length in ms (ElevenLabs only — Lyria has fixed 32.768s)")
+                         help="Length in ms. Lyria: 30000 ms per clip (2/3 Clip) or up to "
+                              "180000 ms (3 Pro). Longer targets on 2/3 Clip are chained with "
+                              "FFmpeg acrossfade. ElevenLabs: 3000-300000 ms in one call.")
     p_music.add_argument("--with-vocals", action="store_true",
-                         help="Allow vocals (ElevenLabs only — Lyria is always instrumental)")
+                         help="Allow vocals (ElevenLabs only — Lyria instrumental/vocal toggle "
+                              "is model-variant-specific; see --lyria-version help)")
     p_music.add_argument("--no-wav", action="store_true",
-                         help="(Lyria only) Skip saving the lossless WAV source. By default both .mp3 and .wav are saved.")
+                         help="(Lyria only) Skip the local WAV transcode. By default a .wav copy "
+                              "is produced alongside the .mp3 delivered by Replicate for "
+                              "downstream editing tools.")
     p_music.add_argument("--mp3-bitrate", default="256k",
-                         help="(Lyria only) MP3 transcode bitrate (default: 256k for transparent quality). Use 192k to match v3.7.1 ElevenLabs convention.")
+                         help="(Lyria only) Not used on single calls (Replicate delivers MP3 "
+                              "directly). Used as the final-transcode bitrate on chained-extended "
+                              "runs where N × 30 s clips are acrossfaded and re-encoded.")
     p_music.add_argument("--out")
     p_music.add_argument("--api-key", help="ElevenLabs API key (only needed when source=elevenlabs)")
     p_music.add_argument("--allow-creators", action="store_true",
@@ -2191,10 +2211,17 @@ def main() -> None:
     p_pipe.add_argument("--music-source", choices=["lyria", "elevenlabs"], default=DEFAULT_MUSIC_SOURCE,
                         help=f"Music provider (default: {DEFAULT_MUSIC_SOURCE}). See music subcommand for details.")
     p_pipe.add_argument("--music-negative-prompt", default=None,
-                        help="What to avoid in music (Lyria only — improves prompt fidelity)")
+                        help="What to avoid in music (Lyria 2 only — auto-routes to Lyria 2 when set)")
+    p_pipe.add_argument("--lyria-version", choices=["2", "3", "3-pro"], default=None,
+                        help="Force a specific Lyria variant (see `music` subcommand --help for details).")
+    p_pipe.add_argument("--confirm-upgrade", action="store_true", default=False,
+                        help="Acknowledge the Lyria 3 Pro 2x cost upgrade when auto-detection "
+                             "routes there (song-structure tags in the music prompt).")
     p_pipe.add_argument("--voice", help="Voice role or voice_id (default: narrator)")
     p_pipe.add_argument("--music-length-ms", type=int,
-                        help="Music length in ms (ElevenLabs only — Lyria has fixed 32.768s)")
+                        help="Music length in ms. Lyria variants cap at 30 s/call (chained for "
+                             "longer 2/3 Clip targets) or up to 180 s on 3 Pro. "
+                             "ElevenLabs accepts 3000-300000 ms in one call.")
     p_pipe.add_argument("--out", help="Final output mp4 path")
     p_pipe.add_argument("--tts-model", default=DEFAULT_TTS_MODEL)
     p_pipe.add_argument("--api-key")
@@ -2281,18 +2308,26 @@ def main() -> None:
         api_key = None
         if args.source == "elevenlabs":
             api_key = _get_api_key(args.api_key)
-        result = generate_music(
-            prompt=args.prompt,
-            api_key=api_key,
-            source=args.source,
-            length_ms=args.length_ms,
-            negative_prompt=args.negative_prompt,
-            force_instrumental=not args.with_vocals,
-            output_path=Path(args.out) if args.out else None,
-            keep_wav=not args.no_wav,
-            mp3_bitrate=args.mp3_bitrate,
-            allow_creators=args.allow_creators,
-        )
+        try:
+            result = generate_music(
+                prompt=args.prompt,
+                api_key=api_key,
+                source=args.source,
+                length_ms=args.length_ms,
+                negative_prompt=args.negative_prompt,
+                lyria_version=args.lyria_version,
+                confirm_upgrade=args.confirm_upgrade,
+                force_instrumental=not args.with_vocals,
+                output_path=Path(args.out) if args.out else None,
+                keep_wav=not args.no_wav,
+                mp3_bitrate=args.mp3_bitrate,
+                allow_creators=args.allow_creators,
+            )
+        except LyriaUpgradeGateError as e:
+            # Exit code 2 mirrors the existing music-specific gate pattern
+            # (e.g., video_extend.py's --acknowledge-veo-limitations gate).
+            print(str(e), file=sys.stderr)
+            sys.exit(2)
     elif args.cmd == "mix":
         result = mix_narration_with_music(
             narration_path=Path(args.narration),
@@ -2307,23 +2342,30 @@ def main() -> None:
             output_path=Path(args.out) if args.out else None,
         )
     elif args.cmd == "pipeline":
-        # ElevenLabs key is always needed (TTS narration uses it). Lyria for music
-        # uses Vertex auth from config and doesn't need this key.
+        # ElevenLabs key is always needed (TTS narration uses it).
+        # v4.2.1: Lyria for music uses Replicate; ReplicateBackend reads the
+        # Replicate API key from config internally, no extra key plumbing.
         api_key = _get_api_key(args.api_key)
         voice_id, _ = _resolve_voice(args.voice)
-        result = pipeline(
-            video_path=Path(args.video),
-            narration_text=args.text,
-            music_prompt=args.music_prompt,
-            voice_id=voice_id,
-            api_key=api_key,
-            output_path=Path(args.out) if args.out else None,
-            music_length_ms=args.music_length_ms,
-            music_source=args.music_source,
-            music_negative_prompt=args.music_negative_prompt,
-            tts_model=args.tts_model,
-            allow_creators=args.allow_creators,
-        )
+        try:
+            result = pipeline(
+                video_path=Path(args.video),
+                narration_text=args.text,
+                music_prompt=args.music_prompt,
+                voice_id=voice_id,
+                api_key=api_key,
+                output_path=Path(args.out) if args.out else None,
+                music_length_ms=args.music_length_ms,
+                music_source=args.music_source,
+                music_negative_prompt=args.music_negative_prompt,
+                lyria_version=args.lyria_version,
+                confirm_upgrade=args.confirm_upgrade,
+                tts_model=args.tts_model,
+                allow_creators=args.allow_creators,
+            )
+        except LyriaUpgradeGateError as e:
+            print(str(e), file=sys.stderr)
+            sys.exit(2)
     elif args.cmd == "voice-design":
         api_key = _get_api_key(args.api_key)
         result = design_voice(
