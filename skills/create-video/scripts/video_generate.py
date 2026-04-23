@@ -25,24 +25,29 @@ import urllib.error
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# Vertex AI backend helper (commit 1 of v3.6.0). This module provides the
-# request/response translators for the Vertex AI `instances`/`parameters`
-# wrapper shape. It's imported unconditionally because it's stdlib-only
-# and has no side effects at import time. The backend path is chosen per
-# call by _select_backend() below.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _vertex_backend as vertex  # noqa: E402
-
 # Replicate backend helper. As of v4.2.0 this lives at plugin-root
 # scripts/backends/_replicate.py — same module, new location as part of
 # the provider-agnostic architecture. The module still exposes all legacy
 # helpers (validate_kling_params, build_kling_request_body, etc.) so this
 # call site continues to work unchanged; it also exposes the new
 # ReplicateBackend class for v4.2.0+ callers using the provider abstraction.
+#
+# v4.2.1: Vertex AI backend retired. All VEO 3.1 traffic now routes through
+# Replicate using `google/veo-3.1-*` slugs (see Task 6 registry entries).
+# The --backend vertex-ai flag is still accepted for one release but emits
+# a DeprecationWarning and auto-routes to Replicate.
+import subprocess  # noqa: E402 — used by cost-log shell-out
 _plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
 if _plugin_root not in sys.path:
     sys.path.insert(0, _plugin_root)
 from scripts.backends import _replicate as replicate  # noqa: E402
+from scripts.backends._replicate import ReplicateBackend  # noqa: E402
+from scripts.backends._base import (  # noqa: E402
+    ProviderAuthError,
+    ProviderValidationError,
+    ProviderHTTPError,
+    ProviderError,
+)
 
 API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 OPERATIONS_BASE = "https://generativelanguage.googleapis.com/v1beta"
@@ -57,70 +62,69 @@ DEFAULT_POLL_INTERVAL = 10
 DEFAULT_MAX_WAIT = 300
 OUTPUT_DIR = Path.home() / "Documents" / "creators_generated"
 
-# All video model IDs the plugin knows about. Not every ID is callable
-# through every backend — see MODELS_VERTEX_ONLY and MODELS_REPLICATE below.
+# All video model IDs the plugin knows about. v4.2.1: the VEO 3.1 family is
+# now served via Replicate using `google/veo-3.1-*` slugs; the legacy Vertex
+# -001 / -preview IDs are still accepted on the CLI (for backwards compat)
+# and are auto-translated to Replicate slugs via _translate_vertex_model_id().
 VALID_MODELS = {
-    # Preview IDs — callable on both Gemini API and Vertex AI
-    "veo-3.1-generate-preview",       # Standard (flagship, highest quality)
-    "veo-3.1-fast-generate-preview",  # Fast (mid tier)
-    # GA IDs — callable on Vertex AI only (as of 2026-04-10)
-    "veo-3.1-generate-001",           # Standard GA
-    "veo-3.1-fast-generate-001",      # Fast GA
-    "veo-3.1-lite-generate-001",      # Lite (draft tier, 5-60s range)
-    "veo-3.0-generate-001",           # Legacy (predecessor)
-    # v3.8.0+: Kling v3 Std via Replicate (DEFAULT as of v3.8.0)
-    "kwaivgi/kling-v3-video",         # Kling v3 Std (multi_prompt, 1:1, native audio)
+    # Replicate slugs (owner/name format). These are the canonical IDs.
+    "kwaivgi/kling-v3-video",         # Kling v3 Std (DEFAULT, multi_prompt, 1:1, native audio)
+    "google/veo-3.1",                 # VEO 3.1 Standard (Replicate)
+    "google/veo-3.1-fast",            # VEO 3.1 Fast (Replicate)
+    "google/veo-3.1-lite",            # VEO 3.1 Lite (Replicate)
+    # Legacy Gemini-API preview IDs — still callable on the direct Gemini API.
+    "veo-3.1-generate-preview",       # Standard (preview API)
+    "veo-3.1-fast-generate-preview",  # Fast (preview API)
+    # Legacy Vertex GA IDs — auto-translated to Replicate slugs on entry.
+    # Retained here so `--model veo-3.1-fast-generate-001` passes the
+    # VALID_MODELS gate during the deprecation window.
+    "veo-3.1-generate-001",           # Auto-translated → google/veo-3.1
+    "veo-3.1-fast-generate-001",      # Auto-translated → google/veo-3.1-fast
+    "veo-3.1-lite-generate-001",      # Auto-translated → google/veo-3.1-lite
+    "veo-3.0-generate-001",           # Legacy predecessor (no Replicate equivalent)
 }
 
 # Replicate model slugs (owner/name format). The _select_backend() router
 # treats any model containing "/" as a Replicate model.
 MODELS_REPLICATE = {
     "kwaivgi/kling-v3-video",
+    "google/veo-3.1",
+    "google/veo-3.1-fast",
+    "google/veo-3.1-lite",
 }
 
-# These model IDs return HTTP 404 from `generativelanguage.googleapis.com`
-# (the Gemini API surface) and must be served from Vertex AI. As of v3.6.0
-# the plugin's --backend auto router treats this set as "needs Vertex AI"
-# and dispatches accordingly. The legacy --backend gemini-api flag still
-# rejects them with a clear message pointing at the auto default.
-#
-# Verified empirically on 2026-04-10 (the Gemini API failures) and
-# 2026-04-11 (the Vertex AI successes). See PROGRESS.md sessions 7 and 8.
-MODELS_VERTEX_ONLY = {
-    "veo-3.1-generate-001",
-    "veo-3.1-fast-generate-001",
-    "veo-3.1-lite-generate-001",
-    "veo-3.0-generate-001",
+# v4.2.1: Vertex retirement. Map legacy Vertex VEO model IDs to their Replicate
+# equivalents so users passing --backend vertex-ai + Vertex-style model names
+# continue to work (with a deprecation warning). The mapping is empirical:
+# Vertex used '-generate-001' suffixes; Replicate uses path-style slugs.
+_VERTEX_TO_REPLICATE_SLUG: dict[str, str] = {
+    "veo-3.1-generate-001":         "google/veo-3.1",
+    "veo-3.1-fast-generate-001":    "google/veo-3.1-fast",
+    "veo-3.1-lite-generate-001":    "google/veo-3.1-lite",
+    # Users sometimes drop the -001 suffix in casual usage:
+    "veo-3.1-generate":             "google/veo-3.1",
+    "veo-3.1-fast-generate":        "google/veo-3.1-fast",
+    "veo-3.1-lite-generate":        "google/veo-3.1-lite",
 }
 
-# Scene Extension v2 (`--video-input`) is Vertex-only. The Gemini API
-# rejects the inline video part with "inlineData isn't supported by this
-# model". --backend auto routes any request with --video-input through
-# Vertex AI automatically (regardless of which model is requested).
-VIDEO_INPUT_VERTEX_ONLY = True
 
-# Backend selection for --backend auto. v3.6.0 adds a real Vertex AI
-# backend (via _vertex_backend.py) that reaches models and features the
-# Gemini API surface does not serve. v3.8.0 adds a Replicate backend
-# (via _replicate_backend.py) that serves Kling v3 Std as the new default.
+def _translate_vertex_model_id(model_slug: str) -> str:
+    """If model_slug looks like a legacy Vertex VEO ID, translate to Replicate.
+    Pass-through for anything else (Kling slugs, already-Replicate VEO slugs,
+    preview IDs).
+    """
+    return _VERTEX_TO_REPLICATE_SLUG.get(model_slug, model_slug)
+
+
+# v4.2.1: BACKEND_VERTEX_AI kept for backwards-compat argparse acceptance only.
+# When the user passes --backend vertex-ai, _select_backend() translates it
+# to BACKEND_REPLICATE + logs a DeprecationWarning. All Vertex-specific code
+# paths (submit/poll/save, credentials loading, service-agent retry) are gone.
 BACKEND_GEMINI_API = "gemini-api"
-BACKEND_VERTEX_AI = "vertex-ai"
+BACKEND_VERTEX_AI = "vertex-ai"  # deprecated alias, auto-routes to replicate
 BACKEND_REPLICATE = "replicate"
 BACKEND_AUTO = "auto"
 VALID_BACKENDS = {BACKEND_GEMINI_API, BACKEND_VERTEX_AI, BACKEND_REPLICATE, BACKEND_AUTO}
-
-# Scene Extension v2 on Vertex has a single fixed durationSeconds. All
-# other values are rejected with "supported durations are [7] for
-# feature video_extension". Text/image-to-video still use the {4, 6, 8}
-# set — this constant applies ONLY when --video-input is set and the
-# request is routed to Vertex.
-VIDEO_EXTENSION_FIXED_DURATION = 7
-
-# Service-agent cold-start retry tuning. The first Scene Extension v2
-# call on a fresh Vertex project returns a transient "Service agents
-# are being provisioned" error (code 9) that auto-resolves in ~60-90s.
-# We sleep then retry once; a second failure surfaces to the user.
-SERVICE_AGENT_RETRY_SECONDS = 90
 
 # VEO 3.1 accepts prompts up to 1,024 tokens (English only). We have no
 # tokenizer dependency, so approximate using ~4 chars/token for English prose.
@@ -160,10 +164,13 @@ VALID_RATIOS_BY_MODEL = {
 
 # Lite does NOT support 4K per reference doc line 55, 274.
 # Kling v3 Std maxes at 1080p (pro mode) per the Kling model card.
+# v4.2.1: adds the Replicate VEO slugs (google/veo-3.1-lite) alongside the
+# legacy Vertex -001 IDs so the 4K gate works for both forms.
 MODELS_WITHOUT_4K = {
     "veo-3.1-lite-generate-001",
     "veo-3.0-generate-001",
     "kwaivgi/kling-v3-video",
+    "google/veo-3.1-lite",
 }
 
 VALID_RESOLUTIONS = {"720p", "1080p", "4K"}
@@ -182,36 +189,44 @@ def _valid_ratios(model):
 def _select_backend(args):
     """Return which backend to use for this request.
 
-    `--backend auto` routing rules (in precedence order, v3.8.0+):
-    1. `--model` is a Replicate slug (contains "/") → Replicate (Kling path)
-    2. `--video-input` set → Vertex (Gemini API rejects inline video)
-    3. `--first-frame` / `--last-frame` / `--reference-image` set → Vertex
-       (Gemini API rejects the inlineData image parts for VEO as of 2026-04-10)
-    4. `--model` is a GA `-001` ID → Vertex (Gemini API returns 404)
-    5. `--model` is Lite or Legacy 3.0 → Vertex (Gemini API returns 404)
-    6. Otherwise (text-only on a preview ID) → Gemini API (preserves the
-       v3.4.x code path for backward compat)
+    v4.2.1: Vertex is removed. `--backend vertex-ai` is deprecated and
+    auto-routes to Replicate with a DeprecationWarning.
 
-    Explicit `--backend gemini-api` / `--backend vertex-ai` / `--backend replicate`
-    always wins.
+    `--backend auto` routing rules (in precedence order):
+    1. `--model` is a Replicate slug (contains "/") → Replicate (Kling / VEO-on-Replicate)
+    2. `--model` is a legacy Vertex ID (veo-3.1-*-001) → Replicate (auto-translated)
+    3. `--model` is a preview ID → Gemini API (preserves v3.4.x text-to-video path)
+    4. Fallback → Gemini API
     """
-    if args.backend != BACKEND_AUTO:
-        return args.backend
+    explicit = getattr(args, "backend", None)
 
-    # v3.8.0: Replicate model slugs contain "/" (owner/name format). This
-    # check is first so a user who explicitly sets --model kwaivgi/... gets
-    # routed to Replicate regardless of other flags. The Vertex/VEO path
-    # is preserved for model IDs without "/".
+    if explicit == BACKEND_VERTEX_AI:
+        import warnings
+        warnings.warn(
+            "--backend vertex-ai is deprecated. Vertex AI was retired in "
+            "v4.2.1; VEO 3.1 now routes through Replicate. This flag is "
+            "honored for one release and will be removed in v4.3.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return BACKEND_REPLICATE
+
+    if explicit == BACKEND_REPLICATE:
+        return BACKEND_REPLICATE
+    if explicit == BACKEND_GEMINI_API:
+        return BACKEND_GEMINI_API
+
+    # explicit in (None, BACKEND_AUTO) → auto-route from model shape.
+    # Replicate model slugs contain "/" (owner/name).
     if "/" in args.model:
         return BACKEND_REPLICATE
 
-    # Any form of non-text input forces Vertex.
-    if args.video_input or args.first_frame or args.last_frame or args.reference_image:
-        return BACKEND_VERTEX_AI
-
-    # Vertex-only model IDs force Vertex.
-    if args.model in MODELS_VERTEX_ONLY:
-        return BACKEND_VERTEX_AI
+    # Legacy Vertex IDs will be translated to Replicate slugs upstream in
+    # main(); by the time we reach here, translation already happened. But
+    # if a caller invoked _select_backend() before translation, still route
+    # legacy IDs to Replicate.
+    if args.model in _VERTEX_TO_REPLICATE_SLUG:
+        return BACKEND_REPLICATE
 
     # Text-only on a preview-tier model → Gemini API.
     return BACKEND_GEMINI_API
@@ -406,89 +421,36 @@ def _submit_gemini_api(prompt, model, duration, ratio, resolution, api_key,
     return op_name
 
 
-def _submit_vertex_ai(prompt, model, duration, ratio, resolution,
-                      vertex_creds,
-                      first_frame=None, last_frame=None, ref_images=None,
-                      negative_prompt=None, seed=None, video_input=None):
-    """POST to the Vertex AI endpoint via _vertex_backend helper.
-
-    Uses the Vertex `instances`/`parameters` wrapper shape with image
-    parts encoded as `bytesBase64Encoded` (NOT `inlineData.data`). The
-    helper module handles URL composition, request body validation,
-    resolution normalization (4K → 4k), and submit response parsing.
-
-    v3.6.1: `last_frame` and `ref_images` support added. Field names
-    (`lastFrame`, `referenceImages`) confirmed from both the Vertex AI
-    REST reference and the Gemini API docs on 2026-04-11.
-
-    Legacy 3.0 (`veo-3.0-generate-001`) does NOT support first+last
-    frame interpolation per Vertex docs — this function lets the request
-    through and relies on the API to reject it with a clear error. If
-    that error rate becomes annoying, we can add a client-side gate.
-    """
-    try:
-        body = vertex.build_vertex_request_body(
-            prompt,
-            duration=duration,
-            aspect_ratio=ratio,
-            resolution=resolution,
-            image_path=first_frame,
-            last_frame_path=last_frame,
-            reference_image_paths=ref_images,
-            video_input_path=video_input,
-            negative_prompt=negative_prompt,
-            seed=seed,
-            sample_count=1,
-        )
-    except vertex.VertexBackendError as e:
-        _error_exit(f"Vertex request build failed: {e}")
-
-    url = vertex.build_vertex_url(
-        model=model,
-        method=vertex.METHOD_SUBMIT,
-        project=vertex_creds["project_id"],
-        location=vertex_creds["location"],
-        api_key=vertex_creds["api_key"],
-    )
-
-    _progress({
-        "status": "submitting",
-        "backend": BACKEND_VERTEX_AI,
-        "model": model,
-        "duration": duration,
-        "project": vertex_creds["project_id"],
-        "location": vertex_creds["location"],
-    })
-
-    try:
-        result = vertex.vertex_post(url, body, timeout=120)
-        op_name = vertex.parse_vertex_submit_response(result)
-    except vertex.VertexBackendError as e:
-        _error_exit(f"Vertex submit failed: {e}")
-
-    _progress({"status": "submitted", "operation": op_name})
-    return op_name
-
-
 def _submit_replicate(prompt, model, duration, ratio, resolution,
                       replicate_creds,
                       first_frame=None, last_frame=None, ref_images=None,
                       negative_prompt=None, seed=None, video_input=None):
-    """POST to Replicate's predictions API for Kling v3 Std (v3.8.0+).
+    """POST to Replicate's predictions API.
 
-    Translates the VEO-shaped kwargs to Kling's input schema:
-      - resolution → mode (720p → standard, 1080p → pro, 4K blocked)
-      - first_frame → start_image data URI
-      - last_frame → end_image data URI
-      - ref_images, video_input, seed: NOT supported by Kling v3 Std;
-        callers that need these must switch to --provider veo.
+    v4.2.1: handles both Kling v3 Std and the VEO 3.1 family (google/veo-3.1,
+    google/veo-3.1-fast, google/veo-3.1-lite) now that Vertex has been retired.
 
-    Uses scripts.backends._replicate.validate_kling_params for the model-card
-    rules (multi_prompt duration sum, start_image+aspect_ratio warning, etc.).
-    Returns the prediction poll URL (not a prediction id) so _poll_replicate
-    can GET directly without reconstructing the URL.
+    For Kling, translates the VEO-shaped kwargs to Kling's input schema via
+    the existing validate_kling_params + build_kling_request_body helpers.
+    For VEO-on-Replicate, delegates to the generic ReplicateBackend.submit()
+    which translates canonical params (prompt, duration_s, aspect_ratio,
+    start_image, end_image, negative_prompt, seed) via _TASK_PARAM_MAPS.
+
+    Returns the prediction poll URL so _poll_replicate can GET directly
+    without reconstructing the URL.
     """
-    # Pre-flight: reject unsupported VEO-only features early.
+    # VEO-family Replicate slugs use the generic ReplicateBackend surface.
+    if model.startswith("google/veo-"):
+        return _submit_replicate_via_backend(
+            prompt=prompt, model=model, duration=duration, ratio=ratio,
+            resolution=resolution, replicate_creds=replicate_creds,
+            first_frame=first_frame, last_frame=last_frame,
+            ref_images=ref_images, negative_prompt=negative_prompt,
+            seed=seed, video_input=video_input,
+        )
+
+    # Kling path (preserved from v3.8.0) — uses the legacy Kling-specific
+    # helpers (validate_kling_params / build_kling_request_body).
     if ref_images:
         _error_exit(
             "--reference-image is not supported by Kling v3 Std. "
@@ -584,24 +546,107 @@ def _submit_replicate(prompt, model, duration, ratio, resolution,
         "prediction_id": prediction_id,
     })
     # Return the poll URL — _poll_replicate needs the full URL, not just
-    # the prediction ID. This differs from the Vertex path which uses an
-    # operation name + separate method call.
+    # the prediction ID.
     return poll_url
 
 
-def _submit_operation(*, backend, vertex_creds, replicate_creds=None, **kwargs):
+def _submit_replicate_via_backend(*, prompt, model, duration, ratio, resolution,
+                                   replicate_creds, first_frame, last_frame,
+                                   ref_images, negative_prompt, seed, video_input):
+    """VEO-on-Replicate path (v4.2.1). Uses the generic ReplicateBackend ABC
+    to submit via canonical params + _TASK_PARAM_MAPS translation.
+
+    Pre-flight: reject Scene Extension v2 (Kling nor VEO-on-Replicate accept
+    the `video` input parameter; this was a Vertex-only feature).
+    """
+    if video_input:
+        _error_exit(
+            "--video-input (Scene Extension v2) is a Vertex-only feature that "
+            "was retired in v4.2.1. VEO on Replicate does not accept a video "
+            "input parameter. Use --provider kling + video_sequence.py for "
+            "extended workflows."
+        )
+    if ref_images:
+        _error_exit(
+            "--reference-image is not wired into the VEO-on-Replicate path. "
+            "Use --first-frame / --last-frame for image-to-video."
+        )
+
+    task = "image-to-video" if first_frame else "text-to-video"
+
+    canonical_params: dict = {
+        "prompt": prompt,
+        "duration_s": duration,
+        "aspect_ratio": ratio,
+    }
+    if negative_prompt:
+        canonical_params["negative_prompt"] = negative_prompt
+    if seed is not None:
+        canonical_params["seed"] = seed
+    if first_frame:
+        try:
+            canonical_params["start_image"] = replicate.image_path_to_data_uri(
+                Path(first_frame)
+            )
+        except replicate.ReplicateValidationError as e:
+            _error_exit(f"VEO first-frame encode failed: {e}")
+    if last_frame:
+        try:
+            canonical_params["end_image"] = replicate.image_path_to_data_uri(
+                Path(last_frame)
+            )
+        except replicate.ReplicateValidationError as e:
+            _error_exit(f"VEO last-frame encode failed: {e}")
+
+    # Build a minimal config dict for ReplicateBackend._api_key().
+    config = {
+        "providers": {"replicate": {"api_key": replicate_creds["api_token"]}},
+    }
+
+    _progress({
+        "status": "submitting",
+        "backend": BACKEND_REPLICATE,
+        "model": model,
+        "duration": duration,
+        "aspect_ratio": ratio,
+        "task": task,
+    })
+
+    try:
+        job_ref = ReplicateBackend().submit(
+            task=task,
+            model_slug=model,
+            canonical_params=canonical_params,
+            provider_opts={},
+            config=config,
+        )
+    except ProviderValidationError as e:
+        _error_exit(f"Replicate VEO validation failed: {e}")
+    except ProviderAuthError as e:
+        _error_exit(f"Replicate auth failed: {e}")
+    except (ProviderHTTPError, ProviderError) as e:
+        _error_exit(f"Replicate submit failed: {e}")
+
+    _progress({
+        "status": "submitted",
+        "backend": BACKEND_REPLICATE,
+        "prediction_id": job_ref.external_id,
+    })
+    return job_ref.poll_url
+
+
+def _submit_operation(*, backend, replicate_creds=None, **kwargs):
     """Dispatch to the right backend.
+
+    v4.2.1: Vertex branch removed. Backends are: gemini (preview API) and
+    replicate (Kling + VEO family).
 
     kwargs are forwarded to the backend-specific submit function. All backends
     share the core shape: prompt, model, duration, ratio, resolution,
     first_frame, last_frame, ref_images, negative_prompt, seed, video_input.
-    Per-backend credentials are passed as explicit kwargs (vertex_creds,
-    replicate_creds) or threaded through kwargs (api_key for Gemini API).
     """
     if backend == BACKEND_REPLICATE:
         return _submit_replicate(replicate_creds=replicate_creds, **kwargs)
-    if backend == BACKEND_VERTEX_AI:
-        return _submit_vertex_ai(vertex_creds=vertex_creds, **kwargs)
     # Gemini API path: the api_key is already in kwargs as api_key=...
     return _submit_gemini_api(**kwargs)
 
@@ -637,69 +682,6 @@ def _poll_gemini_api(operation_name, api_key, interval, max_wait):
         _progress({"polling": True, "backend": BACKEND_GEMINI_API,
                    "elapsed": int(elapsed), "status": "processing"})
         time.sleep(interval)
-
-
-def _poll_vertex_ai(operation_name, model, vertex_creds, interval, max_wait):
-    """Poll the Vertex AI operation via POST :fetchPredictOperation.
-
-    Returns a tuple (status, payload):
-      ("done", [bytes, ...])            — video bytes ready to save
-      ("service_agent_provisioning",
-       error_dict)                      — caller should sleep and retry submit
-      error is raised via _error_exit() for any other failure mode.
-
-    Unlike the Gemini API path (which returns the full response dict),
-    this path pre-parses and returns the decoded video bytes directly.
-    The caller's _save_video path is backend-aware to match.
-    """
-    url = vertex.build_vertex_url(
-        model=model,
-        method=vertex.METHOD_POLL,
-        project=vertex_creds["project_id"],
-        location=vertex_creds["location"],
-        api_key=vertex_creds["api_key"],
-    )
-    body = {"operationName": operation_name}
-    start = time.time()
-
-    while True:
-        elapsed = time.time() - start
-        if elapsed > max_wait:
-            _error_exit(
-                f"Timeout: operation not done after {max_wait}s. "
-                f"Operation: {operation_name}"
-            )
-
-        try:
-            result = vertex.vertex_post(url, body, timeout=60)
-            status, payload = vertex.parse_vertex_poll_response(result)
-        except vertex.VertexBackendError as e:
-            _error_exit(f"Vertex poll failed: {e}")
-
-        if status == "running":
-            _progress({
-                "polling": True,
-                "backend": BACKEND_VERTEX_AI,
-                "elapsed": int(elapsed),
-                "status": "processing",
-            })
-            time.sleep(interval)
-            continue
-
-        if status == "done":
-            return ("done", payload)
-
-        if status == "service_agent_provisioning":
-            # Surface this up so the caller can decide whether to retry the
-            # entire submit+poll cycle. Polling again won't help — the
-            # operation is already marked done=true with the error.
-            return ("service_agent_provisioning", payload)
-
-        # status == "error": surface the message from the parser
-        msg = payload.get("message", str(payload)) if isinstance(payload, dict) else str(payload)
-        if "safety" in msg.lower() or "blocked" in msg.lower() or "RAI_FILTERED" in str(payload.get("code", "")):
-            _error_exit(f"VIDEO_SAFETY: {msg}")
-        _error_exit(f"Vertex operation failed: {msg}")
 
 
 def _poll_replicate(poll_url, replicate_creds, interval, max_wait):
@@ -760,14 +742,14 @@ def _poll_replicate(poll_url, replicate_creds, interval, max_wait):
         _error_exit(f"Replicate prediction failed: {err_str}")
 
 
-def _poll_operation(*, backend, operation_name, api_key, vertex_creds,
-                    replicate_creds, model, interval, max_wait):
+def _poll_operation(*, backend, operation_name, api_key, replicate_creds,
+                    model, interval, max_wait):
     """Dispatch polling to the right backend.
+
+    v4.2.1: Vertex branch removed.
 
     Returns:
         - For Gemini API: the raw response dict (legacy shape), for _save_video
-        - For Vertex: a tuple ("done", [video_bytes, ...]) or
-                     ("service_agent_provisioning", error_dict)
         - For Replicate: a tuple ("done", output_url_string)
 
     For Replicate, operation_name is actually the poll URL (full HTTPS URL)
@@ -775,8 +757,6 @@ def _poll_operation(*, backend, operation_name, api_key, vertex_creds,
     """
     if backend == BACKEND_REPLICATE:
         return _poll_replicate(operation_name, replicate_creds, interval, max_wait)
-    if backend == BACKEND_VERTEX_AI:
-        return _poll_vertex_ai(operation_name, model, vertex_creds, interval, max_wait)
     return _poll_gemini_api(operation_name, api_key, interval, max_wait)
 
 
@@ -842,32 +822,6 @@ def _save_video_gemini_api(response, output_dir, api_key=None):
     return str(output_path)
 
 
-def _save_video_vertex_ai(video_bytes_list, output_dir):
-    """Save video bytes already decoded by the Vertex poll path.
-
-    Vertex returns video bytes inline in the poll response, so there's
-    no separate download step — just write to disk. The first video in
-    the list is saved and its path returned. (sampleCount is pinned to 1
-    in v3.6.0; multi-video support is a v3.6.1 scope item.)
-    """
-    if not video_bytes_list:
-        _error_exit("Vertex poll returned an empty video list.")
-    out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    filename = f"video_{timestamp}.mp4"
-    output_path = (out / filename).resolve()
-    _progress({
-        "status": "saving",
-        "backend": BACKEND_VERTEX_AI,
-        "source": "inline_bytes",
-        "bytes": len(video_bytes_list[0]),
-    })
-    with open(output_path, "wb") as f:
-        f.write(video_bytes_list[0])
-    return str(output_path)
-
-
 def _save_video_replicate(output_url, output_dir):
     """Download a video from Replicate's delivery URL and save it locally.
 
@@ -906,9 +860,10 @@ def _save_video_replicate(output_url, output_dir):
 def _save_video(*, backend, poll_result, output_dir, api_key=None):
     """Dispatch save to the right backend.
 
+    v4.2.1: Vertex branch removed.
+
     poll_result is whatever _poll_operation returned for this backend:
       - Gemini API: the raw response dict
-      - Vertex AI: a tuple (status, payload)
       - Replicate: a tuple ("done", output_url_string)
     """
     if backend == BACKEND_REPLICATE:
@@ -919,15 +874,35 @@ def _save_video(*, backend, poll_result, output_dir, api_key=None):
                 f"expected 'done'. Caller bug."
             )
         return _save_video_replicate(output_url, output_dir)
-    if backend == BACKEND_VERTEX_AI:
-        status, payload = poll_result
-        if status != "done":
-            _error_exit(
-                f"_save_video called for Vertex with status={status!r}; "
-                f"expected 'done'. Caller bug."
-            )
-        return _save_video_vertex_ai(payload, output_dir)
     return _save_video_gemini_api(poll_result, output_dir, api_key=api_key)
+
+
+def _normalize_provider(provider, model_slug):
+    """Resolve --provider alias to the canonical (provider, model_slug) pair.
+
+    v4.2.1: --provider veo is a compat alias for --provider replicate with
+    the VEO Fast tier default. Emits a deprecation warning.
+
+    Returns a tuple (provider, model_slug). When the provider is unchanged
+    (e.g. 'auto', 'kling', 'replicate'), both values are returned as-is.
+    """
+    if provider == "veo":
+        import warnings
+        warnings.warn(
+            "--provider veo is deprecated. Use --provider replicate --model "
+            "{google/veo-3.1-lite, google/veo-3.1-fast, google/veo-3.1} "
+            "instead. This alias is honored for one release and will be "
+            "removed in v4.3.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        # If user passed --provider veo without --model, default to Fast tier
+        # (mid-tier balance per spike 5 findings). If they passed the Kling
+        # default, override it — the intent of --provider veo is clearly VEO.
+        if not model_slug or model_slug == "kwaivgi/kling-v3-video":
+            model_slug = "google/veo-3.1-fast"
+        return "replicate", model_slug
+    return provider, model_slug
 
 
 def main():
@@ -950,18 +925,21 @@ def main():
     parser.add_argument("--model", default=None,
                         help=f"Explicit model ID. If unset, resolved from --provider. "
                              f"Options: kwaivgi/kling-v3-video (default, Kling v3 Std), "
-                             f"veo-3.1-generate-preview (VEO Standard), "
-                             f"veo-3.1-fast-generate-preview (VEO Fast), "
-                             f"veo-3.1-lite-generate-001 (VEO Lite), "
-                             f"veo-3.0-generate-001 (VEO Legacy). "
-                             f"Explicit --model overrides --provider. "
+                             f"google/veo-3.1 (VEO Standard via Replicate), "
+                             f"google/veo-3.1-fast (VEO Fast via Replicate), "
+                             f"google/veo-3.1-lite (VEO Lite via Replicate), "
+                             f"veo-3.1-generate-preview / veo-3.1-fast-generate-preview "
+                             f"(Gemini preview API). Legacy Vertex IDs "
+                             f"(veo-3.1-*-generate-001) are accepted and auto-translated "
+                             f"to the Replicate slugs (deprecation warning, removed v4.3.0). "
                              f"(default: {DEFAULT_MODEL} via --provider auto)")
     parser.add_argument("--provider", default="auto",
-                        choices=["auto", "kling", "veo"],
+                        choices=["auto", "kling", "veo", "replicate"],
                         help="Video provider. 'auto' defaults to Kling v3 Std (v3.8.0+). "
-                             "'kling' forces Kling v3 Std. 'veo' forces VEO 3.1 (with --tier). "
-                             "Per spike 5 findings, Kling wins 8 of 15 shot types vs VEO 0, "
-                             "at 7.5x lower cost. VEO is opt-in backup only. "
+                             "'kling' forces Kling v3 Std. 'replicate' is the explicit alias. "
+                             "'veo' is a deprecated compat alias (auto-routes to replicate "
+                             "with VEO Fast default; removed in v4.3.0). Per spike 5 findings, "
+                             "Kling wins 8 of 15 shot types vs VEO 0, at 7.5x lower cost. "
                              "(default: auto)")
     parser.add_argument("--tier", default=None,
                         choices=["lite", "fast", "standard"],
@@ -972,11 +950,14 @@ def main():
     parser.add_argument("--first-frame", default=None, help="Path to first frame image")
     parser.add_argument("--last-frame", default=None, help="Path to last frame image")
     parser.add_argument("--reference-image", nargs="+", default=None,
-                        help="Reference image paths (up to 3)")
+                        help="Reference image paths (up to 3). Preview Gemini API only; "
+                             "Replicate-hosted models use --first-frame / --last-frame.")
     parser.add_argument("--video-input", default=None,
-                        help="Path to source MP4 for Scene Extension v2 (mutually exclusive "
-                             "with --first-frame/--last-frame/--reference-image; forces 720p). "
-                             "Max 15 MB.")
+                        help="DEPRECATED in v4.2.1. Scene Extension v2 was a Vertex-only "
+                             "feature and Vertex has been retired. For extended-shot "
+                             "workflows, use video_sequence.py with the Kling shot-list "
+                             "pipeline. Accepted by argparse for backwards compatibility "
+                             "but will error out during validation.")
     parser.add_argument("--negative-prompt", default=None,
                         help="What to avoid in the generation (e.g. 'blurry, low quality, distorted')")
     parser.add_argument("--seed", type=int, default=None,
@@ -988,29 +969,44 @@ def main():
                         help=f"Max wait seconds (default: {DEFAULT_MAX_WAIT})")
     parser.add_argument("--output", default=str(OUTPUT_DIR),
                         help=f"Output directory (default: {OUTPUT_DIR})")
-    # Backend selection (v3.6.0). `auto` routes to Vertex AI when the
-    # request needs features not served by the Gemini API: Lite/GA/Legacy
-    # model IDs, image-to-video, or Scene Extension v2.
+    # Backend selection (v3.6.0). v4.2.1: 'vertex-ai' is deprecated and auto-
+    # routes to 'replicate' with a DeprecationWarning. All VEO 3.1 traffic
+    # goes through Replicate now.
     parser.add_argument("--backend", default=BACKEND_AUTO, choices=sorted(VALID_BACKENDS),
-                        help=f"Which backend to use. 'auto' routes Vertex-only features "
-                             f"through Vertex AI and keeps text-to-video on Gemini API. "
-                             f"(default: {BACKEND_AUTO})")
+                        help=f"Which backend to use. 'auto' picks Replicate for "
+                             f"slugs containing '/' (Kling, VEO-on-Replicate), Gemini "
+                             f"API for preview IDs. 'vertex-ai' is deprecated and "
+                             f"auto-routes to 'replicate'. (default: {BACKEND_AUTO})")
+    # v4.2.1: Vertex credential flags retained so scripts that pass them don't
+    # crash on unrecognized-argument; they're unused and emit a deprecation
+    # warning when the user provides them.
     parser.add_argument("--vertex-api-key", default=None,
-                        help="Vertex AI API key (bound to service account, format AQ.*). "
-                             "Loads from VERTEX_API_KEY env or ~/.banana/config.json if unset.")
+                        help="DEPRECATED in v4.2.1 — Vertex AI retired. Flag is ignored.")
     parser.add_argument("--vertex-project", default=None,
-                        help="GCP project ID for Vertex AI. Loads from VERTEX_PROJECT_ID env "
-                             "or ~/.banana/config.json if unset.")
+                        help="DEPRECATED in v4.2.1 — Vertex AI retired. Flag is ignored.")
     parser.add_argument("--vertex-location", default=None,
-                        help="Vertex AI region (e.g. us-central1). Loads from VERTEX_LOCATION "
-                             "env or ~/.banana/config.json if unset. Defaults to us-central1.")
+                        help="DEPRECATED in v4.2.1 — Vertex AI retired. Flag is ignored.")
     parser.add_argument("--replicate-key", default=None,
-                        help="Replicate API token (for Kling v3 Std). Loads from "
-                             "REPLICATE_API_TOKEN env or ~/.banana/config.json "
+                        help="Replicate API token (for Kling v3 Std + VEO 3.1 family). "
+                             "Loads from REPLICATE_API_TOKEN env or ~/.banana/config.json "
                              "replicate_api_token field if unset. Set via "
                              "`python3 skills/create-image/scripts/setup_mcp.py --replicate-key TOKEN`.")
 
     args = parser.parse_args()
+
+    # v4.2.1: warn-and-ignore on deprecated Vertex credential flags.
+    if args.vertex_api_key or args.vertex_project or args.vertex_location:
+        import warnings
+        warnings.warn(
+            "--vertex-api-key / --vertex-project / --vertex-location are "
+            "deprecated in v4.2.1 and ignored. VEO 3.1 now routes through "
+            "Replicate; set --replicate-key or REPLICATE_API_TOKEN.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+    # v4.2.1: normalize --provider aliases (veo → replicate with Fast default).
+    args.provider, args.model = _normalize_provider(args.provider, args.model)
 
     # v3.8.0: Resolve --provider to a concrete --model if --model wasn't
     # explicitly set. Explicit --model always wins — this lets power users
@@ -1018,14 +1014,34 @@ def main():
     if args.model is None:
         if args.provider in ("auto", "kling"):
             args.model = "kwaivgi/kling-v3-video"
-        elif args.provider == "veo":
-            tier = args.tier or "lite"
+        elif args.provider == "replicate":
+            # Bare --provider replicate without --model: default to VEO Fast
+            # (balanced mid-tier option). Users who want Kling should use
+            # --provider kling or pass --model explicitly.
+            tier = args.tier or "fast"
             veo_tier_map = {
-                "lite": "veo-3.1-lite-generate-001",
-                "fast": "veo-3.1-fast-generate-001",
-                "standard": "veo-3.1-generate-001",
+                "lite":     "google/veo-3.1-lite",
+                "fast":     "google/veo-3.1-fast",
+                "standard": "google/veo-3.1",
             }
             args.model = veo_tier_map[tier]
+
+    # v4.2.1: translate legacy Vertex model IDs to Replicate slugs.
+    # Deprecation warning lands on first use. Runs AFTER provider resolution
+    # so --provider veo → --model google/veo-3.1-fast doesn't trigger a
+    # bogus "legacy Vertex ID" warning.
+    if args.model != _translate_vertex_model_id(args.model):
+        import warnings
+        new_slug = _translate_vertex_model_id(args.model)
+        warnings.warn(
+            f"Model ID {args.model!r} is a legacy Vertex identifier. "
+            f"Translated to Replicate slug {new_slug!r}. "
+            f"Update scripts to use the Replicate slug directly; Vertex "
+            f"translation will be removed in v4.3.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        args.model = new_slug
 
     # Prompt length sanity check (VEO 3.1 = 1,024 token limit, English only).
     # Approximate: ~4 chars/token for English prose.
@@ -1048,38 +1064,30 @@ def main():
     if args.model not in VALID_MODELS:
         _error_exit(
             f"Invalid model '{args.model}'. Valid: {sorted(VALID_MODELS)}. "
-            f"Tip: use 'veo-3.1-fast-generate-preview' for draft/preview work."
+            f"Tip: use 'kwaivgi/kling-v3-video' for default Kling v3 Std, or "
+            f"'google/veo-3.1-fast' for VEO Fast via Replicate."
         )
 
     # Resolve the backend up front so the remaining validations and
     # gates can be backend-aware.
     backend = _select_backend(args)
 
-    # Gate Vertex-only model IDs ONLY on the Gemini API path. When the
-    # request is routed to Vertex (either by --backend auto or explicit
-    # --backend vertex-ai), these models are fully callable.
-    if backend == BACKEND_GEMINI_API and args.model in MODELS_VERTEX_ONLY:
+    # v4.2.1: Gemini-API preview path only accepts preview IDs. The Replicate
+    # VEO family is handled by --backend auto routing (slugs with "/").
+    if backend == BACKEND_GEMINI_API and "/" in args.model:
         _error_exit(
-            f"'{args.model}' is not available on the Gemini API surface "
-            f"(generativelanguage.googleapis.com). It is reachable only via "
-            f"Vertex AI. Drop --backend gemini-api (default --backend auto "
-            f"will route this model through Vertex automatically) or use "
-            f"--model veo-3.1-fast-generate-preview (~$0.15/sec) for the "
-            f"Gemini API path."
+            f"'{args.model}' is a Replicate model slug and cannot be served "
+            f"via the Gemini API. Drop --backend gemini-api (default "
+            f"--backend auto will route this model through Replicate)."
         )
 
-    # Duration validation. All VEO 3.1 tiers accept {4, 6, 8}.
-    # Skipped when the request is Scene Extension v2 on the Vertex backend —
-    # that path has its own hard durationSeconds=7 constraint enforced below
-    # in the --video-input block and again in build_vertex_request_body.
-    skip_duration_check = args.video_input and backend == BACKEND_VERTEX_AI
-    if not skip_duration_check:
-        valid_durations = _valid_durations(args.model)
-        if args.duration not in valid_durations:
-            _error_exit(
-                f"Invalid duration {args.duration} for {args.model}. "
-                f"Valid: {sorted(valid_durations)}."
-            )
+    # Duration validation. VEO 3.1 tiers accept {4, 6, 8}; Kling accepts [3, 15].
+    valid_durations = _valid_durations(args.model)
+    if args.duration not in valid_durations:
+        _error_exit(
+            f"Invalid duration {args.duration} for {args.model}. "
+            f"Valid: {sorted(valid_durations)}."
+        )
 
     # Aspect ratio validation. All VEO 3.1 tiers support {16:9, 9:16}.
     valid_ratios = _valid_ratios(args.model)
@@ -1089,85 +1097,37 @@ def main():
             f"Valid: {sorted(valid_ratios)}."
         )
 
-    # Resolution validation (4K not available on Lite or Legacy)
+    # Resolution validation (4K not available on Lite / Legacy / Kling)
     if args.resolution not in VALID_RESOLUTIONS:
         _error_exit(f"Invalid resolution '{args.resolution}'. Valid: {sorted(VALID_RESOLUTIONS)}")
     if args.resolution == "4K" and args.model in MODELS_WITHOUT_4K:
-        if args.model in MODELS_REPLICATE:
-            _error_exit(
-                f"{args.model} does not support 4K. "
-                f"Kling v3 Std maxes at 1080p (pro mode). "
-                f"Use --resolution 1080p for the highest Kling quality, or "
-                f"--provider veo with --resolution 4K if you specifically need "
-                f"4K output (VEO Fast/Standard preview IDs only)."
-            )
-        else:
-            _error_exit(
-                f"{args.model} does not support 4K resolution. "
-                f"Use 'veo-3.1-generate-preview' or 'veo-3.1-fast-generate-preview' for 4K."
-            )
+        _error_exit(
+            f"{args.model} does not support 4K. "
+            f"Use --resolution 1080p, or switch to 'google/veo-3.1' / "
+            f"'google/veo-3.1-fast' (Replicate VEO Standard / Fast) for 4K output."
+        )
 
     if args.reference_image and len(args.reference_image) > 3:
         _error_exit("Maximum 3 reference images allowed")
 
-    # Scene Extension v2 validation: --video-input is mutually exclusive with
-    # all image-based inputs. Also force 720p since Scene Extension is limited
-    # to 720p per the reference doc.
-    if args.video_input and backend == BACKEND_GEMINI_API:
-        _error_exit(
-            "--video-input (Scene Extension v2) is not available on the "
-            "Gemini API backend. The API rejects the video inlineData part "
-            "with 'inlineData isn't supported by this model'. Use "
-            "--backend auto (default) or --backend vertex-ai to route this "
-            "through Vertex AI, which v3.6.0 fully supports."
-        )
+    # v4.2.1: Scene Extension v2 was a Vertex-only feature. Vertex is retired,
+    # so --video-input is always an error now. Point users at video_sequence.py
+    # for the recommended shot-list pipeline.
     if args.video_input:
-        conflicting = []
-        if args.first_frame:
-            conflicting.append("--first-frame")
-        if args.last_frame:
-            conflicting.append("--last-frame")
-        if args.reference_image:
-            conflicting.append("--reference-image")
-        if conflicting:
-            _error_exit(
-                f"--video-input is mutually exclusive with: {', '.join(conflicting)}. "
-                f"Scene Extension v2 takes the source video alone as input."
-            )
-        if args.resolution != "720p":
-            # Downgrade silently with a progress message rather than erroring —
-            # the user probably just kept the default resolution.
-            _progress({
-                "status": "resolution_downgraded",
-                "reason": "Scene Extension v2 is limited to 720p",
-                "from": args.resolution,
-                "to": "720p"
-            })
-            args.resolution = "720p"
-        # Vertex AI Scene Extension v2 has a hard durationSeconds=7 constraint.
-        # Auto-override from the standard {4,6,8} default so users don't have
-        # to think about this. Matches the pattern of the 720p auto-downgrade
-        # above: the user probably just kept the default.
-        if backend == BACKEND_VERTEX_AI and args.duration != VIDEO_EXTENSION_FIXED_DURATION:
-            _progress({
-                "status": "duration_overridden",
-                "reason": "Scene Extension v2 requires durationSeconds=7",
-                "from": args.duration,
-                "to": VIDEO_EXTENSION_FIXED_DURATION,
-            })
-            args.duration = VIDEO_EXTENSION_FIXED_DURATION
+        _error_exit(
+            "--video-input (Scene Extension v2) was a Vertex-only feature and "
+            "is unavailable in v4.2.1 (Vertex AI retired). For extended-shot "
+            "workflows, use video_sequence.py with the Kling shot-list pipeline."
+        )
 
     # Load credentials for whichever backend we're going to use.
-    # The Gemini API path uses google_ai_api_key; the Vertex path uses
-    # vertex_api_key + vertex_project_id + vertex_location; the Replicate
-    # path uses replicate_api_token (same token the image-gen side stores
-    # via setup_mcp.py).
+    # v4.2.1: Vertex credentials path removed. Backends are Gemini API (preview
+    # tier text-to-video only) and Replicate (Kling + VEO 3.1 family).
     api_key = None
-    vertex_creds = None
     replicate_creds = None
     if backend == BACKEND_GEMINI_API:
         api_key = _load_api_key(args.api_key)
-    elif backend == BACKEND_REPLICATE:
+    else:  # BACKEND_REPLICATE
         try:
             replicate_creds = replicate.load_replicate_credentials(
                 cli_token=args.replicate_key,
@@ -1179,29 +1139,10 @@ def main():
             "backend": BACKEND_REPLICATE,
             "model": args.model,
         })
-    else:
-        try:
-            vertex_creds = vertex.load_vertex_credentials(
-                cli_api_key=args.vertex_api_key,
-                cli_project=args.vertex_project,
-                cli_location=args.vertex_location,
-            )
-        except vertex.VertexAuthError as e:
-            _error_exit(str(e))
-        _progress({
-            "status": "backend_selected",
-            "backend": BACKEND_VERTEX_AI,
-            "project": vertex_creds["project_id"],
-            "location": vertex_creds["location"],
-        })
 
     gen_start = time.time()
 
-    # Submit + Poll loop. The Vertex path may return a transient
-    # "service_agent_provisioning" result on the first Scene Extension v2
-    # call against a cold project; we catch that and retry once after a
-    # 90-second sleep. Gemini API path returns a raw response dict and
-    # never hits this case.
+    # Submit + Poll. v4.2.1: Vertex-only service-agent retry loop removed.
     submit_kwargs = dict(
         prompt=args.prompt,
         model=args.model,
@@ -1218,50 +1159,20 @@ def main():
     if backend == BACKEND_GEMINI_API:
         submit_kwargs["api_key"] = api_key
 
-    service_agent_retries_left = 1
-    while True:
-        operation_name = _submit_operation(
-            backend=backend,
-            vertex_creds=vertex_creds,
-            replicate_creds=replicate_creds,
-            **submit_kwargs,
-        )
-        poll_result = _poll_operation(
-            backend=backend,
-            operation_name=operation_name,
-            api_key=api_key,
-            vertex_creds=vertex_creds,
-            replicate_creds=replicate_creds,
-            model=args.model,
-            interval=args.poll_interval,
-            max_wait=args.max_wait,
-        )
-
-        if (backend == BACKEND_VERTEX_AI
-                and isinstance(poll_result, tuple)
-                and poll_result[0] == "service_agent_provisioning"):
-            if service_agent_retries_left <= 0:
-                err = poll_result[1]
-                msg = err.get("message", str(err)) if isinstance(err, dict) else str(err)
-                _error_exit(
-                    f"Vertex service agents still not provisioned after retry. "
-                    f"Original message: {msg}. "
-                    f"See https://cloud.google.com/vertex-ai/docs/general/access-control#service-agents"
-                )
-            service_agent_retries_left -= 1
-            _progress({
-                "status": "service_agent_provisioning",
-                "action": "retrying",
-                "sleep_seconds": SERVICE_AGENT_RETRY_SECONDS,
-                "note": (
-                    "First Scene Extension v2 call on this Vertex project. "
-                    "Google is auto-provisioning service agents; retrying once."
-                ),
-            })
-            time.sleep(SERVICE_AGENT_RETRY_SECONDS)
-            continue
-
-        break
+    operation_name = _submit_operation(
+        backend=backend,
+        replicate_creds=replicate_creds,
+        **submit_kwargs,
+    )
+    poll_result = _poll_operation(
+        backend=backend,
+        operation_name=operation_name,
+        api_key=api_key,
+        replicate_creds=replicate_creds,
+        model=args.model,
+        interval=args.poll_interval,
+        max_wait=args.max_wait,
+    )
 
     video_path = _save_video(
         backend=backend,
