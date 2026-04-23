@@ -15,8 +15,8 @@ Typical workflow (two-step, pairs with /create-image generate):
     # Step 2 — vectorize the output
     python3 vectorize.py --image ~/Documents/creators_generated/logo.png
 
-Uses only Python stdlib via ../../create-video/scripts/_replicate_backend.py
-helpers. Zero pip deps.
+Uses only Python stdlib via plugin-root scripts/backends/_replicate.py
+helpers (v4.2.0+). Zero pip deps.
 
 See:
 - skills/create-image/references/vectorize.md (reference doc)
@@ -37,12 +37,14 @@ from pathlib import Path
 
 # Cross-skill import of the shared Replicate backend helper.
 # Path: skills/create-image/scripts/vectorize.py →
-#       skills/create-video/scripts/_replicate_backend.py
-_SHARED_BACKEND = (
-    Path(__file__).resolve().parent.parent.parent / "create-video" / "scripts"
-)
-sys.path.insert(0, str(_SHARED_BACKEND))
-import _replicate_backend as replicate  # noqa: E402
+#       scripts/backends/_replicate.py   (as of v4.2.0 — plugin-root)
+# Prior to v4.2.0 this reached into skills/create-video/scripts/ via a
+# cross-skill shim. The shared provider abstraction now lives at plugin
+# root so both skills can import without cross-skill path reach-through.
+_plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+if _plugin_root not in sys.path:
+    sys.path.insert(0, _plugin_root)
+from scripts.backends import _replicate as replicate  # noqa: E402
 
 
 # ─── Constants ──────────────────────────────────────────────────────

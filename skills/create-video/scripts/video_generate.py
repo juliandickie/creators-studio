@@ -33,12 +33,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _vertex_backend as vertex  # noqa: E402
 
-# Replicate backend helper (v3.8.0). Wires Kling v3 Std as the default
-# video model after spike 5 decisively beat VEO 3.1 on 8 of 15 shot types
-# at 7.5x lower cost. Stdlib-only like the Vertex helper. The backend
-# path is chosen by _select_backend() based on whether the model slug
-# contains "/" (owner/name format = Replicate).
-import _replicate_backend as replicate  # noqa: E402
+# Replicate backend helper. As of v4.2.0 this lives at plugin-root
+# scripts/backends/_replicate.py — same module, new location as part of
+# the provider-agnostic architecture. The module still exposes all legacy
+# helpers (validate_kling_params, build_kling_request_body, etc.) so this
+# call site continues to work unchanged; it also exposes the new
+# ReplicateBackend class for v4.2.0+ callers using the provider abstraction.
+_plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+if _plugin_root not in sys.path:
+    sys.path.insert(0, _plugin_root)
+from scripts.backends import _replicate as replicate  # noqa: E402
 
 API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 OPERATIONS_BASE = "https://generativelanguage.googleapis.com/v1beta"
@@ -479,8 +483,8 @@ def _submit_replicate(prompt, model, duration, ratio, resolution,
       - ref_images, video_input, seed: NOT supported by Kling v3 Std;
         callers that need these must switch to --provider veo.
 
-    Uses _replicate_backend.validate_kling_params for the model-card rules
-    (multi_prompt duration sum, start_image+aspect_ratio warning, etc.).
+    Uses scripts.backends._replicate.validate_kling_params for the model-card
+    rules (multi_prompt duration sum, start_image+aspect_ratio warning, etc.).
     Returns the prediction poll URL (not a prediction id) so _poll_replicate
     can GET directly without reconstructing the URL.
     """
