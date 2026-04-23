@@ -120,14 +120,47 @@ PRICING = {
     #   Kling:      replicate.com/kwaivgi/kling-v3-video (model page)
     #   DreamActor: replicate.com/bytedance/dreamactor-m2.0 (model page)
     #   Fabric:     replicate.com/predictions dashboard (session 19, 2026-04-16)
-    "kwaivgi/kling-v3-video": {
-        "per_second": 0.02,
+    #
+    # v4.2.1: CORRECTED Kling pricing. v4.2.0 seeded per_second=$0.02 from an
+    # outdated source — real rates are 2-dimensional (resolution × audio) per
+    # dev-docs/kwaivgi-kling-v3-video-llms.md. Canonical model IDs are used
+    # here (kling-v3, kling-v3-omni); the video_generate.py caller maps the
+    # Replicate slug (kwaivgi/kling-v3-video) to these keys via partial-match.
+    #
+    # IMPORTANT: v3-omni must be listed BEFORE v3 so the partial-match iteration
+    # in _lookup_cost() picks the more-specific key first. (Otherwise the slug
+    # "kwaivgi/kling-v3-omni" would match "kling-v3" before reaching "kling-v3-omni".)
+    "kling-v3-omni": {
+        "per_second_by_resolution_and_audio": {
+            "720p":  {"with_audio": 0.224, "without_audio": 0.168},
+            "1080p": {"with_audio": 0.28,  "without_audio": 0.224},
+        },
+    },
+    "kling-v3": {
+        "per_second_by_resolution_and_audio": {
+            "720p":  {"with_audio": 0.252, "without_audio": 0.168},
+            "1080p": {"with_audio": 0.336, "without_audio": 0.224},
+        },
     },
     "bytedance/dreamactor-m2.0": {
         "per_second": 0.05,
     },
     "veed/fabric-1.0": {
         "per_second": 0.15,
+    },
+    # v4.2.1: VEO 3.1 tiers — Lite is resolution-keyed, Fast/Standard are
+    # audio-keyed. These entries are canonical (non-preview, non-001) IDs.
+    # The old preview/-001 entries above still use the per_second mode for
+    # backward compat with older cost-log entries; new callers should use
+    # the canonical IDs below.
+    "veo-3.1-lite": {
+        "per_second_by_resolution": {"720p": 0.05, "1080p": 0.08},
+    },
+    "veo-3.1-fast": {
+        "per_second_by_audio": {"with_audio": 0.15, "without_audio": 0.10},
+    },
+    "veo-3.1": {
+        "per_second_by_audio": {"with_audio": 0.40, "without_audio": 0.20},
     },
     # Recraft Vectorize (v4.1.0+). Raster → SVG for logo/icon vectorization.
     # Flat per-call pricing confirmed from Replicate's billing page on 2026-04-17.
@@ -178,12 +211,21 @@ def _save_ledger(ledger):
         json.dump(ledger, f, indent=2)
 
 
-def _lookup_cost(model, resolution, batch=False):
+def _lookup_cost(model, resolution, *, duration_s=None, audio_enabled=None, batch=False):
     """Look up cost for a model+resolution combination.
 
     For Replicate video models (keyed with per_second), pass the output
     duration in seconds as the resolution string (e.g. "5s" or "8s").
     For per_clip models (Lyria), resolution is ignored.
+
+    v4.2.1: new keyword-only args `duration_s` (float, seconds) and
+    `audio_enabled` (bool) power three new pricing modes:
+      * per_second_by_resolution         — VEO 3.1 Lite
+      * per_second_by_audio              — VEO 3.1 Fast + Standard
+      * per_second_by_resolution_and_audio — Kling v3 + v3 Omni
+
+    Existing callers (batch-only) keep working — the new kwargs default to
+    None and only matter for the new pricing modes.
     """
     model_pricing = PRICING.get(model)
     if not model_pricing:
@@ -196,7 +238,74 @@ def _lookup_cost(model, resolution, batch=False):
         print(f"Warning: Unknown model '{model}', using 3.1 Flash pricing", file=sys.stderr)
         model_pricing = PRICING["gemini-3.1-flash-image-preview"]
 
-    # Per-second video models (Replicate: Kling, DreamActor, Fabric; VEO)
+    # v4.2.1: per_second_by_resolution — VEO Lite. Rate varies by pixel resolution.
+    # Caller MUST pass duration_s (seconds as float) and resolution (e.g. "720p").
+    if "per_second_by_resolution" in model_pricing:
+        rates = model_pricing["per_second_by_resolution"]
+        if resolution not in rates:
+            print(f"Warning: resolution '{resolution}' not in rate table for {model}", file=sys.stderr)
+            return None
+        if duration_s is None:
+            print(f"Warning: per_second_by_resolution model '{model}' requires --duration-s", file=sys.stderr)
+            return None
+        if duration_s is not None and duration_s < 0:
+            print(f"Warning: negative duration_s={duration_s} for {model}", file=sys.stderr)
+            return None
+        cost = round(rates[resolution] * float(duration_s), 4)
+        if batch:
+            cost *= BATCH_DISCOUNT
+        return cost
+
+    # v4.2.1: per_second_by_audio — VEO Fast + Standard. Rate varies by audio flag.
+    # Caller MUST pass duration_s and audio_enabled (bool).
+    if "per_second_by_audio" in model_pricing:
+        rates = model_pricing["per_second_by_audio"]
+        if audio_enabled is None:
+            print(f"Warning: per_second_by_audio model '{model}' requires --audio-enabled", file=sys.stderr)
+            return None
+        if duration_s is None:
+            print(f"Warning: per_second_by_audio model '{model}' requires --duration-s", file=sys.stderr)
+            return None
+        if duration_s is not None and duration_s < 0:
+            print(f"Warning: negative duration_s={duration_s} for {model}", file=sys.stderr)
+            return None
+        key = "with_audio" if audio_enabled else "without_audio"
+        rate = rates.get(key)
+        if rate is None:
+            print(f"Warning: '{key}' not in rate table for {model}", file=sys.stderr)
+            return None
+        cost = round(rate * float(duration_s), 4)
+        if batch:
+            cost *= BATCH_DISCOUNT
+        return cost
+
+    # v4.2.1: per_second_by_resolution_and_audio — Kling v3 + v3 Omni.
+    # Rate is 2-dimensional (resolution outer, audio inner).
+    if "per_second_by_resolution_and_audio" in model_pricing:
+        rates = model_pricing["per_second_by_resolution_and_audio"]
+        if resolution not in rates:
+            print(f"Warning: resolution '{resolution}' not in rate table for {model}", file=sys.stderr)
+            return None
+        if audio_enabled is None:
+            print(f"Warning: per_second_by_resolution_and_audio model '{model}' requires --audio-enabled", file=sys.stderr)
+            return None
+        if duration_s is None:
+            print(f"Warning: per_second_by_resolution_and_audio model '{model}' requires --duration-s", file=sys.stderr)
+            return None
+        if duration_s is not None and duration_s < 0:
+            print(f"Warning: negative duration_s={duration_s} for {model}", file=sys.stderr)
+            return None
+        key = "with_audio" if audio_enabled else "without_audio"
+        rate = rates[resolution].get(key)
+        if rate is None:
+            print(f"Warning: '{key}' not in rate table for {model}@{resolution}", file=sys.stderr)
+            return None
+        cost = round(rate * float(duration_s), 4)
+        if batch:
+            cost *= BATCH_DISCOUNT
+        return cost
+
+    # Per-second video models (Replicate: DreamActor, Fabric; legacy VEO preview/-001)
     if "per_second" in model_pricing:
         try:
             duration = float(resolution.rstrip("s"))
@@ -229,10 +338,36 @@ def _lookup_cost(model, resolution, batch=False):
     return cost
 
 
+def _args_to_cost_kwargs(args):
+    """Translate argparse namespace into _lookup_cost() kwargs.
+
+    v4.2.1: unifies the `--duration-s` and `--audio-enabled` CLI flag handling
+    for the log + estimate subcommands. `--audio-enabled` comes in as a
+    "true"/"false" string (argparse choices) and is coerced to a bool; None
+    means "flag not passed".
+    """
+    duration_s = getattr(args, "duration_s", None)
+    audio_raw = getattr(args, "audio_enabled", None)
+    audio_enabled = None
+    if audio_raw is not None:
+        audio_enabled = (audio_raw == "true")
+    return {
+        "duration_s": duration_s,
+        "audio_enabled": audio_enabled,
+        "batch": getattr(args, "batch", False),
+    }
+
+
 def cmd_log(args):
     """Log a generation to the ledger."""
     ledger = _load_ledger()
-    cost = _lookup_cost(args.model, args.resolution, getattr(args, "batch", False))
+    cost = _lookup_cost(args.model, args.resolution, **_args_to_cost_kwargs(args))
+    if cost is None:
+        # v4.2.1: new pricing modes return None on missing required kwargs
+        # (duration_s, audio_enabled). Don't crash — log with cost=0 and
+        # surface a warning so users notice their caller is missing flags.
+        print(f"Warning: cost could not be computed for {args.model} @ {args.resolution}; logged as 0.0", file=sys.stderr)
+        cost = 0.0
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
@@ -287,7 +422,12 @@ def cmd_today(args):
 
 def cmd_estimate(args):
     """Estimate cost for a batch."""
-    cost_per = _lookup_cost(args.model, args.resolution, getattr(args, "batch", False))
+    cost_per = _lookup_cost(args.model, args.resolution, **_args_to_cost_kwargs(args))
+    if cost_per is None:
+        print(f"Error: cost could not be computed for {args.model} @ {args.resolution}. "
+              f"If this is a per-second model, pass --duration-s; if audio-keyed, pass --audio-enabled.",
+              file=sys.stderr)
+        sys.exit(1)
     total = round(cost_per * args.count, 3)
     print(f"Model:      {args.model}")
     print(f"Resolution: {args.resolution}")
@@ -318,6 +458,12 @@ def main():
     p_log.add_argument("--resolution", required=True, help="Resolution (512, 1K, 2K, 4K)")
     p_log.add_argument("--prompt", required=True, help="Brief prompt description")
     p_log.add_argument("--batch", action="store_true", help="Batch API (50%% discount)")
+    p_log.add_argument("--duration-s", type=float, default=None,
+                       help="Output duration in seconds (per_second_by_* pricing modes; "
+                            "VEO 3.1 Lite/Fast/Standard + Kling v3/v3-omni)")
+    p_log.add_argument("--audio-enabled", choices=["true", "false"], default=None,
+                       help="Whether audio generation is on (per_second_by_audio + "
+                            "per_second_by_resolution_and_audio pricing modes)")
 
     # summary
     sub.add_parser("summary", help="Show cost summary")
@@ -331,6 +477,10 @@ def main():
     p_est.add_argument("--resolution", required=True, help="Resolution (512, 1K, 2K, 4K)")
     p_est.add_argument("--count", required=True, type=int, help="Number of images")
     p_est.add_argument("--batch", action="store_true", help="Use batch pricing (50%% discount)")
+    p_est.add_argument("--duration-s", type=float, default=None,
+                       help="Output duration in seconds (per_second_by_* pricing modes)")
+    p_est.add_argument("--audio-enabled", choices=["true", "false"], default=None,
+                       help="Whether audio generation is on (audio-keyed pricing modes)")
 
     # reset
     p_reset = sub.add_parser("reset", help="Reset cost ledger")

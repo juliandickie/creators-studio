@@ -39,10 +39,11 @@ class TestModelResolution(unittest.TestCase):
             )
 
     def test_no_default_for_unknown_family_raises(self):
-        # No family_default for 'music' in seeded registry (deferred per spec)
+        # No family_default for 'speech' in registry (deferred per v4.2.0 spec;
+        # music was added in v4.2.1 sub-project B, so this test now targets speech.)
         with self.assertRaises(routing.RoutingError):
             routing.resolve_model(
-                self.r, family="music", explicit_model=None, config={},
+                self.r, family="speech", explicit_model=None, config={},
             )
 
 

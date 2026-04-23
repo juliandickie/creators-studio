@@ -2,7 +2,8 @@
   "version": 1,
   "family_defaults": {
     "image": "nano-banana-2",
-    "video": "kling-v3"
+    "video": "kling-v3",
+    "music": "elevenlabs-music"
   },
   "models": {
     "kling-v3": {
@@ -20,7 +21,14 @@
         "replicate": {
           "slug": "kwaivgi/kling-v3-video",
           "capabilities": ["audio_generation", "multi_prompt", "start_image", "end_image", "negative_prompt"],
-          "pricing": {"mode": "per_second", "rate": 0.02, "currency": "USD"},
+          "pricing": {
+            "mode": "per_second_by_resolution_and_audio",
+            "rates": {
+              "720p":  {"with_audio": 0.252, "without_audio": 0.168},
+              "1080p": {"with_audio": 0.336, "without_audio": 0.224}
+            },
+            "currency": "USD"
+          },
           "availability": "GA",
           "notes": "aspect_ratio ignored when start_image provided; sum of multi_prompt durations must equal top-level duration"
         }
@@ -41,9 +49,89 @@
         "replicate": {
           "slug": "kwaivgi/kling-v3-omni-video",
           "capabilities": ["audio_generation", "multi_prompt", "start_image", "end_image", "negative_prompt", "reference_images", "video_editing"],
-          "pricing": {"mode": "per_second", "rate": 0.02, "currency": "USD"},
+          "pricing": {
+            "mode": "per_second_by_resolution_and_audio",
+            "rates": {
+              "720p":  {"with_audio": 0.224, "without_audio": 0.168},
+              "1080p": {"with_audio": 0.28,  "without_audio": 0.224}
+            },
+            "currency": "USD"
+          },
           "availability": "GA",
           "notes": "Supports reference_images array for multimodal conditioning"
+        }
+      }
+    },
+    "veo-3.1-lite": {
+      "display_name": "Google VEO 3.1 Lite",
+      "family": "video",
+      "tasks": ["text-to-video", "image-to-video"],
+      "doc": "references/models/veo-3.1.md",
+      "canonical_constraints": {
+        "duration_s": {"enum": [4, 6, 8]},
+        "aspect_ratio": ["16:9", "9:16"],
+        "resolutions": ["720p", "1080p"],
+        "conditional": "resolution=1080p requires duration_s=8"
+      },
+      "providers": {
+        "replicate": {
+          "slug": "google/veo-3.1-lite",
+          "capabilities": ["audio_generation", "last_frame"],
+          "pricing": {
+            "mode": "per_second_by_resolution",
+            "rates": {"720p": 0.05, "1080p": 0.08},
+            "currency": "USD"
+          },
+          "availability": "GA",
+          "notes": "Cheapest VEO tier. Audio always on (no without_audio variant). No reference images, no video extension. 1080p requires exactly 8s duration. Kling v3 wins quality per v3.8.0 spike 5 but VEO Lite is ~4x CHEAPER per clip at 1080p."
+        }
+      }
+    },
+    "veo-3.1-fast": {
+      "display_name": "Google VEO 3.1 Fast",
+      "family": "video",
+      "tasks": ["text-to-video", "image-to-video"],
+      "doc": "references/models/veo-3.1.md",
+      "canonical_constraints": {
+        "duration_s": {"enum": [4, 6, 8]},
+        "aspect_ratio": ["16:9", "9:16"],
+        "resolutions": ["720p", "1080p"]
+      },
+      "providers": {
+        "replicate": {
+          "slug": "google/veo-3.1-fast",
+          "capabilities": ["audio_generation", "audio_toggle", "reference_images", "last_frame"],
+          "pricing": {
+            "mode": "per_second_by_audio",
+            "rates": {"with_audio": 0.15, "without_audio": 0.10},
+            "currency": "USD"
+          },
+          "availability": "GA",
+          "notes": "Mid-tier VEO, optimized for generation speed. Up to 3 reference images. Opt-in backup via --provider replicate --model veo-3.1-fast."
+        }
+      }
+    },
+    "veo-3.1": {
+      "display_name": "Google VEO 3.1 Standard",
+      "family": "video",
+      "tasks": ["text-to-video", "image-to-video"],
+      "doc": "references/models/veo-3.1.md",
+      "canonical_constraints": {
+        "duration_s": {"enum": [4, 6, 8]},
+        "aspect_ratio": ["16:9", "9:16"],
+        "resolutions": ["720p", "1080p", "4K"]
+      },
+      "providers": {
+        "replicate": {
+          "slug": "google/veo-3.1",
+          "capabilities": ["audio_generation", "audio_toggle", "reference_images", "last_frame", "video_extension", "4k_output"],
+          "pricing": {
+            "mode": "per_second_by_audio",
+            "rates": {"with_audio": 0.40, "without_audio": 0.20},
+            "currency": "USD"
+          },
+          "availability": "GA",
+          "notes": "Highest-fidelity VEO. Only tier with 4K + video extension. Most expensive in the roster at $0.40/s with audio — use Kling v3 or VEO Lite for cost-sensitive workflows."
         }
       }
     },
@@ -127,6 +215,78 @@
           "pricing": {"mode": "by_resolution", "rates": {"1K": 0.003}, "currency": "USD"},
           "availability": "GA",
           "notes": "Fallback path when Gemini direct or MCP unavailable"
+        }
+      }
+    },
+    "lyria-2": {
+      "display_name": "Google Lyria 2",
+      "family": "music",
+      "tasks": ["music-generation"],
+      "doc": "references/models/lyria-2.md",
+      "canonical_constraints": {
+        "duration_fixed_s": 30
+      },
+      "providers": {
+        "replicate": {
+          "slug": "google/lyria-2",
+          "capabilities": ["negative_prompt", "seed"],
+          "pricing": {"mode": "per_call", "rate": 0.06, "currency": "USD"},
+          "availability": "GA",
+          "notes": "Kept registered despite Lyria 3 default — uniquely supports negative_prompt exclusion. Auto-selected when --negative-prompt is set."
+        }
+      }
+    },
+    "lyria-3": {
+      "display_name": "Google Lyria 3 (Clip)",
+      "family": "music",
+      "tasks": ["music-generation"],
+      "doc": "references/models/lyria-3.md",
+      "canonical_constraints": {
+        "duration_fixed_s": 30
+      },
+      "providers": {
+        "replicate": {
+          "slug": "google/lyria-3",
+          "capabilities": ["reference_images", "vocals", "multilingual", "structure_tags"],
+          "pricing": {"mode": "per_call", "rate": 0.04, "currency": "USD"},
+          "availability": "GA",
+          "notes": "Default within Lyria family. 30s clip only — use lyria-3-pro for full songs. No negative_prompt."
+        }
+      }
+    },
+    "lyria-3-pro": {
+      "display_name": "Google Lyria 3 Pro",
+      "family": "music",
+      "tasks": ["music-generation"],
+      "doc": "references/models/lyria-3-pro.md",
+      "canonical_constraints": {
+        "duration_max_s": 180
+      },
+      "providers": {
+        "replicate": {
+          "slug": "google/lyria-3-pro",
+          "capabilities": ["reference_images", "vocals", "custom_lyrics", "structure_tags", "timestamp_control", "multilingual"],
+          "pricing": {"mode": "per_call", "rate": 0.08, "currency": "USD"},
+          "availability": "GA",
+          "notes": "Auto-selected within Lyria family when prompt contains song structure tags / timestamps / explicit lyrics. Requires --confirm-upgrade when auto-routed (2x cost of Clip)."
+        }
+      }
+    },
+    "elevenlabs-music": {
+      "display_name": "ElevenLabs Music",
+      "family": "music",
+      "tasks": ["music-generation"],
+      "doc": "references/models/elevenlabs-music.md",
+      "canonical_constraints": {
+        "duration_ms": {"min": 3000, "max": 300000}
+      },
+      "providers": {
+        "elevenlabs": {
+          "slug": "(direct)",
+          "capabilities": ["vocals", "lyrics_editing", "multilingual", "music_finetunes", "subscription_billed"],
+          "pricing": {"mode": "subscription", "rate": null, "currency": "USD"},
+          "availability": "GA",
+          "notes": "Not yet refactored into ProviderBackend — audio_pipeline.py calls ElevenLabs directly. Registered so family_defaults.music is honest and the multi-model principle is upheld."
         }
       }
     }

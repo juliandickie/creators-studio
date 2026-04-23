@@ -112,14 +112,22 @@ def validate_canonical_params(
     # duration_s
     if (c := constraints.get("duration_s")) is not None and "duration_s" in params:
         v = params["duration_s"]
-        if c.get("integer") and not isinstance(v, int):
-            raise CanonicalValidationError(
-                f"duration_s must be an integer; got {type(v).__name__} ({v!r})"
-            )
-        if (lo := c.get("min")) is not None and v < lo:
-            raise CanonicalValidationError(f"duration_s={v} is below minimum {lo}")
-        if (hi := c.get("max")) is not None and v > hi:
-            raise CanonicalValidationError(f"duration_s={v} exceeds maximum {hi}")
+        if "enum" in c:
+            # Enum shape: {enum: [4, 6, 8]} — only listed values allowed.
+            if v not in c["enum"]:
+                raise CanonicalValidationError(
+                    f"duration_s={v} not in allowed values {c['enum']}"
+                )
+        else:
+            # Range shape: {min, max, integer?}
+            if c.get("integer") and not isinstance(v, int):
+                raise CanonicalValidationError(
+                    f"duration_s must be an integer; got {type(v).__name__} ({v!r})"
+                )
+            if (lo := c.get("min")) is not None and v < lo:
+                raise CanonicalValidationError(f"duration_s={v} is below minimum {lo}")
+            if (hi := c.get("max")) is not None and v > hi:
+                raise CanonicalValidationError(f"duration_s={v} exceeds maximum {hi}")
 
     # aspect_ratio
     if (c := constraints.get("aspect_ratio")) is not None and "aspect_ratio" in params:

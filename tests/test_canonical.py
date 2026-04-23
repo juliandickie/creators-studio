@@ -96,6 +96,38 @@ class TestValidateConstraints(unittest.TestCase):
                 constraints, {"duration_s": 8.5}
             )
 
+    def test_duration_enum_accepts_allowed_value(self):
+        constraints = {"duration_s": {"enum": [4, 6, 8]}}
+        # Should not raise
+        _canonical.validate_canonical_params(
+            constraints, {"duration_s": 6}
+        )
+
+    def test_duration_enum_rejects_disallowed_value(self):
+        constraints = {"duration_s": {"enum": [4, 6, 8]}}
+        with self.assertRaises(_canonical.CanonicalValidationError):
+            _canonical.validate_canonical_params(
+                constraints, {"duration_s": 5}
+            )
+
+    def test_duration_enum_rejects_out_of_range(self):
+        constraints = {"duration_s": {"enum": [4, 6, 8]}}
+        with self.assertRaises(_canonical.CanonicalValidationError):
+            _canonical.validate_canonical_params(
+                constraints, {"duration_s": 10}
+            )
+
+    def test_duration_min_max_still_works(self):
+        # Existing shape {min, max, integer} must still work after enum added
+        constraints = {"duration_s": {"min": 3, "max": 15, "integer": True}}
+        _canonical.validate_canonical_params(
+            constraints, {"duration_s": 8}
+        )
+        with self.assertRaises(_canonical.CanonicalValidationError):
+            _canonical.validate_canonical_params(
+                constraints, {"duration_s": 20}
+            )
+
     def test_aspect_ratio_valid(self):
         constraints = {"aspect_ratio": ["16:9", "9:16", "1:1"]}
         _canonical.validate_canonical_params(

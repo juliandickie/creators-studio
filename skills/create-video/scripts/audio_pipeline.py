@@ -84,7 +84,9 @@ import argparse
 import base64
 import concurrent.futures
 import json
+import logging
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -94,6 +96,119 @@ import urllib.parse
 import urllib.request
 from datetime import date
 from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# v4.2.1: Lyria migration to Replicate via the shared ProviderBackend
+# abstraction (v4.2.0). Replaces the inline Vertex URL + API-key path used
+# up through v3.8.4. See docs/superpowers/specs/ for the sub-project B
+# design document and references/models/lyria-*.md for per-model details.
+# ---------------------------------------------------------------------------
+
+_plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+if _plugin_root not in sys.path:
+    sys.path.insert(0, _plugin_root)
+
+from scripts.backends._replicate import ReplicateBackend as _ReplicateBackend  # noqa: E402
+from scripts.backends._base import ProviderAuthError as _ProviderAuthError  # noqa: E402
+from scripts.backends._base import ProviderError as _ProviderError  # noqa: E402
+from scripts.registry import registry as _reg  # noqa: E402
+
+_logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Lyria intent detection + version resolution (v4.2.1)
+# ---------------------------------------------------------------------------
+
+
+class LyriaUpgradeGateError(RuntimeError):
+    """Raised when auto-detection routes to Lyria 3 Pro without --confirm-upgrade.
+
+    Prevents silent 2x cost surprises when a user passes --music-source lyria
+    without an explicit --lyria-version and the prompt contains song-structure
+    indicators that would otherwise auto-upgrade to the more expensive Pro model.
+    """
+
+
+_LYRIC_STRUCTURE_INDICATORS = frozenset({
+    "[verse", "[chorus", "[bridge", "[hook",
+    "[intro", "[outro", "[pre-chorus", "[refrain",
+})
+_TIMESTAMP_INDICATOR = re.compile(r"\[\d+:\d{2}\s*-\s*\d+:\d{2}\]")
+_EXPLICIT_INSTRUMENTAL = frozenset({
+    "instrumental only", "no vocals", "no lyrics",
+})
+
+
+def detect_lyrics_intent(prompt: str) -> bool:
+    """Return True if the prompt appears to request a structured full-song
+    generation (lyrics, verses, timestamps). Used for auto-routing Lyria 3
+    Clip vs Lyria 3 Pro.
+
+    Explicit 'instrumental only' / 'no vocals' / 'no lyrics' markers ALWAYS
+    return False, even in the presence of structure tags — user intent to
+    exclude vocals wins.
+    """
+    lower = prompt.lower()
+    if any(ind in lower for ind in _EXPLICIT_INSTRUMENTAL):
+        return False
+    if any(ind in lower for ind in _LYRIC_STRUCTURE_INDICATORS):
+        return True
+    if _TIMESTAMP_INDICATOR.search(prompt):
+        return True
+    return False
+
+
+_LYRIA_VERSION_MAP = {
+    "2":     "lyria-2",
+    "3":     "lyria-3",
+    "3-pro": "lyria-3-pro",
+}
+
+
+def resolve_lyria_version(
+    prompt: str,
+    *,
+    explicit_version: str | None,
+    confirm_upgrade: bool,
+    has_negative_prompt: bool,
+) -> str:
+    """Pick canonical Lyria model ID based on flags + prompt.
+
+    Precedence:
+      1. explicit_version ('2', '3', '3-pro') — always wins, no gate.
+      2. has_negative_prompt — auto-route to lyria-2 (the only Lyria that
+         accepts negative_prompt).
+      3. detect_lyrics_intent(prompt) AND NOT confirm_upgrade — raise
+         LyriaUpgradeGateError to prevent silent 2x cost upgrade.
+      4. detect_lyrics_intent(prompt) AND confirm_upgrade — route to
+         lyria-3-pro.
+      5. Default — route to lyria-3 (Clip, cheapest).
+    """
+    if explicit_version is not None:
+        if explicit_version not in _LYRIA_VERSION_MAP:
+            raise ValueError(
+                f"Invalid --lyria-version {explicit_version!r}. "
+                f"Must be one of: {list(_LYRIA_VERSION_MAP.keys())}"
+            )
+        return _LYRIA_VERSION_MAP[explicit_version]
+
+    if has_negative_prompt:
+        return "lyria-2"
+
+    if detect_lyrics_intent(prompt):
+        if not confirm_upgrade:
+            raise LyriaUpgradeGateError(
+                "Detected song structure in prompt — full-song generation "
+                "requires Lyria 3 Pro ($0.08/file vs Lyria 3 Clip $0.04/file).\n"
+                "  - Pass --confirm-upgrade to proceed with Lyria 3 Pro.\n"
+                "  - Pass --lyria-version 3 to force the cheaper Lyria 3 Clip.\n"
+                "  - Pass --lyria-version 3-pro for explicit Pro (same as confirm)."
+            )
+        return "lyria-3-pro"
+
+    return "lyria-3"
+
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -117,15 +232,11 @@ DEFAULT_VOICE_SETTINGS = {
 # v3.7.2: Lyria 2 is the default music source after the 5-way bake-off in spike 4
 # (Lyria > ElevenLabs > MusicGen > MiniMax > Stable Audio per user listening verdict).
 # ElevenLabs Music is retained as the alternative for users who prefer its character
-# or want subscription-billed cost (Lyria is fixed $0.06 per call regardless of subscription).
+# or want subscription-billed cost (per-call pricing varies by Lyria variant).
 DEFAULT_MUSIC_SOURCE = "elevenlabs"  # "elevenlabs" | "lyria" — v3.8.3: flipped after 12-genre blind bake-off (ElevenLabs 12-0 sweep)
-DEFAULT_MUSIC_LENGTH_MS = 32000  # Lyria fixed at 32.768s; ElevenLabs configurable up to 600000
-
-# Lyria 2 defaults — google vertex AI lyria-002
-LYRIA_MODEL_ID = "lyria-002"
-# Lyria has a fixed clip duration of 32.768 seconds. The music_length_ms parameter
-# is ignored when source=lyria. Users who need different lengths must use elevenlabs.
-LYRIA_FIXED_DURATION_SEC = 32.768
+# v4.2.1: Lyria variants 2 and 3-Clip deliver ~30 s MP3 clips via Replicate;
+# Lyria 3-Pro generates up to ~180 s natively. ElevenLabs accepts 3000-300000 ms.
+DEFAULT_MUSIC_LENGTH_MS = 32000
 
 # ElevenLabs Music defaults — music_v1
 DEFAULT_ELEVEN_MUSIC_MODEL = "music_v1"
@@ -357,21 +468,25 @@ def generate_narration(text: str, voice_id: str, api_key: str, model_id: str = D
 # ---------------------------------------------------------------------------
 # Stage 2: Music generation (multi-provider)
 #
-# v3.7.2 supports two music providers, validated empirically in spike 4 of the
-# strategic reset session:
+# v4.2.1+ supports two music provider families:
 #
-#   - Lyria 2 (Google Vertex AI, source="lyria") — DEFAULT
-#       * Highest fidelity in the spike 4 5-way bake-off (48kHz/192kbps stereo)
-#       * Fixed $0.06 per call, fixed 32.768s clip duration
-#       * Supports negative_prompt for explicit exclusions
-#       * Reuses existing Vertex API-key auth from ~/.banana/config.json
+#   - Lyria via Replicate (source="lyria") — three variants auto-selected
+#     by resolve_lyria_version() based on prompt intent + flags:
+#       * Lyria 3 Clip (default)  $0.04/call  30 s (fixed)
+#       * Lyria 2                 $0.06/call  30 s (fixed)  — negative_prompt
+#       * Lyria 3 Pro             $0.08/call  up to 180 s  — full-song lyrics
+#     Config: providers.replicate.api_key (or REPLICATE_API_TOKEN env var).
+#     v3.8.3 retained Lyria as the NON-default after the 12-genre bake-off.
 #
-#   - ElevenLabs Music (source="elevenlabs") — ALTERNATIVE
-#       * Close second in the bake-off (44.1kHz/128kbps stereo)
+#   - ElevenLabs Music (source="elevenlabs") — DEFAULT as of v3.8.3
 #       * Subscription-billed (effectively free on Creator tier within quota)
-#       * Configurable duration 3000-600000ms
+#       * Configurable duration 3000-300000 ms
 #       * No negative prompt support
 #       * Music API blocks named-creator/brand prompts (HTTP 400 with prompt_suggestion)
+#
+# v4.2.1 migration: the inline Vertex URL/API-key path to lyria-002 was
+# retired in favor of ReplicateBackend. The lyria-002 model is still
+# accessible via --lyria-version 2 (routes to google/lyria-2 on Replicate).
 #
 # Spike 4 also tested Stable Audio 2.5, MiniMax Music 1.5, and Meta MusicGen.
 # All three lost the listening test to Lyria + ElevenLabs and are NOT integrated
@@ -383,6 +498,8 @@ def generate_narration(text: str, voice_id: str, api_key: str, model_id: str = D
 def generate_music(prompt: str, api_key: str | None = None, source: str = DEFAULT_MUSIC_SOURCE,
                    length_ms: int = DEFAULT_MUSIC_LENGTH_MS,
                    negative_prompt: str | None = None,
+                   lyria_version: str | None = None,
+                   confirm_upgrade: bool = False,
                    force_instrumental: bool = True,
                    output_path: Path | None = None,
                    keep_wav: bool = True,
@@ -391,30 +508,38 @@ def generate_music(prompt: str, api_key: str | None = None, source: str = DEFAUL
     """Generate background music via the configured provider.
 
     Dispatches to source-specific implementations:
-      - source="lyria":      Google Vertex AI Lyria 2 (default)
-      - source="elevenlabs": ElevenLabs Music v1
+      - source="lyria":      Google Lyria via Replicate (v4.2.1+ — variant
+                             resolved by resolve_lyria_version: Lyria 2 /
+                             Lyria 3 Clip / Lyria 3 Pro).
+      - source="elevenlabs": ElevenLabs Music v1 (subscription-billed).
 
-    Both produce stereo MP3 output of approximately the requested length. Lyria
-    has a fixed 32.768s clip duration; the length_ms parameter is ignored when
-    source=lyria. ElevenLabs respects length_ms in the 3000-600000ms range.
+    Both produce stereo MP3 output of approximately the requested length.
+    Lyria 2 / Lyria 3 Clip deliver 30 s per call (chained for longer); Lyria
+    3 Pro natively generates up to ~180 s. ElevenLabs respects length_ms in
+    the 3000-300000 ms range.
 
-    keep_wav and mp3_bitrate apply to Lyria only — Lyria delivers a lossless
-    WAV master that v3.7.2 preserves alongside the transcoded MP3 by default.
+    keep_wav and mp3_bitrate apply to Lyria only. v4.2.1: Replicate delivers
+    MP3 directly — keep_wav=True triggers a local lossy WAV transcode.
     ElevenLabs delivers MP3 directly with no lossless source available.
 
-    The api_key parameter is provider-dependent: Lyria reads vertex_api_key from
-    config and ignores api_key; ElevenLabs uses elevenlabs_api_key.
+    The api_key parameter is provider-dependent: Lyria uses Replicate's API
+    key (read by ReplicateBackend from config); ElevenLabs uses
+    elevenlabs_api_key.
     """
     if source == "lyria":
-        # v3.7.4: if the requested length exceeds Lyria's 32.768s hard cap, use
-        # the multi-call + acrossfade path. Otherwise fall back to the single-
-        # call primitive for efficiency (one API call vs. N + FFmpeg concat).
+        # Replicate Lyria 2 / Lyria 3 Clip both produce 30-second MP3s per
+        # call. For longer targets, route through the extended function which
+        # either (a) makes a single Lyria 3 Pro call up to 180 s, or (b)
+        # chains N × 30 s clips with FFmpeg acrossfade.
+        LYRIA_CLIP_LEN_S = 30.0
         requested_sec = (length_ms or 0) / 1000.0
-        if requested_sec > LYRIA_FIXED_DURATION_SEC + 0.5:
+        if requested_sec > LYRIA_CLIP_LEN_S + 0.5:
             return generate_music_lyria_extended(
                 prompt=prompt,
                 target_duration_sec=requested_sec,
                 negative_prompt=negative_prompt,
+                lyria_version=lyria_version,
+                confirm_upgrade=confirm_upgrade,
                 output_path=output_path,
                 keep_wav=keep_wav,
                 mp3_bitrate=mp3_bitrate,
@@ -423,6 +548,8 @@ def generate_music(prompt: str, api_key: str | None = None, source: str = DEFAUL
         return generate_music_lyria(
             prompt=prompt,
             negative_prompt=negative_prompt,
+            lyria_version=lyria_version,
+            confirm_upgrade=confirm_upgrade,
             output_path=output_path,
             keep_wav=keep_wav,
             mp3_bitrate=mp3_bitrate,
@@ -443,228 +570,350 @@ def generate_music(prompt: str, api_key: str | None = None, source: str = DEFAUL
 
 
 def generate_music_lyria(prompt: str, negative_prompt: str | None = None,
+                         lyria_version: str | None = None,
+                         confirm_upgrade: bool = False,
                          output_path: Path | None = None,
                          keep_wav: bool = True,
                          mp3_bitrate: str = "256k",
-                         allow_creators: bool = False) -> dict:
-    """Call Google Vertex AI Lyria 2 (lyria-002) for a 32.768s instrumental clip.
+                         allow_creators: bool = False,
+                         **kwargs) -> dict:
+    """Generate a single Lyria music clip via Replicate (v4.2.1+).
 
-    Uses bound-to-service-account API-key auth via the existing vertex_api_key
-    in ~/.banana/config.json. The same auth path the rest of the plugin uses
-    for VEO video generation. No OAuth or service account JSON required.
+    Resolves which Lyria variant to use (2 / 3 / 3-pro) via
+    resolve_lyria_version(), then submits through ReplicateBackend.
 
-    Lyria 2 has a fixed 32.768-second clip length — there is no duration
-    parameter. The output is high-fidelity 48kHz stereo PCM WAV.
+    Variant cost + duration (2026-04-23):
+      - lyria-2      $0.06/call  30s (fixed)   negative_prompt + seed
+      - lyria-3      $0.04/call  30s (fixed)   reference_images, vocals
+      - lyria-3-pro  $0.08/call  up to 180s    reference_images + lyrics + timestamps
 
-    v3.7.2 dual-output: this function preserves BOTH the lossless WAV source
-    AND a 256 kbps MP3 transcoded copy. The WAV is the canonical master for
-    downstream editing (layering, EQ, mastering); the MP3 is for preview,
-    sharing, and the audio pipeline mix stage. Storage cost is ~6.3 MB per
-    WAV vs ~1 MB per MP3 — both are kept by default since the MP3 alone
-    discards the lossless source which can't be recovered.
+    Routing precedence (see resolve_lyria_version):
+      1. Explicit lyria_version parameter.
+      2. negative_prompt set → lyria-2 (only variant that accepts it).
+      3. Prompt contains song-structure tags → lyria-3-pro, gated by
+         confirm_upgrade.
+      4. Default → lyria-3 (Clip).
 
-    Pass keep_wav=False to skip the WAV file (output_path will be MP3 only).
-    Pass mp3_bitrate="192k" or other libmp3lame bitrate to override the default
-    256k MP3 quality (192k matches v3.7.1 ElevenLabs convention; 256k is the
-    new v3.7.2 default for more transparent preview quality).
+    Output format: Replicate returns MP3 directly. Unlike the retired Vertex
+    path, the lossless WAV master is not exposed — keep_wav=True triggers a
+    local WAV transcode from the downloaded MP3 (lossy source, but keeps
+    downstream edit tools happy). Pass keep_wav=False to skip the extra file.
 
-    Lyria supports negative_prompt for explicit exclusions ("vocals, dissonance,
-    harsh percussion") — use this generously since Lyria honors it cleanly.
+    **kwargs swallow legacy arguments (e.g., 'project', 'location') for
+    backward compat during the v4.2.1 transition. They are ignored —
+    Replicate doesn't need Vertex project/location.
 
-    Cost: $0.06 per call (10 RPM rate limit per Google docs).
+    Cost: see table above; logged via cost_tracker.py on success.
 
     Empirically validated in spike 4 of the strategic reset session — Lyria 2
     won the 5-way bake-off against ElevenLabs, Stable Audio 2.5, MiniMax 1.5,
-    and Meta MusicGen.
+    and Meta MusicGen. v3.8.3 flipped the default to ElevenLabs after a
+    12-genre bake-off (ElevenLabs 12-0 sweep), but Lyria remains the choice
+    when negative_prompt exclusion or full-song lyric structure is required.
     """
-    config = _load_config()
-    api_key = config.get("vertex_api_key")
-    project = config.get("vertex_project_id")
-    location = config.get("vertex_location", "us-central1")
-
-    if not (api_key and project and location):
-        _error_exit(
-            "Lyria requires vertex_api_key, vertex_project_id, and vertex_location "
-            "in ~/.banana/config.json. These are the same credentials used for VEO. "
-            "See video/references/veo-models.md → Backend Availability for setup."
+    if kwargs:
+        _logger.debug(
+            "generate_music_lyria: ignoring legacy kwargs %s (Vertex context)",
+            list(kwargs.keys()),
         )
 
-    if output_path is None:
-        DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        ts = time.strftime("%Y%m%d_%H%M%S")
-        output_path = DEFAULT_OUTPUT_DIR / f"music_lyria_{ts}.mp3"
-    output_path = Path(output_path)
-
     # v3.7.4: pre-flight strip of known named-creator triggers. Both Lyria and
-    # ElevenLabs Music reject these server-side, but Lyria's error message is
-    # generic ("content policy") while ElevenLabs's is actionable. Strip here
-    # so Lyria gets a clean prompt and so BOTH providers behave consistently.
+    # ElevenLabs Music reject these server-side. Strip here so Lyria gets a
+    # clean prompt and so BOTH providers behave consistently.
     removed_terms: list[str] = []
     if not allow_creators:
         prompt, removed_terms = strip_named_creators(prompt)
         if negative_prompt:
             negative_prompt, _ = strip_named_creators(negative_prompt)
 
-    # Construct Vertex AI Lyria endpoint URL
-    endpoint = (
-        f"https://{location}-aiplatform.googleapis.com/v1/projects/{project}/"
-        f"locations/{location}/publishers/google/models/{LYRIA_MODEL_ID}:predict"
+    # Pick the right Lyria variant (2 / 3 / 3-pro). May raise
+    # LyriaUpgradeGateError when lyrics detected and confirm_upgrade=False.
+    model_id = resolve_lyria_version(
+        prompt,
+        explicit_version=lyria_version,
+        confirm_upgrade=confirm_upgrade,
+        has_negative_prompt=(negative_prompt is not None),
     )
-    url_with_key = f"{endpoint}?key={api_key}"
 
-    instance: dict = {"prompt": prompt}
-    if negative_prompt:
-        instance["negative_prompt"] = negative_prompt
+    if output_path is None:
+        DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        output_path = DEFAULT_OUTPUT_DIR / f"music_{model_id}_{ts}.mp3"
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    body = json.dumps({
-        "instances": [instance],
-        "parameters": {},
-    }).encode()
+    # Registry lookup for the model's Replicate slug.
+    registry = _reg.load_registry()
+    model = registry.get_model(model_id)
+    if "replicate" not in model.providers:
+        _error_exit(
+            f"Model {model_id!r} has no Replicate provider registered. "
+            f"Check scripts/registry/models.json."
+        )
+    slug = model.providers["replicate"]["slug"]
+
+    # Build canonical params — the ReplicateBackend filters out ones the
+    # specific Lyria variant doesn't support (Lyria 3 / 3 Pro drop
+    # negative_prompt + seed; Lyria 2 drops reference_images).
+    canonical_params: dict = {"prompt": prompt}
+    if negative_prompt is not None:
+        canonical_params["negative_prompt"] = negative_prompt
+
+    # Config for credential loading via the backend.
+    config = _load_config()
+    backend = _ReplicateBackend()
 
     t0 = time.time()
-    req = urllib.request.Request(
-        url_with_key,
-        data=body,
-        headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            data = json.loads(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        _error_exit(f"Lyria gen failed: {_http_error_message(e)}")
-    except Exception as e:
-        _error_exit(f"Lyria gen failed: {type(e).__name__}: {e}")
+        job_ref = backend.submit(
+            task="music-generation",
+            model_slug=slug,
+            canonical_params=canonical_params,
+            provider_opts={},
+            config=config,
+        )
+    except _ProviderAuthError as e:
+        _error_exit(
+            f"Replicate auth failed for Lyria: {e}. Configure the Replicate "
+            f"API key via setup_mcp.py or providers.replicate.api_key in "
+            f"~/.banana/config.json."
+        )
+    except _ProviderError as e:
+        _error_exit(f"Lyria submit via Replicate failed: {e}")
 
-    predictions = data.get("predictions", [])
-    if not predictions:
-        _error_exit(f"Lyria returned no predictions. Response keys: {list(data.keys())}")
+    # Poll until terminal state. Replicate's Lyria jobs typically finish in
+    # 30-90 s; the 5 s interval keeps the request rate reasonable.
+    poll_interval_s = 5.0
+    max_wait_s = 300.0
+    elapsed = 0.0
 
-    pred = predictions[0]
-    audio_b64 = pred.get("audioContent") or pred.get("bytesBase64Encoded")
-    if not audio_b64:
-        _error_exit(f"Lyria prediction missing audioContent. Keys: {list(pred.keys())}")
-    wav_bytes = base64.b64decode(audio_b64)
+    status = None
+    while True:
+        try:
+            status = backend.poll(job_ref, config)
+        except _ProviderError as e:
+            _error_exit(f"Lyria poll failed: {e}")
+        if status.state == "succeeded":
+            break
+        if status.state in ("failed", "canceled"):
+            _error_exit(
+                f"Lyria generation {status.state}: "
+                f"{status.error or '(no error detail)'}"
+            )
+        if elapsed >= max_wait_s:
+            _error_exit(
+                f"Lyria generation timed out after {max_wait_s:.0f}s. "
+                f"Prediction ID: {job_ref.external_id}"
+            )
+        time.sleep(poll_interval_s)
+        elapsed += poll_interval_s
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    _check_ffmpeg()
+    # Download the generated MP3 to the requested output path.
+    try:
+        result = backend.parse_result(status, download_to=output_path)
+    except _ProviderError as e:
+        _error_exit(f"Lyria download failed: {e}")
 
-    # v3.7.2 dual output: write the lossless WAV source first, then transcode
-    # to MP3. Both files share the same basename so they're paired on disk.
-    wav_path = output_path.with_suffix(".wav") if keep_wav else None
-    if keep_wav:
-        with open(wav_path, "wb") as f:
-            f.write(wav_bytes)
+    mp3_path = result.output_paths[0] if result.output_paths else output_path
+    mp3_size = mp3_path.stat().st_size if mp3_path.exists() else 0
 
-    # Transcode WAV → MP3. Read from the WAV file on disk (if kept) for
-    # cleaner ffmpeg behavior on unusual WAV headers; fall back to stdin pipe
-    # if WAV wasn't saved.
-    if keep_wav:
-        ffmpeg_input = ["-i", str(wav_path)]
-        ffmpeg_stdin = None
-    else:
-        ffmpeg_input = ["-f", "wav", "-i", "pipe:0"]
-        ffmpeg_stdin = wav_bytes
+    # Optional WAV transcode. Replicate delivers MP3; we generate a WAV copy
+    # locally for downstream tools that prefer lossless intermediates. The
+    # transcode is best-effort — if ffmpeg isn't available, we continue with
+    # MP3-only output.
+    wav_path: Path | None = None
+    if keep_wav and mp3_path.exists():
+        wav_path = mp3_path.with_suffix(".wav")
+        try:
+            _check_ffmpeg()
+            proc = subprocess.run(
+                ["ffmpeg", "-y", "-i", str(mp3_path),
+                 "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
+                 str(wav_path)],
+                capture_output=True,
+            )
+            if proc.returncode != 0:
+                _logger.warning(
+                    "WAV transcode failed (ffmpeg rc=%d); MP3-only output",
+                    proc.returncode,
+                )
+                wav_path = None
+        except SystemExit:
+            # _check_ffmpeg calls _error_exit on missing ffmpeg. We catch to
+            # keep the WAV step optional — MP3 is already written.
+            wav_path = None
 
-    proc = subprocess.run(
-        ["ffmpeg", "-y", *ffmpeg_input,
-         "-c:a", "libmp3lame", "-b:a", mp3_bitrate, str(output_path)],
-        input=ffmpeg_stdin,
-        capture_output=True,
-    )
-    if proc.returncode != 0:
-        # Fall back to writing only the WAV if transcoding fails
-        if not keep_wav:
-            wav_path = output_path.with_suffix(".wav")
-            with open(wav_path, "wb") as f:
-                f.write(wav_bytes)
-        # Return WAV path as the primary output
-        output_path = wav_path
+    # Cost tracking: per_call pricing (mode registered in registry).
+    # Log cost best-effort — never block the successful generation.
+    try:
+        _log_cost_replicate(model_id, mp3_path)
+    except Exception:
+        pass
 
     return {
-        "mp3_path": str(output_path) if output_path.suffix == ".mp3" else None,
+        "mp3_path": str(mp3_path),
         "wav_path": str(wav_path) if wav_path else None,
-        "path": str(output_path),  # back-compat: primary output for downstream callers
-        "mp3_bytes": output_path.stat().st_size if output_path.suffix == ".mp3" else None,
-        "wav_bytes": len(wav_bytes),
-        "mp3_bitrate": mp3_bitrate if output_path.suffix == ".mp3" else None,
+        "path": str(mp3_path),  # back-compat: primary output for downstream callers
+        "mp3_bytes": mp3_size,
+        "wav_bytes": wav_path.stat().st_size if wav_path and wav_path.exists() else None,
+        "mp3_bitrate": None,  # Replicate-delivered MP3; bitrate not re-encoded
         "source": "lyria",
-        "model_id": LYRIA_MODEL_ID,
-        "duration_seconds": LYRIA_FIXED_DURATION_SEC,
+        "model_id": model_id,
+        "provider": "replicate",
+        "replicate_id": job_ref.external_id,
+        "replicate_output_urls": result.output_urls,
+        "duration_seconds": result.metadata.get("duration_s"),
         "elapsed_seconds": round(time.time() - t0, 2),
-        "stripped_terms": removed_terms,  # v3.7.4: empty if no triggers matched
+        "stripped_terms": removed_terms,
     }
+
+
+def _log_cost_replicate(model_id: str, output_path: Path) -> None:
+    """Best-effort cost-tracker logging for a successful Lyria Replicate call.
+
+    Shells out to cost_tracker.py log with --resolution N/A (per_call pricing
+    mode ignores resolution). Non-fatal on any error — never block on logging.
+    """
+    try:
+        script = Path(__file__).resolve().parent.parent.parent.parent / \
+            "skills" / "create-image" / "scripts" / "cost_tracker.py"
+        if not script.exists():
+            return
+        subprocess.run(
+            [sys.executable, str(script), "log",
+             "--model", model_id, "--resolution", "N/A",
+             "--path", str(output_path)],
+            capture_output=True, timeout=5,
+        )
+    except Exception:
+        pass  # intentionally swallowed — cost logging never blocks output
 
 
 def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
                                   negative_prompt: str | None = None,
+                                  lyria_version: str | None = None,
+                                  confirm_upgrade: bool = False,
                                   output_path: Path | None = None,
                                   keep_wav: bool = True,
                                   mp3_bitrate: str = "256k",
                                   crossfade_sec: float = 2.0,
-                                  allow_creators: bool = False) -> dict:
-    """Generate a Lyria music track longer than the 32.768s hard cap.
+                                  allow_creators: bool = False,
+                                  **kwargs) -> dict:
+    """Generate a Lyria music track longer than a single Lyria 3 Clip (30s).
 
-    Strategy (v3.7.4):
-      1. Compute N = ceil((target - crossfade) / (clip_len - crossfade))
-         so that after N-1 crossfades the total duration >= target.
-      2. Call Lyria N times with the same prompt (different seeds → varied clips).
-      3. Chain them with FFmpeg `acrossfade` filters (equal-power curves by
-         default — smooth transition without a noticeable dip).
-      4. Trim the final concatenation to the exact target duration.
+    Dispatches by resolved Lyria variant:
+      - lyria-3-pro: single Replicate call with a duration hint baked into
+        the prompt. Native upper bound is ~180 s per the registry entry;
+        requests beyond that are rejected. $0.08/call regardless of length
+        within that window — most cost-predictable path.
+      - lyria-3 (Clip) / lyria-2: chain N=ceil((target-crossfade)/(clip_len
+        -crossfade)) 30s clips with FFmpeg acrossfade=d=2:c1=tri:c2=tri,
+        trim to exact target. Cost: N × per-call-price.
 
-    Returns the same result shape as generate_music_lyria with the addition
-    of `clip_count`, `clips` (list of intermediate paths), and `requested_duration_sec`.
-
-    Cost: N × $0.06 per call. A 90s track = 3 calls = $0.18.
+    kwargs swallow legacy Vertex kwargs for backward compat.
 
     Note on variety: each Lyria call produces a slightly different rendering
     from the same prompt. For short extensions (N=2-3) the clips usually
     cohere musically. For longer requests (N>5) you may hear tempo or key
     drift between segments — add more constraints to the prompt
-    ("constant 90 BPM, C minor") to improve continuity.
+    ("constant 90 BPM, C minor") to improve continuity, or switch to
+    lyria-3-pro for a single continuous generation.
 
-    Note on cost predictability: if cost matters and the target is
-    significantly longer than 60 seconds, consider falling back to
-    --music-source elevenlabs, which is subscription-billed and handles
-    any length up to 600000ms in a single call.
+    Note on cost predictability: for target_duration_sec > ~60 s on chained
+    paths, Lyria 3 Pro (single call) is typically cheaper AND more coherent.
+    Consider `--lyria-version 3-pro` (or let auto-detection route there via
+    song-structure tags + --confirm-upgrade).
+
+    Fallback path: if cost matters and the target is significantly longer
+    than 180 s, use `--music-source elevenlabs`, which is subscription-billed
+    and handles any length up to 600000ms in a single call.
     """
-    if target_duration_sec <= LYRIA_FIXED_DURATION_SEC + 0.5:
-        # Caller shouldn't have routed us here, but be defensive.
-        return generate_music_lyria(
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            output_path=output_path,
-            keep_wav=keep_wav,
-            mp3_bitrate=mp3_bitrate,
-            allow_creators=allow_creators,
+    if kwargs:
+        _logger.debug(
+            "generate_music_lyria_extended: ignoring legacy kwargs %s",
+            list(kwargs.keys()),
         )
 
-    # v3.7.4: strip creators once at the top so all N calls use the same cleaned prompt
+    # v3.7.4: strip creators once at the top so all downstream calls use the
+    # cleaned prompt. Also lets resolve_lyria_version decide on the CLEANED
+    # prompt's content (stripped creator names don't affect lyrics intent).
     removed_terms: list[str] = []
     if not allow_creators:
         prompt, removed_terms = strip_named_creators(prompt)
         if negative_prompt:
             negative_prompt, _ = strip_named_creators(negative_prompt)
 
-    clip_len = LYRIA_FIXED_DURATION_SEC
+    # Resolve which Lyria variant to route to. May raise
+    # LyriaUpgradeGateError on song-structure tags without --confirm-upgrade.
+    model_id = resolve_lyria_version(
+        prompt,
+        explicit_version=lyria_version,
+        confirm_upgrade=confirm_upgrade,
+        has_negative_prompt=(negative_prompt is not None),
+    )
+
+    # ─── Path A: Lyria 3 Pro single-call native-long-form ──────────────
+    if model_id == "lyria-3-pro":
+        if target_duration_sec > 180:
+            _error_exit(
+                f"Lyria 3 Pro generates up to ~180 s per call. Requested "
+                f"{target_duration_sec:.1f} s. Reduce target or use "
+                f"--lyria-version 3 for chained 30 s clips."
+            )
+        duration_hint_prompt = (
+            f"{prompt}\n\n(Generate approximately a "
+            f"{int(round(target_duration_sec))}-second track.)"
+        )
+        # Pass allow_creators=True because we already stripped above.
+        return generate_music_lyria(
+            prompt=duration_hint_prompt,
+            negative_prompt=negative_prompt,
+            lyria_version="3-pro",
+            confirm_upgrade=True,  # bypass gate — already resolved
+            output_path=output_path,
+            keep_wav=keep_wav,
+            mp3_bitrate=mp3_bitrate,
+            allow_creators=True,
+        )
+
+    # ─── Path B: chained N × 30-s clips (Lyria 2 or Lyria 3 Clip) ──────
+    # Replicate's Lyria 2 and Lyria 3 Clip both produce 30-second MP3s.
+    # The v3.7.4 Vertex path used 32.768s / high-fidelity WAV; the Replicate
+    # path uses 30.0s / MP3. The chain logic is otherwise identical.
+    CLIP_LEN_S = 30.0
+
+    if target_duration_sec <= CLIP_LEN_S + 0.5:
+        # Caller shouldn't have routed us here, but be defensive.
+        return generate_music_lyria(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            lyria_version=lyria_version,
+            confirm_upgrade=True,  # already resolved above
+            output_path=output_path,
+            keep_wav=keep_wav,
+            mp3_bitrate=mp3_bitrate,
+            allow_creators=True,
+        )
+
     import math
-    effective_per_clip = clip_len - crossfade_sec
-    clip_count = max(2, math.ceil((target_duration_sec - crossfade_sec) / effective_per_clip))
+    effective_per_clip = CLIP_LEN_S - crossfade_sec
+    clip_count = max(
+        2,
+        math.ceil((target_duration_sec - crossfade_sec) / effective_per_clip),
+    )
 
     _check_ffmpeg()
 
     if output_path is None:
         DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         ts = time.strftime("%Y%m%d_%H%M%S")
-        output_path = DEFAULT_OUTPUT_DIR / f"music_lyria_extended_{ts}.mp3"
+        output_path = DEFAULT_OUTPUT_DIR / f"music_{model_id}_extended_{ts}.mp3"
     output_path = Path(output_path)
 
-    # Generate N clips to a staging directory. Use WAVs throughout for lossless
-    # intermediate chaining, then transcode the final concat to MP3 at the end.
+    # Generate N clips to a staging directory. Replicate delivers MP3 only, so
+    # the intermediates are MP3 — FFmpeg's acrossfade handles MP3 inputs
+    # transparently. The final concat is transcoded to MP3 at the caller's
+    # requested bitrate.
     staging = output_path.parent / f".lyria_ext_{os.getpid()}_{int(time.time())}"
     staging.mkdir(parents=True, exist_ok=True)
     clip_paths: list[Path] = []
@@ -674,28 +923,33 @@ def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
             "status": "lyria_extended",
             "step": "generating_clips",
             "target_duration_sec": target_duration_sec,
+            "model": model_id,
             "clip_count": clip_count,
             "crossfade_sec": crossfade_sec,
         }), file=sys.stderr)
 
         for i in range(clip_count):
             clip_out = staging / f"clip_{i:02d}.mp3"
-            # Pass allow_creators=True because we already stripped above — avoids
-            # double-stripping (idempotent but wastes work).
+            # Pass allow_creators=True because we already stripped above.
+            # confirm_upgrade=True bypasses the Lyria Pro gate (the upgrade
+            # decision was made once above, at the top of this function).
             result = generate_music_lyria(
                 prompt=prompt,
                 negative_prompt=negative_prompt,
+                lyria_version=lyria_version,
+                confirm_upgrade=True,
                 output_path=clip_out,
-                keep_wav=True,  # keep WAV so we can chain losslessly
+                keep_wav=False,  # MP3-only intermediates (saves transcode time)
                 mp3_bitrate=mp3_bitrate,
                 allow_creators=True,
             )
-            wav_path = Path(result.get("wav_path") or clip_out.with_suffix(".wav"))
-            clip_paths.append(wav_path)
+            # Primary output for downstream chaining.
+            clip_paths.append(Path(result["mp3_path"]))
 
         # Chain clips with acrossfade. FFmpeg's acrossfade only takes 2 inputs
         # per invocation, so we fold left-to-right: result = fade(result, next).
         # For N=2 we do one fade; for N=3 we do two; for N=K we do K-1.
+        # Intermediates use PCM WAV for lossless chaining.
         current = clip_paths[0]
         for i in range(1, clip_count):
             nxt = clip_paths[i]
@@ -714,11 +968,13 @@ def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
             ]
             r = subprocess.run(cmd, capture_output=True, text=True)
             if r.returncode != 0:
-                _error_exit(f"Lyria acrossfade failed at clip {i}: {r.stderr[-500:]}")
+                _error_exit(
+                    f"Lyria acrossfade failed at clip {i}: {r.stderr[-500:]}"
+                )
             current = merged
 
-        # Trim to the exact requested duration (acrossfade chain may exceed target
-        # by up to clip_len-crossfade_sec due to the ceil rounding).
+        # Trim to the exact requested duration (acrossfade chain may exceed
+        # target by up to clip_len-crossfade_sec due to ceil rounding).
         final_wav = staging / "final.wav"
         trim_cmd = [
             "ffmpeg", "-y",
@@ -733,7 +989,7 @@ def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
         if r.returncode != 0:
             _error_exit(f"Lyria final trim failed: {r.stderr[-500:]}")
 
-        # Transcode to MP3 at the requested output path
+        # Transcode to MP3 at the requested output path.
         mp3_cmd = [
             "ffmpeg", "-y",
             "-i", str(final_wav),
@@ -744,12 +1000,13 @@ def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
         ]
         r = subprocess.run(mp3_cmd, capture_output=True, text=True)
         if r.returncode != 0:
-            _error_exit(f"Lyria final MP3 transcode failed: {r.stderr[-500:]}")
+            _error_exit(
+                f"Lyria final MP3 transcode failed: {r.stderr[-500:]}"
+            )
 
-        # Save or discard the final WAV alongside the MP3
+        # Save or discard the final WAV alongside the MP3.
         if keep_wav:
             final_wav_persisted = output_path.with_suffix(".wav")
-            # Copy by read-write (wav is small by intent — no need for os.rename across fs)
             with open(final_wav, "rb") as src, open(final_wav_persisted, "wb") as dst:
                 dst.write(src.read())
         else:
@@ -757,6 +1014,13 @@ def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
 
         mp3_size = output_path.stat().st_size
         wav_size = final_wav_persisted.stat().st_size if final_wav_persisted else None
+
+        # Per-call pricing from the registry — matches _log_cost_replicate.
+        per_call_usd = {
+            "lyria-2":     0.06,
+            "lyria-3":     0.04,
+            "lyria-3-pro": 0.08,  # unreachable here; Pro takes Path A above
+        }.get(model_id, 0.0)
 
         return {
             "mp3_path": str(output_path),
@@ -766,17 +1030,18 @@ def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
             "wav_bytes": wav_size,
             "mp3_bitrate": mp3_bitrate,
             "source": "lyria_extended",
-            "model_id": LYRIA_MODEL_ID,
+            "model_id": model_id,
+            "provider": "replicate",
             "duration_seconds": target_duration_sec,
             "requested_duration_sec": target_duration_sec,
             "clip_count": clip_count,
             "crossfade_sec": crossfade_sec,
-            "cost_usd_estimate": round(clip_count * 0.06, 2),
+            "cost_usd_estimate": round(clip_count * per_call_usd, 2),
             "elapsed_seconds": round(time.time() - t0, 2),
             "stripped_terms": removed_terms,
         }
     finally:
-        # Clean up the staging directory (keep the user's final output)
+        # Clean up the staging directory (keep the user's final output).
         try:
             for p in staging.iterdir():
                 try:
@@ -1156,6 +1421,8 @@ def pipeline(video_path: Path, narration_text: str, music_prompt: str,
              music_length_ms: int | None = None,
              music_source: str = DEFAULT_MUSIC_SOURCE,
              music_negative_prompt: str | None = None,
+             lyria_version: str | None = None,
+             confirm_upgrade: bool = False,
              tts_model: str = DEFAULT_TTS_MODEL,
              voice_settings: dict | None = None,
              allow_creators: bool = False) -> dict:
@@ -1165,10 +1432,11 @@ def pipeline(video_path: Path, narration_text: str, music_prompt: str,
     and music API calls run concurrently via ThreadPoolExecutor — they are
     independent so parallelization roughly halves the user-perceived latency.
 
-    v3.7.2: music_source can be "lyria" (default, Google Vertex AI Lyria 2)
-    or "elevenlabs" (ElevenLabs Music v1). The api_key parameter is always
-    the ElevenLabs key (used for TTS narration); the Vertex API key for Lyria
-    is read from ~/.banana/config.json automatically.
+    v3.7.2: music_source can be "lyria" or "elevenlabs" (v3.8.3 default).
+    v4.2.1: Lyria migrated from Vertex to Replicate; lyria_version picks
+    between 2 / 3 / 3-pro (see resolve_lyria_version). The api_key parameter
+    is the ElevenLabs key (used for TTS narration); the Replicate API key
+    for Lyria is read by ReplicateBackend from ~/.banana/config.json.
     """
     if output_path is None:
         DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -1176,9 +1444,10 @@ def pipeline(video_path: Path, narration_text: str, music_prompt: str,
         output_path = DEFAULT_OUTPUT_DIR / f"pipeline_{ts}.mp4"
 
     # Compute target music length from video duration if not specified.
-    # NOTE: Lyria has a fixed 32.768s clip duration regardless of this value;
-    # the parameter only matters for source=elevenlabs. We still compute it for
-    # the mix stage which uses the actual generated music length as the apad target.
+    # NOTE: Lyria 2 / Lyria 3 Clip deliver 30 s per call (chained if longer);
+    # Lyria 3 Pro generates up to ~180 s natively. We still compute music
+    # length for the mix stage — it uses the actual generated music duration
+    # (probed from disk) as the apad target regardless of the request value.
     if music_length_ms is None:
         video_duration = _probe_duration(video_path)
         music_length_ms = max(int(video_duration * 1000), 3000)
@@ -1206,6 +1475,8 @@ def pipeline(video_path: Path, narration_text: str, music_prompt: str,
             source=music_source,
             length_ms=music_length_ms,
             negative_prompt=music_negative_prompt,
+            lyria_version=lyria_version,
+            confirm_upgrade=confirm_upgrade,
             allow_creators=allow_creators,
         )
         narr_result = narr_future.result()
@@ -1213,10 +1484,11 @@ def pipeline(video_path: Path, narration_text: str, music_prompt: str,
 
     # Stage B: mix narration over music with ducking
     print(json.dumps({"status": "stage_b", "step": "ffmpeg_mix"}), file=sys.stderr)
-    # Use the ACTUAL generated music duration (probed from disk) rather than the
-    # requested length_ms. Lyria delivers a fixed 32.768s clip regardless of the
-    # requested length, and ElevenLabs may also produce slightly off-target durations.
-    # The apad target in the mix stage must match what's actually on disk.
+    # Use the ACTUAL generated music duration (probed from disk) rather than
+    # the requested length_ms. Lyria delivers 30 s per-call (or up to ~180 s
+    # on Pro) regardless of the request, and ElevenLabs may also produce
+    # slightly off-target durations. The apad target in the mix stage must
+    # match what's actually on disk.
     actual_music_duration = _probe_duration(music_result["path"])
     mix_result = mix_narration_with_music(
         narration_path=Path(narr_result["path"]),
@@ -1785,17 +2057,27 @@ def status() -> dict:
 
     config = _load_config()
 
-    # Lyria (Vertex AI) — primary music source as of v3.7.2
-    has_vertex = bool(
-        config.get("vertex_api_key")
-        and config.get("vertex_project_id")
-        and config.get("vertex_location")
-    )
+    # Lyria via Replicate (v4.2.1+ — retired the Vertex path).
+    # Uses providers.replicate.api_key in the v4.2.0 config schema, or the
+    # legacy flat replicate_api_token key. Resolution delegated to
+    # ReplicateBackend so this stays in sync with the actual auth path.
+    has_replicate = False
+    try:
+        providers = config.get("providers", {})
+        if isinstance(providers, dict):
+            rep = providers.get("replicate", {})
+            if isinstance(rep, dict) and rep.get("api_key"):
+                has_replicate = True
+        if not has_replicate and config.get("replicate_api_token"):
+            has_replicate = True
+        if not has_replicate and os.environ.get("REPLICATE_API_TOKEN"):
+            has_replicate = True
+    except Exception:
+        pass
     result["checks"].append({
-        "name": "lyria_vertex_credentials",
-        "ok": has_vertex,
-        "vertex_project_id": config.get("vertex_project_id") if has_vertex else None,
-        "vertex_location": config.get("vertex_location") if has_vertex else None,
+        "name": "lyria_replicate_credentials",
+        "ok": has_replicate,
+        "note": "Lyria now uses Replicate (v4.2.1+). Vertex path retired.",
     })
 
     # ElevenLabs — narration TTS + alternative music source
@@ -1859,23 +2141,43 @@ def main() -> None:
     p_narr.add_argument("--out", help="Output mp3 path (default: ~/Documents/creators_audio/narration_TS.mp3)")
     p_narr.add_argument("--api-key")
 
-    # music (multi-provider, v3.7.2+)
-    p_music = sub.add_parser("music", help="Generate background music (Lyria default, ElevenLabs alternative)")
+    # music (multi-provider, v3.7.2+ / v4.2.1 Lyria→Replicate migration)
+    p_music = sub.add_parser("music", help="Generate background music (ElevenLabs default, Lyria alternative)")
     p_music.add_argument("--prompt", required=True)
     p_music.add_argument("--source", choices=["lyria", "elevenlabs"], default=DEFAULT_MUSIC_SOURCE,
                          help=f"Music provider (default: {DEFAULT_MUSIC_SOURCE}). "
-                              "Lyria: $0.06 fixed, 32.768s, 48kHz/192kbps, supports negative_prompt, Vertex auth. "
-                              "ElevenLabs: subscription, configurable length, 44.1kHz/128kbps, no negative_prompt.")
+                              "Lyria via Replicate: 3 variants ($0.04-$0.08/call, 30-180 s). "
+                              "ElevenLabs: subscription-billed, 3000-300000 ms, no negative_prompt.")
     p_music.add_argument("--negative-prompt", default=None,
-                         help="What to avoid (Lyria only — ElevenLabs ignores this)")
+                         help="What to avoid (Lyria 2 only — auto-routes to Lyria 2 when set; "
+                              "other Lyria variants + ElevenLabs ignore this)")
+    p_music.add_argument("--lyria-version", choices=["2", "3", "3-pro"], default=None,
+                         help="Force a specific Lyria variant: "
+                              "2 (negative_prompt support, $0.06/call, 30 s), "
+                              "3 (Clip, default, $0.04/call, 30 s), "
+                              "3-pro (full songs up to 180 s, $0.08/call). "
+                              "Without this flag, auto-detection picks from the prompt "
+                              "(negative_prompt → 2; song-structure tags → 3-pro gated; default → 3).")
+    p_music.add_argument("--confirm-upgrade", action="store_true", default=False,
+                         help="Acknowledge the 2x cost upgrade when auto-detection would route "
+                              "to Lyria 3 Pro. Required when --lyria-version is absent AND the "
+                              "prompt contains song-structure markers (e.g. [Verse], [Chorus], "
+                              "timestamp ranges). Bypasses the gate in LyriaUpgradeGateError.")
     p_music.add_argument("--length-ms", type=int, default=DEFAULT_MUSIC_LENGTH_MS,
-                         help="Length in ms (ElevenLabs only — Lyria has fixed 32.768s)")
+                         help="Length in ms. Lyria: 30000 ms per clip (2/3 Clip) or up to "
+                              "180000 ms (3 Pro). Longer targets on 2/3 Clip are chained with "
+                              "FFmpeg acrossfade. ElevenLabs: 3000-300000 ms in one call.")
     p_music.add_argument("--with-vocals", action="store_true",
-                         help="Allow vocals (ElevenLabs only — Lyria is always instrumental)")
+                         help="Allow vocals (ElevenLabs only — Lyria instrumental/vocal toggle "
+                              "is model-variant-specific; see --lyria-version help)")
     p_music.add_argument("--no-wav", action="store_true",
-                         help="(Lyria only) Skip saving the lossless WAV source. By default both .mp3 and .wav are saved.")
+                         help="(Lyria only) Skip the local WAV transcode. By default a .wav copy "
+                              "is produced alongside the .mp3 delivered by Replicate for "
+                              "downstream editing tools.")
     p_music.add_argument("--mp3-bitrate", default="256k",
-                         help="(Lyria only) MP3 transcode bitrate (default: 256k for transparent quality). Use 192k to match v3.7.1 ElevenLabs convention.")
+                         help="(Lyria only) Not used on single calls (Replicate delivers MP3 "
+                              "directly). Used as the final-transcode bitrate on chained-extended "
+                              "runs where N × 30 s clips are acrossfaded and re-encoded.")
     p_music.add_argument("--out")
     p_music.add_argument("--api-key", help="ElevenLabs API key (only needed when source=elevenlabs)")
     p_music.add_argument("--allow-creators", action="store_true",
@@ -1909,10 +2211,17 @@ def main() -> None:
     p_pipe.add_argument("--music-source", choices=["lyria", "elevenlabs"], default=DEFAULT_MUSIC_SOURCE,
                         help=f"Music provider (default: {DEFAULT_MUSIC_SOURCE}). See music subcommand for details.")
     p_pipe.add_argument("--music-negative-prompt", default=None,
-                        help="What to avoid in music (Lyria only — improves prompt fidelity)")
+                        help="What to avoid in music (Lyria 2 only — auto-routes to Lyria 2 when set)")
+    p_pipe.add_argument("--lyria-version", choices=["2", "3", "3-pro"], default=None,
+                        help="Force a specific Lyria variant (see `music` subcommand --help for details).")
+    p_pipe.add_argument("--confirm-upgrade", action="store_true", default=False,
+                        help="Acknowledge the Lyria 3 Pro 2x cost upgrade when auto-detection "
+                             "routes there (song-structure tags in the music prompt).")
     p_pipe.add_argument("--voice", help="Voice role or voice_id (default: narrator)")
     p_pipe.add_argument("--music-length-ms", type=int,
-                        help="Music length in ms (ElevenLabs only — Lyria has fixed 32.768s)")
+                        help="Music length in ms. Lyria variants cap at 30 s/call (chained for "
+                             "longer 2/3 Clip targets) or up to 180 s on 3 Pro. "
+                             "ElevenLabs accepts 3000-300000 ms in one call.")
     p_pipe.add_argument("--out", help="Final output mp4 path")
     p_pipe.add_argument("--tts-model", default=DEFAULT_TTS_MODEL)
     p_pipe.add_argument("--api-key")
@@ -1994,23 +2303,31 @@ def main() -> None:
             output_path=Path(args.out) if args.out else None,
         )
     elif args.cmd == "music":
-        # Lyria reads vertex_api_key from config; ElevenLabs needs its own key.
-        # Only fetch the ElevenLabs key when source=elevenlabs.
+        # v4.2.1: Lyria uses Replicate (ReplicateBackend reads the Replicate
+        # token from config internally). ElevenLabs still needs its own key.
         api_key = None
         if args.source == "elevenlabs":
             api_key = _get_api_key(args.api_key)
-        result = generate_music(
-            prompt=args.prompt,
-            api_key=api_key,
-            source=args.source,
-            length_ms=args.length_ms,
-            negative_prompt=args.negative_prompt,
-            force_instrumental=not args.with_vocals,
-            output_path=Path(args.out) if args.out else None,
-            keep_wav=not args.no_wav,
-            mp3_bitrate=args.mp3_bitrate,
-            allow_creators=args.allow_creators,
-        )
+        try:
+            result = generate_music(
+                prompt=args.prompt,
+                api_key=api_key,
+                source=args.source,
+                length_ms=args.length_ms,
+                negative_prompt=args.negative_prompt,
+                lyria_version=args.lyria_version,
+                confirm_upgrade=args.confirm_upgrade,
+                force_instrumental=not args.with_vocals,
+                output_path=Path(args.out) if args.out else None,
+                keep_wav=not args.no_wav,
+                mp3_bitrate=args.mp3_bitrate,
+                allow_creators=args.allow_creators,
+            )
+        except LyriaUpgradeGateError as e:
+            # Exit code 2 mirrors the existing music-specific gate pattern
+            # (e.g., video_extend.py's --acknowledge-veo-limitations gate).
+            print(str(e), file=sys.stderr)
+            sys.exit(2)
     elif args.cmd == "mix":
         result = mix_narration_with_music(
             narration_path=Path(args.narration),
@@ -2025,23 +2342,30 @@ def main() -> None:
             output_path=Path(args.out) if args.out else None,
         )
     elif args.cmd == "pipeline":
-        # ElevenLabs key is always needed (TTS narration uses it). Lyria for music
-        # uses Vertex auth from config and doesn't need this key.
+        # ElevenLabs key is always needed (TTS narration uses it).
+        # v4.2.1: Lyria for music uses Replicate; ReplicateBackend reads the
+        # Replicate API key from config internally, no extra key plumbing.
         api_key = _get_api_key(args.api_key)
         voice_id, _ = _resolve_voice(args.voice)
-        result = pipeline(
-            video_path=Path(args.video),
-            narration_text=args.text,
-            music_prompt=args.music_prompt,
-            voice_id=voice_id,
-            api_key=api_key,
-            output_path=Path(args.out) if args.out else None,
-            music_length_ms=args.music_length_ms,
-            music_source=args.music_source,
-            music_negative_prompt=args.music_negative_prompt,
-            tts_model=args.tts_model,
-            allow_creators=args.allow_creators,
-        )
+        try:
+            result = pipeline(
+                video_path=Path(args.video),
+                narration_text=args.text,
+                music_prompt=args.music_prompt,
+                voice_id=voice_id,
+                api_key=api_key,
+                output_path=Path(args.out) if args.out else None,
+                music_length_ms=args.music_length_ms,
+                music_source=args.music_source,
+                music_negative_prompt=args.music_negative_prompt,
+                lyria_version=args.lyria_version,
+                confirm_upgrade=args.confirm_upgrade,
+                tts_model=args.tts_model,
+                allow_creators=args.allow_creators,
+            )
+        except LyriaUpgradeGateError as e:
+            print(str(e), file=sys.stderr)
+            sys.exit(2)
     elif args.cmd == "voice-design":
         api_key = _get_api_key(args.api_key)
         result = design_voice(
