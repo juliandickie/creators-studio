@@ -5,6 +5,84 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.1] - 2026-04-24
+
+### Headline
+
+**Vertex AI retired. VEO 3.1 and Lyria now on Replicate.** Sub-project B of the multi-provider roadmap. `_vertex_backend.py` deleted (958 lines). VEO 3.1 (all three tiers) routes through `ReplicateBackend` via `google/veo-3.1-*`. Lyria upgraded from Lyria 2 (Vertex) to Lyria 3 Clip (Replicate) as within-Lyria default — cheaper, newer, image-input support. Lyria 2 kept for `negative_prompt` workflows. Lyria 3 Pro registered for full-song generation. Zero user-visible behavior change for non-Vertex flows.
+
+### Added
+
+- **Three VEO 3.1 tiers** in the model registry: `veo-3.1-lite`, `veo-3.1-fast`, `veo-3.1`. All route through `ReplicateBackend`. Correct pricing per tier with resolution-keyed (Lite) and audio-keyed (Fast, Standard) modes.
+- **Three Lyria variants**: `lyria-2` ($0.06/clip, 30s, negative_prompt), `lyria-3` ($0.04/clip, 30s, reference_images), `lyria-3-pro` ($0.08/file, up to 3 min, structure tags + custom lyrics + timestamp control).
+- **ElevenLabs Music** registered with `(direct)` sentinel slug — honoring the multi-model principle while the ElevenLabs backend refactor is deferred to a future sub-project. `family_defaults.music = "elevenlabs-music"`.
+- **Three new pricing modes** in `cost_tracker.py`: `per_second_by_resolution` (VEO Lite), `per_second_by_audio` (VEO Fast + Standard), `per_second_by_resolution_and_audio` (Kling v3 + v3 Omni). `_lookup_cost()` gains keyword-only `duration_s` + `audio_enabled` kwargs. CLI `--duration-s` + `--audio-enabled` flags on the `log` and `estimate` subcommands.
+- **Canonical schema extension** — `_canonical.py::validate_canonical_params` accepts `duration_s: {enum: [...]}` as an alternative to `{min, max, integer}`. VEO uses enum `{4, 6, 8}`; Kling / Fabric / DreamActor continue using range.
+- **`music-generation` task type** wired into `ReplicateBackend._TASK_PARAM_MAPS`. Per-model filtering via `_MODEL_PARAM_DROPS` silently drops unsupported params with WARN log (Lyria 3 drops `negative_prompt`, Lyria 2 drops `reference_images`).
+- **Lyria auto-routing helpers** in `audio_pipeline.py`: `detect_lyrics_intent()`, `resolve_lyria_version()`, `LyriaUpgradeGateError`. Pattern-match song-structure markers to route between Lyria 3 Clip and Pro. Hard-gated via `--confirm-upgrade` flag to prevent silent 2x cost surprises.
+- **New CLI flags** on `audio_pipeline.py music` and `pipeline` subcommands:
+  - `--lyria-version {2,3,3-pro}` — force a specific Lyria variant
+  - `--confirm-upgrade` — acknowledge 2x cost when auto-detection would upgrade to Pro
+- **Test suite grew from 74 to 137 tests** — stdlib `unittest`, zero new dependencies. New files: `test_lyria_migration.py`, `test_cost_tracker.py`. Extensions to `test_canonical.py`, `test_registry.py`, `test_replicate_backend.py`.
+- **Reference docs**: `veo-3.1.md` (placeholder replaced with full tier content), new `lyria-2.md`, `lyria-3.md`, `lyria-3-pro.md`, `elevenlabs-music.md`. `references/providers/replicate.md` updated with VEO + Lyria entries + 3 new pricing modes.
+
+### Changed
+
+- **`audio_pipeline.py` Lyria paths** — `generate_music_lyria` and `generate_music_lyria_extended` rewritten to use `ReplicateBackend.submit/poll/parse_result` instead of inline Vertex URL construction. Default within-Lyria model changes from Lyria 2 (`lyria-002`) to Lyria 3 Clip.
+- **`video_generate.py` backend selector** — `_select_backend()` returns `gemini` or `replicate` only; the `vertex` branch is gone. `--backend vertex-ai` and `--provider veo` become deprecation aliases that auto-route to Replicate. Legacy Vertex model IDs (`veo-3.1-generate-001` etc.) auto-translate to Replicate slugs via `_VERTEX_TO_REPLICATE_SLUG` map.
+- **Kling v3 and v3 Omni pricing corrected** in the registry and `cost_tracker.py`. v4.2.0 shipped with `per_second: $0.02/s` from an outdated source; v4.2.1 uses `per_second_by_resolution_and_audio` with verified rates from `dev-docs/kwaivgi-kling-v3-*-llms.md`. See the Notes section below for the cost-narrative implication.
+
+### Deprecated
+
+- **`--backend vertex-ai`** (in `video_generate.py`) — honored for one release; removed in v4.3.0.
+- **`--provider veo`** (in `video_generate.py`) — honored for one release; removed in v4.3.0. Users should pass `--provider replicate --model {veo-3.1-lite,veo-3.1-fast,veo-3.1}` explicitly.
+- **Legacy Vertex model IDs** (`veo-3.1-generate-001` etc.) — auto-translate to Replicate slugs with deprecation warning; translation removed in v4.3.0.
+
+### Removed
+
+- **`skills/create-video/scripts/_vertex_backend.py`** — 958 lines. Every consumer migrated to `ReplicateBackend` in prior commits. Verified no imports remain.
+- **Inline `aiplatform.googleapis.com` URL construction** in `audio_pipeline.py`.
+
+### Fixed
+
+- **Latent `subprocess` import missing in `video_generate.py`** — the cost-log shell-out at end of `main()` referenced `subprocess` without importing it. Masked by a bare `except Exception: pass`. Fixed during the Task 20 refactor.
+- **NameError bug caught by code-quality review** — early implementation of Tasks 3-5 had `model` (bare) instead of `args.model` in three places in `video_generate.py` cost-logging. Would have silently failed every Kling cost log. Fixed in the same task's review loop. The two-stage review pattern's payoff.
+
+### Preserved (deliberately)
+
+- **`~/.banana/` config directory path** — unchanged. Queued as v4.2.2 separately.
+- **ElevenLabs TTS / music / voice-design code** — untouched. ElevenLabs-as-ProviderBackend is a future sub-project.
+- **Gemini direct (`generate.py`, `edit.py`) code paths** — untouched. Gemini-as-ProviderBackend is a future sub-project.
+- **`--music-source elevenlabs` behavior** — identical output for identical input.
+- **`setup_mcp.py` migration shim** — legacy `vertex_api_key`/`vertex_project_id`/`vertex_location` keys still read into `providers.vertex.*` for graceful upgrade (harmless — nothing consumes them).
+
+### Notes
+
+**Kling pricing correction — cost narrative inverted.** The v3.8.0 decision to default to Kling over VEO was partly justified by a "7.5× cheaper than VEO" claim based on an outdated `$0.02/s` Kling figure. At verified v4.2.1 rates for an 8-second 1080p clip with audio:
+
+| Model | Cost |
+|---|---|
+| VEO 3.1 Lite | $0.64 |
+| VEO 3.1 Fast | $1.20 |
+| Kling v3 pro-audio | $2.69 |
+| VEO 3.1 Standard | $3.20 |
+
+VEO 3.1 Lite is now ~4× **cheaper** than Kling at comparable settings. Doesn't change v4.2.1's default (Kling's quality advantage per the 8-of-15 shot-type scoreboard stands), but queues a post-sub-project-C bake-off re-evaluation with fresh data.
+
+### Deferred (explicit follow-up releases)
+
+- **v4.2.2 — `~/.banana/` → `~/.creators-studio/` config rename** with auto-migration.
+- **v4.3.0 — Sub-project C (Kie.ai backend + Suno music)**. Unlocks the 4-way music bake-off.
+- **v4.3.x — Kling-vs-VEO default re-evaluation bake-off** (triggered by v4.2.1 pricing correction).
+- **v4.3.x — 4-way music bake-off** (ElevenLabs / Lyria 3 Clip / Lyria 3 Pro / Suno via Kie.ai).
+- **v4.3.x+ — Kling 3.0 motion-control** registration as a new canonical task (motion transfer).
+- **v4.4.0+ — Sub-project D (Hugging Face Inference Providers)**.
+
+### Design documents
+
+- Architecture spec: `docs/superpowers/specs/2026-04-23-subproject-b-vertex-retirement-lyria-upgrade-design.md`
+- Implementation plan: `docs/superpowers/plans/2026-04-23-subproject-b-vertex-retirement-lyria-upgrade.md`
+
 ## [4.2.0] - 2026-04-23
 
 ### Headline
@@ -1210,6 +1288,7 @@ Real-API verification during the v3.5.0 release surfaced a critical distinction:
 - Batch variations, multi-turn chat, prompt inspiration
 - Install script with validation
 
+[4.2.1]: https://github.com/juliandickie/creators-studio/releases/tag/v4.2.1
 [4.2.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.2.0
 [4.1.3]: https://github.com/juliandickie/creators-studio/releases/tag/v4.1.3
 [4.1.2]: https://github.com/juliandickie/creators-studio/releases/tag/v4.1.2

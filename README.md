@@ -12,7 +12,7 @@
 Let an AI that's been trained on the best practices for every model write the prompts for you, instead of spending hours teaching yourself to prompt-engineer a moving target.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-4.2.0-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.2.1-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <details>
@@ -437,7 +437,14 @@ creators-studio/                       # Claude Code Plugin
 ## Release History
 
 <details>
-<summary><b>🔌 v4.2.0 (current) — Provider-Agnostic Architecture · 2026-04-23</b></summary>
+<summary><b>🎵 v4.2.1 (current) — Vertex Retirement + Lyria 3 Upgrade · 2026-04-24</b></summary>
+
+Sub-project B of the provider-agnostic roadmap. Deleted `_vertex_backend.py` (958 lines). VEO 3.1 (all three tiers) and Lyria family now route through Replicate. Lyria upgraded from Lyria 2 → Lyria 3 Clip as within-Lyria default (30% cheaper, new image-input capability). Lyria 2 still available for `negative_prompt` via `--lyria-version 2`. Lyria 3 Pro registered for full-song generation with structure tags, auto-selected when prompt contains `[Verse]`/`[Chorus]`/timestamp markers (gated by `--confirm-upgrade` to prevent 2x cost surprises). Bonus: Kling v3 pricing corrected — VEO Lite turns out to be ~4× cheaper than Kling at 1080p with audio, inverting the v3.8.0 cost narrative.
+
+</details>
+
+<details>
+<summary><b>🔌 v4.2.0 — Provider-Agnostic Architecture · 2026-04-23</b></summary>
 
 The plugin is now marketplace-neutral. Bring your own API key for Replicate today; the architecture is ready for Kie.ai, Hugging Face Inference Providers, fal.ai, or any future marketplace to ship as a **one-file addition**. New `scripts/backends/` abstraction, canonical task schema, model registry, and two-stage routing — all tested (74 tests) with zero behavior change for existing commands. Python floor lifted 3.6 → 3.12.
 
