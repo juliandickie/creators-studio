@@ -754,6 +754,56 @@ This was the scheduled post-v3.7.3 polish release closing the known-issues debt 
 
 **Session spend**: $0 (doc + config changes only). **Cumulative: ~$1.10**.
 
+### Session 24 (2026-04-23) — v4.2.0 Provider Abstraction Foundation (Sub-Project A)
+
+**Scope**: User wanted to integrate additional AI model marketplaces (Kie.ai, Hugging Face Inference Providers, fal.ai, etc.) so the plugin doesn't appear to push a single marketplace. Motivation is user-friendliness — "if they are using another one that they already have billing set up, they can just grab an API key and continue." The plugin is already model-agnostic in name (v4.0.0 rebrand); this session delivers the code architecture that matches the name.
+
+**Design process** (brainstorming skill, 4 rounds of clarifying questions + corrections):
+
+- **Round 1 — false claim about capability expansion.** Initial framing assumed Kie.ai uniquely offered Sora 2, Imagen 4, Seedream, Flux Kontext, Runway, Hailuo. User pushed back; verification against `dev-docs/Replicate official AI models collection.md` (4545 lines) showed Replicate has all of these — plus VEO 3.1 (Lite/Fast/Standard) and all Kling variants via kwaivgi. Corrected claim: **Kie.ai's only exclusive is Suno music**. The narrative value of adding Kie is user-preference + aggregator billing, not capability expansion.
+- **Round 2 — Higgsfield is a consumer SaaS, not a developer API.** Reading `dev-docs/higgsfield.ai.llms.txt`, every URL is `/ai-video`, `/cinema-studio`, `/app/face-swap` — authenticated workspaces and one-click creative apps. No `api.higgsfield.ai` subdomain, no developer docs, no webhook schemas. Closer to Runway.com or Canva than Replicate. Deferred until Higgsfield ships an API.
+- **Round 3 — Hugging Face Inference Providers is a meta-aggregator.** User pointed at HF's provider list (17 underlying providers including Replicate itself). WebFetch confirmed HF supports text-to-image, text-to-video, image-to-image, but NOT TTS or music-generation. Critical gap: image-to-video isn't in the HF task list, which is what the plugin uses heavily (Kling start_image, Fabric lip-sync). HF backend deferred to sub-project D; ElevenLabs (TTS) and music providers stay direct.
+- **Round 4 — the REAL project is architecture, not any specific provider.** Once it was clear the strategic goal was "add any future marketplace as a one-file task," the scope clarified. Sub-projects A (foundation), B (Vertex retirement), C (Kie + Suno), D (HF Inference Providers) — each a separate plan applying the same spec.
+
+**Design decisions locked in** (see `docs/superpowers/specs/2026-04-23-provider-abstraction-design.md`):
+
+1. **Hybrid canonical schema (Option B)** with `provider_opts` escape hatch. Top-10 params (prompt, duration_s, aspect_ratio, start_image, etc.) are canonical; provider-unique features (Kling's `multi_prompt`, motion-control) go through `provider_opts`.
+2. **Two independent reference catalogs** — `references/providers/*.md` for auth/polling/pricing; `references/models/*.md` for prompt engineering/capabilities. They churn on different cycles.
+3. **Model registry at `scripts/registry/models.json`** as single source of truth. Adding a new model = one JSON edit. Adding a new provider = one new file implementing `ProviderBackend`.
+4. **Routing policy**: two-stage resolution (model → provider). Explicit `--provider` flag wins; fallback is config family default → global default → first-with-configured-key in registry insertion order.
+5. **Config schema**: new `providers.<name>.api_key` shape. Old flat keys readable via migration shim. `~/.banana/` path unchanged (v4.0.0 user-state-boundary rule).
+
+**What shipped (sub-project A deliverables, 8 commits on `feature/provider-abstraction-v4.2.0`)**:
+
+1. `scripts/backends/_base.py` — `ProviderBackend` ABC + canonical types (`JobRef`, `JobStatus`, `TaskResult`, `AuthStatus`, `CanonicalImage`) + exception hierarchy
+2. `scripts/backends/_canonical.py` — stdlib image normalizer (Path/bytes/URL/data-URI → data URI, MIME sniffing) + constraint validator (duration, aspect, resolution, prompt length)
+3. `scripts/backends/_replicate.py` — moved from `skills/create-video/scripts/_replicate_backend.py`, refactored to implement the ABC via `ReplicateBackend` class. All legacy helpers preserved (zero breakage).
+4. `scripts/registry/models.json` — seeded with 6 currently-used models: kling-v3, kling-v3-omni, fabric-1.0, dreamactor-m2.0, recraft-vectorize, nano-banana-2
+5. `scripts/registry/registry.py` — typed loader + query API with structural validation
+6. `scripts/routing.py` — `resolve_model()` + `resolve_provider()` two-stage resolution
+7. Call-site migration: `video_generate.py`, `video_lipsync.py`, `vectorize.py` import from `scripts.backends._replicate` via plugin-root sys.path shim. Old `skills/create-video/scripts/_replicate_backend.py` deleted (superseded).
+8. Config migration: `setup_mcp.migrate_config_to_v4_2_0()` rewrites old flat keys to new schema on every `load_banana_config()` read. Legacy keys stay readable for rollback.
+9. Test suite: 74 tests via stdlib `unittest`. Zero new pip dependencies. HTTP mocked — no network required. Files: `tests/test_base.py`, `test_canonical.py`, `test_registry.py`, `test_routing.py`, `test_replicate_backend.py`, `test_setup_mcp_migration.py`.
+10. Provider reference: `references/providers/replicate.md` (auth, polling, Cloudflare User-Agent rule, 6-value status enum, pricing modes).
+
+**.gitignore fix**: removed stale `/scripts/` exclusion from the pre-v4.0.0 nano-banana era. The plugin-root `scripts/` directory is now intentional shared infrastructure.
+
+**Python 3.6+ compat**: all new code uses `typing.List`, `typing.Dict`, `typing.Optional`, `typing.Union` instead of built-in generic syntax (`list[X]`, `dict[X]`). Preserves the plugin's stated "works on any system with Python 3.6+" runtime guarantee.
+
+**Zero behavior change for end users**. All existing commands (`/create-image generate`, `/create-video generate`, `/create-video lipsync`, `/create-image vectorize`, etc.) produce identical output from identical inputs.
+
+**NOT in v4.2.0 (explicit follow-ups)**:
+- Sub-project B — Vertex retirement via Replicate routing (planned v4.2.1)
+- Sub-project C — Kie.ai backend + Suno music (planned v4.3.0)
+- Sub-project D — HF Inference Providers backend (planned v4.4.0, optional)
+- Refactor of `generate.py`/`edit.py` into `_gemini_direct.py` (follow-up to A, non-blocking)
+- Refactor of `audio_pipeline.py` internals into `_elevenlabs.py` (follow-up, larger scope)
+- Per-model reference docs under `references/models/` (in-progress — only `providers/replicate.md` landed in A; other reference migrations are follow-on)
+
+**Status at session end**: feature branch `feature/provider-abstraction-v4.2.0` with 9 commits, 74 tests passing, all 4 existing scripts (`video_generate`, `video_lipsync`, `video_sequence`, `vectorize`) verified via `--help`. Not merged to main — release commit (version bump + CHANGELOG + tag + push + zip) paused pending explicit user scope review per the `feedback_release_checkin` memory rule.
+
+**Session spend**: $0 (no generation calls — all tests HTTP-mocked). **Cumulative: ~$1.10**.
+
 ## Expansion Roadmap
 
 See `ROADMAP.md` for the full prioritized feature roadmap.
