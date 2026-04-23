@@ -138,10 +138,18 @@ This repo follows the official Claude Code plugin layout:
 
 ## Scripts use stdlib only
 
-All fallback scripts (`generate.py`, `edit.py`, `replicate_generate.py`, `replicate_edit.py`)
-use Python's `urllib.request` to call APIs directly. They have ZERO pip dependencies by design.
-Do NOT add `google-genai`, `requests`, or `replicate` as dependencies -- the stdlib approach
-ensures the skill works on any system with Python 3.6+.
+All scripts use Python's `urllib.request` to call APIs directly. They have ZERO pip dependencies by design. Do NOT add `google-genai`, `requests`, or `replicate` as dependencies — the stdlib approach keeps installation frictionless for users who just want to run the plugin.
+
+### Python version floor
+
+**As of v4.2.0: Python 3.12+.**
+
+Previous floor was 3.6+, inherited from the 2023-era `banana-claude` fork. That constraint is retired — most users run 3.12+ today, and 3.12 gives us modern syntax (PEP 604 unions `X | None`, built-in generics `list[int]`, `dataclass(slots=True)`, `match`/`case` patterns, `type` aliases via PEP 695).
+
+**What this means in practice:**
+- New code (`scripts/backends/`, `scripts/registry/`, `scripts/routing.py`, `tests/`) uses modern syntax.
+- Existing per-skill scripts (`skills/create-image/scripts/*.py`, `skills/create-video/scripts/*.py`) keep their current Python idiom — don't touch them purely to modernize. Modernize lazily when editing for other reasons.
+- If Python 3.12 becomes unavailable for a user (e.g., stuck on a locked-down corporate box), that's a re-evaluation signal — not a constraint on new code.
 
 ## Key constraints
 

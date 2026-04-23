@@ -4,13 +4,13 @@ Sits between the orchestrator and backend: validates canonical_params
 against a model's canonical_constraints BEFORE any HTTP call, and
 normalizes CanonicalImage inputs to forms backends accept.
 
-Stdlib only. typing.X forms for Python 3.6+ compat.
+Stdlib only. Python 3.12+.
 """
 
 import base64
 import mimetypes
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any
 
 
 class CanonicalValidationError(Exception):
@@ -20,13 +20,13 @@ class CanonicalValidationError(Exception):
 # ─── Image normalization ─────────────────────────────────────────────────
 
 # Recognized magic bytes for stdlib-only format sniffing.
-_MAGIC_BYTES_TO_MIME = [
+_MAGIC_BYTES_TO_MIME: list[tuple[bytes, str]] = [
     (b"\x89PNG\r\n\x1a\n", "image/png"),
     (b"\xff\xd8\xff",      "image/jpeg"),
     (b"GIF87a",            "image/gif"),
     (b"GIF89a",            "image/gif"),
     (b"RIFF",              "image/webp"),  # WebP starts with RIFF....WEBP; verified below
-]  # type: List[Tuple[bytes, str]]
+]
 
 
 def _sniff_mime_from_bytes(data: bytes) -> str:
@@ -41,7 +41,7 @@ def _sniff_mime_from_bytes(data: bytes) -> str:
     raise ValueError("could not sniff image MIME from magic bytes")
 
 
-def normalize_image_to_data_uri(img):  # type: (Union[Path, str, bytes]) -> str
+def normalize_image_to_data_uri(img: Path | str | bytes) -> str:
     """Convert any CanonicalImage form to a data URI.
 
     Accepts:
@@ -53,15 +53,11 @@ def normalize_image_to_data_uri(img):  # type: (Union[Path, str, bytes]) -> str
     if isinstance(img, Path):
         data = img.read_bytes()
         mime = mimetypes.guess_type(str(img))[0] or _sniff_mime_from_bytes(data)
-        return "data:{};base64,{}".format(
-            mime, base64.b64encode(data).decode("ascii")
-        )
+        return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
 
     if isinstance(img, bytes):
         mime = _sniff_mime_from_bytes(img)
-        return "data:{};base64,{}".format(
-            mime, base64.b64encode(img).decode("ascii")
-        )
+        return f"data:{mime};base64,{base64.b64encode(img).decode('ascii')}"
 
     if isinstance(img, str):
         if img.startswith("data:"):
@@ -71,12 +67,12 @@ def normalize_image_to_data_uri(img):  # type: (Union[Path, str, bytes]) -> str
                 "normalize_image_to_data_uri was given an HTTP URL; use "
                 "normalize_image_to_url() for backends that prefer URLs"
             )
-        raise ValueError("unrecognized string image form: {!r}".format(img[:40]))
+        raise ValueError(f"unrecognized string image form: {img[:40]!r}")
 
-    raise TypeError("unsupported image type: {}".format(type(img)))
+    raise TypeError(f"unsupported image type: {type(img).__name__}")
 
 
-def normalize_image_to_url(img):  # type: (Union[Path, str, bytes]) -> str
+def normalize_image_to_url(img: Path | str | bytes) -> str:
     """Convert CanonicalImage to a URL form, if possible.
 
     Pass-through for HTTP URLs. Data URIs pass through too (most backends
@@ -95,8 +91,10 @@ def normalize_image_to_url(img):  # type: (Union[Path, str, bytes]) -> str
 # ─── Constraint validation ───────────────────────────────────────────────
 
 
-def validate_canonical_params(constraints, params):
-    # type: (Dict[str, Any], Dict[str, Any]) -> None
+def validate_canonical_params(
+    constraints: dict[str, Any],
+    params: dict[str, Any],
+) -> None:
     """Validate params against constraints. Raises CanonicalValidationError.
 
     Constraint keys recognized:
@@ -112,66 +110,49 @@ def validate_canonical_params(constraints, params):
     Missing params are skipped (the constraint doesn't apply).
     """
     # duration_s
-    c = constraints.get("duration_s")
-    if c is not None and "duration_s" in params:
+    if (c := constraints.get("duration_s")) is not None and "duration_s" in params:
         v = params["duration_s"]
         if c.get("integer") and not isinstance(v, int):
             raise CanonicalValidationError(
-                "duration_s must be an integer; got {} ({!r})".format(
-                    type(v).__name__, v
-                )
+                f"duration_s must be an integer; got {type(v).__name__} ({v!r})"
             )
-        lo, hi = c.get("min"), c.get("max")
-        if lo is not None and v < lo:
-            raise CanonicalValidationError(
-                "duration_s={} is below minimum {}".format(v, lo)
-            )
-        if hi is not None and v > hi:
-            raise CanonicalValidationError(
-                "duration_s={} exceeds maximum {}".format(v, hi)
-            )
+        if (lo := c.get("min")) is not None and v < lo:
+            raise CanonicalValidationError(f"duration_s={v} is below minimum {lo}")
+        if (hi := c.get("max")) is not None and v > hi:
+            raise CanonicalValidationError(f"duration_s={v} exceeds maximum {hi}")
 
     # aspect_ratio
-    c = constraints.get("aspect_ratio")
-    if c is not None and "aspect_ratio" in params:
+    if (c := constraints.get("aspect_ratio")) is not None and "aspect_ratio" in params:
         if params["aspect_ratio"] not in c:
             raise CanonicalValidationError(
-                "aspect_ratio={!r} not in allowed {}".format(
-                    params["aspect_ratio"], c
-                )
+                f"aspect_ratio={params['aspect_ratio']!r} not in allowed {c}"
             )
 
     # resolution
-    c = constraints.get("resolutions")
-    if c is not None and "resolution" in params:
+    if (c := constraints.get("resolutions")) is not None and "resolution" in params:
         if params["resolution"] not in c:
             raise CanonicalValidationError(
-                "resolution={!r} not in allowed {}".format(
-                    params["resolution"], c
-                )
+                f"resolution={params['resolution']!r} not in allowed {c}"
             )
 
     # prompt_max_chars
-    c = constraints.get("prompt_max_chars")
-    if c is not None and "prompt" in params:
+    if (c := constraints.get("prompt_max_chars")) is not None and "prompt" in params:
         if len(params["prompt"]) > c:
             raise CanonicalValidationError(
-                "prompt length {} exceeds maximum {}".format(
-                    len(params["prompt"]), c
-                )
+                f"prompt length {len(params['prompt'])} exceeds maximum {c}"
             )
 
     # max_input_bytes (applies when source_image is bytes or Path)
-    c = constraints.get("max_input_bytes")
-    if c is not None and "source_image" in params:
+    if (c := constraints.get("max_input_bytes")) is not None and "source_image" in params:
         img = params["source_image"]
-        if isinstance(img, Path):
-            size = img.stat().st_size
-        elif isinstance(img, bytes):
-            size = len(img)
-        else:
-            return  # URL/data-URI — skip byte-size check
+        match img:
+            case Path():
+                size = img.stat().st_size
+            case bytes():
+                size = len(img)
+            case _:
+                return  # URL/data-URI — skip byte-size check
         if size > c:
             raise CanonicalValidationError(
-                "source_image size {} exceeds maximum {}".format(size, c)
+                f"source_image size {size} exceeds maximum {c}"
             )

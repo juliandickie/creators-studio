@@ -1,30 +1,30 @@
 """Creators Studio — Provider backend abstraction.
 
-This module defines the canonical types and abstract base class that every
-provider backend must implement. It is the contract layer between the skill
-orchestrators and concrete providers (Replicate, Kie.ai, HF Inference
-Providers, Gemini direct, ElevenLabs, ...).
+Defines the canonical types and abstract base class every provider backend
+must implement. This is the contract layer between skill orchestrators and
+concrete providers (Replicate, Kie.ai, HF Inference Providers, Gemini
+direct, ElevenLabs, ...).
 
 See docs/superpowers/specs/2026-04-23-provider-abstraction-design.md.
 
 Runtime dependencies: stdlib only (abc, dataclasses, decimal, pathlib,
 typing). Never import google-genai, requests, replicate, or any pip package.
 
-Type annotations use typing.List / typing.Set / typing.Dict / typing.Optional
-for Python 3.6+ compatibility (plugin's stated minimum).
+Python floor: 3.12+ (v4.2.0). Uses PEP 604 unions, built-in generics,
+and dataclass(slots=True).
 """
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any
 
 
 # ─── Canonical dataclasses ──────────────────────────────────────────────
 
 
-@dataclass
+@dataclass(slots=True)
 class JobRef:
     """Opaque handle to an in-flight async generation job.
 
@@ -34,10 +34,10 @@ class JobRef:
     provider: str
     external_id: str
     poll_url: str
-    raw: Dict[str, Any]
+    raw: dict[str, Any]
 
 
-@dataclass
+@dataclass(slots=True)
 class JobStatus:
     """Canonical job state, unified across provider-specific enums.
 
@@ -54,12 +54,12 @@ class JobStatus:
     with no output.
     """
     state: str
-    output: Optional[Dict[str, Any]]
-    error: Optional[str]
-    raw: Dict[str, Any]
+    output: dict[str, Any] | None
+    error: str | None
+    raw: dict[str, Any]
 
 
-@dataclass
+@dataclass(slots=True)
 class TaskResult:
     """Canonical result returned to orchestrator / caller code.
 
@@ -69,15 +69,15 @@ class TaskResult:
     provider_metadata holds the raw provider response for debugging/audit.
     cost may be None if the backend can't compute it cheaply.
     """
-    output_paths: List[Path]
-    output_urls: List[str]
-    metadata: Dict[str, Any]
-    provider_metadata: Dict[str, Any]
-    cost: Optional[Decimal]
+    output_paths: list[Path]
+    output_urls: list[str]
+    metadata: dict[str, Any]
+    provider_metadata: dict[str, Any]
+    cost: Decimal | None
     task_id: str
 
 
-@dataclass
+@dataclass(slots=True)
 class AuthStatus:
     """Result of a provider's auth_check ping."""
     ok: bool
@@ -89,7 +89,7 @@ class AuthStatus:
 # - Path    : local file
 # - str     : URL ('http://', 'https://') or data URI ('data:')
 # - bytes   : raw image bytes
-CanonicalImage = Union[Path, str, bytes]
+type CanonicalImage = Path | str | bytes
 
 
 # ─── Exception hierarchy ─────────────────────────────────────────────────
@@ -123,11 +123,11 @@ class ProviderBackend(ABC):
     """
 
     # Concrete subclasses override these class-level attributes.
-    name: str = ""                        # e.g., "replicate"
-    supported_tasks: Set[str] = set()     # e.g., {"text-to-image", "image-to-video"}
+    name: str = ""                          # e.g., "replicate"
+    supported_tasks: set[str] = set()       # e.g., {"text-to-image", "image-to-video"}
 
     @abstractmethod
-    def auth_check(self, config: Dict[str, Any]) -> AuthStatus:
+    def auth_check(self, config: dict[str, Any]) -> AuthStatus:
         """Ping the provider's cheapest read endpoint (e.g., /account) to
         verify the API key works. Must not burn billable generation budget.
         """
@@ -138,9 +138,9 @@ class ProviderBackend(ABC):
         *,
         task: str,
         model_slug: str,
-        canonical_params: Dict[str, Any],
-        provider_opts: Dict[str, Any],
-        config: Dict[str, Any],
+        canonical_params: dict[str, Any],
+        provider_opts: dict[str, Any],
+        config: dict[str, Any],
     ) -> JobRef:
         """Translate canonical_params to provider-specific shape, merge
         provider_opts (caller's escape-hatch overrides), POST to the
@@ -154,7 +154,7 @@ class ProviderBackend(ABC):
         """
 
     @abstractmethod
-    def poll(self, job_ref: JobRef, config: Dict[str, Any]) -> JobStatus:
+    def poll(self, job_ref: JobRef, config: dict[str, Any]) -> JobStatus:
         """GET the provider's status endpoint. Returns canonical JobStatus.
 
         Does not block, sleep, or loop. Caller is responsible for polling

@@ -4,10 +4,10 @@ Given the registry, user flags, and user config, resolve which model and
 which provider to use. Two independent resolutions: model first, then
 provider-for-that-model.
 
-Stdlib only. typing.X forms for Python 3.6+ compat.
+Stdlib only. Python 3.12+.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from scripts.registry.registry import Registry
 
@@ -17,13 +17,12 @@ class RoutingError(Exception):
 
 
 def resolve_model(
-    registry,            # type: Registry
+    registry: Registry,
     *,
-    family,              # type: str
-    explicit_model,      # type: Optional[str]
-    config,              # type: Dict[str, Any]
-):
-    # type: (...) -> str
+    family: str,
+    explicit_model: str | None,
+    config: dict[str, Any],
+) -> str:
     """Pick canonical model ID based on flag > config > registry default.
 
     Raises RoutingError if explicit_model names an unknown model, or if no
@@ -32,19 +31,16 @@ def resolve_model(
     if explicit_model is not None:
         if explicit_model not in registry.models:
             raise RoutingError(
-                "unknown model: {!r}. Known models: {}".format(
-                    explicit_model, sorted(registry.models.keys())
-                )
+                f"unknown model: {explicit_model!r}. "
+                f"Known models: {sorted(registry.models.keys())}"
             )
         return explicit_model
 
-    cfg_default = config.get("defaults", {}).get("{}_model".format(family))
+    cfg_default = config.get("defaults", {}).get(f"{family}_model")
     if cfg_default is not None:
         if cfg_default not in registry.models:
             raise RoutingError(
-                "config defaults.{}_model = {!r} but no such model".format(
-                    family, cfg_default
-                )
+                f"config defaults.{family}_model = {cfg_default!r} but no such model"
             )
         return cfg_default
 
@@ -53,19 +49,18 @@ def resolve_model(
         return reg_default
 
     raise RoutingError(
-        "no model could be resolved for family={!r} "
-        "(no explicit, no config default, no registry default)".format(family)
+        f"no model could be resolved for family={family!r} "
+        f"(no explicit, no config default, no registry default)"
     )
 
 
 def resolve_provider(
-    registry,             # type: Registry
+    registry: Registry,
     *,
-    model_id,             # type: str
-    explicit_provider,    # type: Optional[str]
-    config,               # type: Dict[str, Any]
-):
-    # type: (...) -> str
+    model_id: str,
+    explicit_provider: str | None,
+    config: dict[str, Any],
+) -> str:
     """Pick provider for model based on flag > family default > global > first-with-key.
 
     Raises RoutingError if the explicit provider doesn't host the model, or
@@ -73,18 +68,17 @@ def resolve_provider(
     """
     model = registry.get_model(model_id)
     hosts = list(model.providers.keys())  # insertion order = routing fallback order
-    configured_keys = set()
-    for name, info in config.get("providers", {}).items():
-        if isinstance(info, dict) and info.get("api_key"):
-            configured_keys.add(name)
+    configured_keys = {
+        name for name, info in config.get("providers", {}).items()
+        if isinstance(info, dict) and info.get("api_key")
+    }
 
     # 1. Explicit flag wins — but only if provider hosts the model.
     if explicit_provider is not None:
         if explicit_provider not in hosts:
             raise RoutingError(
-                "{} is not available on {}. Available on: {}".format(
-                    model_id, explicit_provider, hosts
-                )
+                f"{model_id} is not available on {explicit_provider}. "
+                f"Available on: {hosts}"
             )
         return explicit_provider
 
@@ -103,10 +97,8 @@ def resolve_provider(
         if provider_name in configured_keys:
             return provider_name
 
+    setup_cmd = "video" if model.family == "video" else "image"
     raise RoutingError(
-        "{} is available on {}, but no API key is configured for any of "
-        "those providers. Run /create-{} setup.".format(
-            model_id, hosts,
-            "video" if model.family == "video" else "image",
-        )
+        f"{model_id} is available on {hosts}, but no API key is configured "
+        f"for any of those providers. Run /create-{setup_cmd} setup."
     )

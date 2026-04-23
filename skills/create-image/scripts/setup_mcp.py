@@ -88,7 +88,7 @@ def remove_mcp() -> None:
 # the user next writes to config (e.g., via /create-video setup), the new
 # schema is persisted. See spec §8.
 
-_V4_2_0_KEYMAP = {
+_V4_2_0_KEYMAP: dict[str, tuple[str, str]] = {
     "replicate_api_token":   ("replicate",  "api_key"),
     "google_api_key":        ("gemini",     "api_key"),
     "elevenlabs_api_key":    ("elevenlabs", "api_key"),
@@ -99,7 +99,7 @@ _V4_2_0_KEYMAP = {
 }
 
 
-def migrate_config_to_v4_2_0(config):
+def migrate_config_to_v4_2_0(config: dict | None) -> dict:
     """Rewrite old flat API-key config into the v4.2.0 providers schema.
 
     Non-auth keys (custom_voices, named_creator_triggers, ...) pass through
@@ -113,7 +113,7 @@ def migrate_config_to_v4_2_0(config):
     if not config:
         return {}
 
-    out = {}
+    out: dict = {}
     # Seed with existing providers block if present.
     existing_providers = config.get("providers") or {}
     if isinstance(existing_providers, dict):

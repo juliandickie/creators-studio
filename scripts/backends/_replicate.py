@@ -970,8 +970,7 @@ def main():
 # into the canonical interface defined in scripts/backends/_base.py.)
 # ═══════════════════════════════════════════════════════════════════════
 
-from decimal import Decimal  # noqa: E402  (module-level import after code is intentional)
-from typing import Any, Dict, Optional  # noqa: E402
+from typing import Any  # noqa: E402
 
 from scripts.backends._base import (  # noqa: E402
     AuthStatus,
@@ -989,7 +988,7 @@ from scripts.backends._base import (  # noqa: E402
 # Canonical task → provider-specific param translator tables.
 # Indexed by task; each entry maps canonical_param_name → provider_field_name.
 # These mappings stay LOCAL to this module — they never leak to orchestrator code.
-_TASK_PARAM_MAPS = {
+_TASK_PARAM_MAPS: dict[str, dict[str, str]] = {
     "text-to-video": {
         "prompt": "prompt",
         "duration_s": "duration",
@@ -1017,21 +1016,25 @@ _TASK_PARAM_MAPS = {
 }
 
 
-def _resolution_to_kling_mode(resolution):
-    # type: (str) -> str
+def _resolution_to_kling_mode(resolution: str) -> str:
     """Kling uses 'mode' (standard=720p, pro=1080p), not an explicit resolution."""
-    if resolution == "720p":
-        return "standard"
-    if resolution == "1080p":
-        return "pro"
-    raise ProviderValidationError(
-        "Kling does not support resolution={!r}".format(resolution)
-    )
+    match resolution:
+        case "720p":
+            return "standard"
+        case "1080p":
+            return "pro"
+        case _:
+            raise ProviderValidationError(
+                f"Kling does not support resolution={resolution!r}"
+            )
 
 
-def _replicate_state_to_canonical(provider_state):
-    # type: (str) -> str
-    """Map Replicate's 6-value enum to canonical 5-state JobStatus.state."""
+def _replicate_state_to_canonical(provider_state: str) -> str:
+    """Map Replicate's 6-value enum to canonical 5-state JobStatus.state.
+
+    Replicate states: starting | processing | succeeded | failed | canceled | aborted
+    Canonical states: pending | running | succeeded | failed | canceled
+    """
     if provider_state in RUNNING_STATUSES:
         return "running"
     if provider_state in TERMINAL_SUCCESS_STATUSES:
@@ -1065,15 +1068,12 @@ class ReplicateBackend(ProviderBackend):
         "vectorize",
     }
 
-    def _api_key(self, config):
-        # type: (Dict[str, Any]) -> str
+    def _api_key(self, config: dict[str, Any]) -> str:
         """Extract the Replicate API token, honoring the v4.2.0 schema
         plus the legacy flat `replicate_api_token` key."""
-        key = None
-        providers_block = config.get("providers") or {}
-        if isinstance(providers_block, dict):
-            rep = providers_block.get("replicate") or {}
-            if isinstance(rep, dict):
+        key: str | None = None
+        if isinstance(providers := config.get("providers"), dict):
+            if isinstance(rep := providers.get("replicate"), dict):
                 key = rep.get("api_key")
         if not key:
             key = config.get("replicate_api_token")
@@ -1085,8 +1085,7 @@ class ReplicateBackend(ProviderBackend):
             )
         return key
 
-    def auth_check(self, config):
-        # type: (Dict[str, Any]) -> AuthStatus
+    def auth_check(self, config: dict[str, Any]) -> AuthStatus:
         try:
             api_key = self._api_key(config)
         except ProviderAuthError as e:
@@ -1095,7 +1094,7 @@ class ReplicateBackend(ProviderBackend):
         req = urllib.request.Request(
             REPLICATE_ACCOUNT_URL,
             headers={
-                "Authorization": "Bearer {}".format(api_key),
+                "Authorization": f"Bearer {api_key}",
                 "User-Agent": REPLICATE_USER_AGENT,
             },
         )
@@ -1105,18 +1104,18 @@ class ReplicateBackend(ProviderBackend):
                 if code == 200:
                     return AuthStatus(
                         ok=True,
-                        message="Authenticated (HTTP {})".format(code),
+                        message=f"Authenticated (HTTP {code})",
                         provider=self.name,
                     )
                 return AuthStatus(
                     ok=False,
-                    message="Unexpected status: HTTP {}".format(code),
+                    message=f"Unexpected status: HTTP {code}",
                     provider=self.name,
                 )
         except urllib.error.HTTPError as e:
             return AuthStatus(
                 ok=False,
-                message="HTTP {}: {}".format(e.code, e.reason),
+                message=f"HTTP {e.code}: {e.reason}",
                 provider=self.name,
             )
         except Exception as e:
@@ -1125,28 +1124,27 @@ class ReplicateBackend(ProviderBackend):
     def submit(
         self,
         *,
-        task,                # type: str
-        model_slug,          # type: str
-        canonical_params,    # type: Dict[str, Any]
-        provider_opts,       # type: Dict[str, Any]
-        config,              # type: Dict[str, Any]
-    ):
-        # type: (...) -> JobRef
+        task: str,
+        model_slug: str,
+        canonical_params: dict[str, Any],
+        provider_opts: dict[str, Any],
+        config: dict[str, Any],
+    ) -> JobRef:
         api_key = self._api_key(config)
 
         if task not in _TASK_PARAM_MAPS:
             raise ProviderValidationError(
-                "Replicate backend does not handle task {!r}. Supported: {}".format(
-                    task, sorted(_TASK_PARAM_MAPS.keys())
-                )
+                f"Replicate backend does not handle task {task!r}. "
+                f"Supported: {sorted(_TASK_PARAM_MAPS.keys())}"
             )
 
         # Translate canonical params to Replicate's input schema.
         param_map = _TASK_PARAM_MAPS[task]
-        input_body = {}  # type: Dict[str, Any]
-        for canon_key, prov_key in param_map.items():
-            if canon_key in canonical_params:
-                input_body[prov_key] = canonical_params[canon_key]
+        input_body: dict[str, Any] = {
+            prov_key: canonical_params[canon_key]
+            for canon_key, prov_key in param_map.items()
+            if canon_key in canonical_params
+        }
 
         # Kling-specific: resolution → mode translation
         if model_slug.startswith("kwaivgi/kling-") and "resolution" in canonical_params:
@@ -1155,31 +1153,29 @@ class ReplicateBackend(ProviderBackend):
         # Merge provider_opts LAST so they can shadow auto-derived fields.
         input_body.update(provider_opts)
 
-        url = REPLICATE_PREDICTIONS_URL_TEMPLATE.format(
-            owner=model_slug.split("/", 1)[0],
-            name=model_slug.split("/", 1)[1],
-        )
+        owner, name = model_slug.split("/", 1)
+        url = REPLICATE_PREDICTIONS_URL_TEMPLATE.format(owner=owner, name=name)
 
         # Use the existing replicate_post helper for HTTP, but wrap its
         # error types in canonical ones.
         try:
             raw = replicate_post(url, {"input": input_body}, token=api_key)
         except ReplicateAuthError as e:
-            raise ProviderAuthError(str(e))
+            raise ProviderAuthError(str(e)) from e
         except ReplicateSubmitError as e:
             # Distinguish auth failures (401/403) by message substring — the
             # legacy helper bundles them all as ReplicateSubmitError.
             msg = str(e)
             if "HTTP 401" in msg or "HTTP 403" in msg:
-                raise ProviderAuthError(msg)
-            raise ProviderHTTPError(msg)
+                raise ProviderAuthError(msg) from e
+            raise ProviderHTTPError(msg) from e
         except ReplicateBackendError as e:
-            raise ProviderHTTPError(str(e))
+            raise ProviderHTTPError(str(e)) from e
 
         try:
             pid, poll_url = parse_replicate_submit_response(raw)
         except ReplicateBackendError as e:
-            raise ProviderHTTPError(str(e))
+            raise ProviderHTTPError(str(e)) from e
 
         return JobRef(
             provider=self.name,
@@ -1188,18 +1184,17 @@ class ReplicateBackend(ProviderBackend):
             raw=raw,
         )
 
-    def poll(self, job_ref, config):
-        # type: (JobRef, Dict[str, Any]) -> JobStatus
+    def poll(self, job_ref: JobRef, config: dict[str, Any]) -> JobStatus:
         api_key = self._api_key(config)
         try:
             raw = replicate_get(job_ref.poll_url, token=api_key)
         except ReplicatePollError as e:
             msg = str(e)
             if "HTTP 401" in msg or "HTTP 403" in msg:
-                raise ProviderAuthError(msg)
-            raise ProviderHTTPError(msg)
+                raise ProviderAuthError(msg) from e
+            raise ProviderHTTPError(msg) from e
         except ReplicateBackendError as e:
-            raise ProviderHTTPError(str(e))
+            raise ProviderHTTPError(str(e)) from e
 
         state = _replicate_state_to_canonical(raw.get("status", ""))
         output = raw.get("output")
@@ -1210,17 +1205,14 @@ class ReplicateBackend(ProviderBackend):
             raw=raw,
         )
 
-    def parse_result(self, job_status, *, download_to):
-        # type: (JobStatus, Path) -> TaskResult
+    def parse_result(self, job_status: JobStatus, *, download_to: Path) -> TaskResult:
         if job_status.state != "succeeded":
             raise ProviderError(
-                "parse_result called on non-succeeded job (state={!r})".format(
-                    job_status.state
-                )
+                f"parse_result called on non-succeeded job (state={job_status.state!r})"
             )
 
         output = job_status.output["output"] if job_status.output else None
-        output_urls = []  # type: list
+        output_urls: list[str] = []
         if isinstance(output, str):
             output_urls = [output]
         elif isinstance(output, list):
@@ -1228,24 +1220,23 @@ class ReplicateBackend(ProviderBackend):
 
         download_to = Path(download_to)
         download_to.parent.mkdir(parents=True, exist_ok=True)
-        output_paths = []  # type: list
+        output_paths: list[Path] = []
         for i, url in enumerate(output_urls):
             dest = download_to if i == 0 else download_to.with_name(
-                "{}_{}{}".format(download_to.stem, i, download_to.suffix)
+                f"{download_to.stem}_{i}{download_to.suffix}"
             )
             req = urllib.request.Request(
                 url, headers={"User-Agent": REPLICATE_USER_AGENT}
             )
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                with open(str(dest), "wb") as f:
-                    f.write(resp.read())
+            with urllib.request.urlopen(req, timeout=120) as resp, open(dest, "wb") as f:
+                f.write(resp.read())
             output_paths.append(dest)
 
         raw = job_status.raw or {}
         metrics = raw.get("metrics", {}) if isinstance(raw, dict) else {}
         duration_s = metrics.get("video_output_duration_seconds")
 
-        metadata = {}  # type: Dict[str, Any]
+        metadata: dict[str, Any] = {}
         if duration_s is not None:
             metadata["duration_s"] = duration_s
 

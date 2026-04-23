@@ -1,94 +1,88 @@
 """Creators Studio — Model registry loader and query API.
 
-Loads the JSON registry at scripts/registry/models.json and exposes a typed
-query API. The registry is the single source of truth for canonical model
-IDs, which providers host each model, capabilities, pricing, and canonical
-constraints.
+Loads scripts/registry/models.json and exposes a typed query API. The
+registry is the single source of truth for canonical model IDs, hosting
+providers, capabilities, pricing, and canonical constraints.
 
-Stdlib only. typing.X forms for Python 3.6+ compat.
+Stdlib only. Python 3.12+.
 """
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class RegistryValidationError(Exception):
     """Registry failed structural validation."""
 
 
-@dataclass
+@dataclass(slots=True)
 class ModelEntry:
     id: str
     display_name: str
     family: str
-    tasks: List[str]
+    tasks: list[str]
     doc: str
-    canonical_constraints: Dict[str, Any]
-    providers: Dict[str, Dict[str, Any]]  # name -> {slug, capabilities, pricing, availability, notes}
+    canonical_constraints: dict[str, Any]
+    providers: dict[str, dict[str, Any]]  # name -> {slug, capabilities, pricing, availability, notes}
 
 
-@dataclass
+@dataclass(slots=True)
 class Registry:
     version: int
-    family_defaults: Dict[str, str]
-    models: Dict[str, ModelEntry]
+    family_defaults: dict[str, str]
+    models: dict[str, ModelEntry]
 
     def get_model(self, model_id: str) -> ModelEntry:
         if model_id not in self.models:
-            raise KeyError("unknown model id: {!r}".format(model_id))
+            raise KeyError(f"unknown model id: {model_id!r}")
         return self.models[model_id]
 
-    def models_by_family(self, family: str) -> List[str]:
+    def models_by_family(self, family: str) -> list[str]:
         return [mid for mid, m in self.models.items() if m.family == family]
 
-    def providers_for_model(self, model_id: str) -> List[str]:
+    def providers_for_model(self, model_id: str) -> list[str]:
         """Provider names in registry insertion order (matters for routing fallback)."""
         return list(self.get_model(model_id).providers.keys())
 
-    def family_default(self, family: str) -> Optional[str]:
+    def family_default(self, family: str) -> str | None:
         return self.family_defaults.get(family)
 
     def validate(self) -> None:
         """Structural validation. Raises RegistryValidationError on problems."""
-        # Every family default must point at an existing model.
+        # Every family default must point at an existing model of matching family.
         for family, model_id in self.family_defaults.items():
             if model_id not in self.models:
                 raise RegistryValidationError(
-                    "family_defaults[{!r}] = {!r} but no such model exists".format(
-                        family, model_id
-                    )
+                    f"family_defaults[{family!r}] = {model_id!r} but no such model exists"
                 )
             if self.models[model_id].family != family:
                 raise RegistryValidationError(
-                    "family_defaults[{!r}] = {!r} but that model's family is {!r}".format(
-                        family, model_id, self.models[model_id].family
-                    )
+                    f"family_defaults[{family!r}] = {model_id!r} but that model's "
+                    f"family is {self.models[model_id].family!r}"
                 )
-        # Every model must have at least one provider.
+        # Every model must have at least one provider with a slug.
         for mid, m in self.models.items():
             if not m.providers:
-                raise RegistryValidationError(
-                    "model {!r} has no providers".format(mid)
-                )
+                raise RegistryValidationError(f"model {mid!r} has no providers")
             for pname, pinfo in m.providers.items():
                 if "slug" not in pinfo:
                     raise RegistryValidationError(
-                        "model {!r} provider {!r} missing 'slug'".format(mid, pname)
+                        f"model {mid!r} provider {pname!r} missing 'slug'"
                     )
 
 
 _DEFAULT_PATH = Path(__file__).parent / "models.json"
 
 
-def load_registry(path: Optional[Path] = None) -> Registry:
+def load_registry(path: Path | None = None) -> Registry:
     """Load the registry JSON and return a typed Registry."""
     p = path or _DEFAULT_PATH
-    with open(str(p), "r", encoding="utf-8") as f:
+    with open(p, "r", encoding="utf-8") as f:
         raw = json.load(f)
 
-    models = {}  # type: Dict[str, ModelEntry]
+    models: dict[str, ModelEntry] = {}
     for mid, m in raw.get("models", {}).items():
         models[mid] = ModelEntry(
             id=mid,
