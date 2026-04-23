@@ -1301,37 +1301,31 @@ def main():
     print(json.dumps(result, indent=2))
 
     # Log cost to ~/.banana/costs.json (v3.8.3+). Shell out to cost_tracker.py
-    # to avoid cross-skill imports. v4.2.1: callers now pass pixel resolution
-    # + --duration-s + --audio-enabled separately for the new pricing modes
-    # (Kling v3/v3-omni: per_second_by_resolution_and_audio). Legacy per-second
-    # models (DreamActor, VEO preview/-001 entries) still accept duration-as-
-    # resolution via the "8s" string form, but the canonical modern path is
-    # explicit --duration-s + pixel resolution.
+    # to avoid cross-skill imports. v4.2.1: cost logging now passes resolution
+    # + --duration-s + --audio-enabled separately for ALL models. _lookup_cost()
+    # dispatches on which fields the model's pricing mode needs; unused fields
+    # are silently ignored. This removes the old Kling-vs-legacy branch split
+    # that was fragile (would miss a future non-Kling 2D-audio model) AND that
+    # previously had a NameError bug — `model` without `args.` prefix — which
+    # the outer try/except swallowed so every Kling cost log silently failed.
+    # TODO(v4.2.x): thread a --no-audio CLI flag through to generate_audio=False.
+    # Currently Kling always uses generate_audio=True (see build_kling_request_body
+    # in scripts/backends/_replicate.py). When that changes, the hardcoded "true"
+    # below needs to honor the actual user setting via args.<flag>.
     try:
         _cost_tracker = str(Path(__file__).resolve().parent.parent.parent / "create-image" / "scripts" / "cost_tracker.py")
         _prompt_summary = (args.prompt or "")[:80]
-        _is_kling = "kling" in (model or "").lower()
-        if _is_kling:
-            # Kling v3 Std uses per_second_by_resolution_and_audio. The plugin
-            # currently builds all Kling requests with generate_audio=True (the
-            # Kling model-card default); no CLI flag exposes an audio-off path
-            # in video_generate.py. See build_kling_request_body() in
-            # scripts/backends/_replicate.py if this ever needs to change.
-            _cost_args = [sys.executable, _cost_tracker, "log",
-                          "--model", model,
-                          "--resolution", args.resolution,
-                          "--duration-s", str(args.duration),
-                          "--audio-enabled", "true",
-                          "--prompt", _prompt_summary]
-        else:
-            # Legacy per_second path (DreamActor, old VEO preview/-001 IDs):
-            # duration flows in as the "resolution" string like "8s".
-            _duration_key = f"{args.duration}s"
-            _cost_args = [sys.executable, _cost_tracker, "log",
-                          "--model", model,
-                          "--resolution", _duration_key,
-                          "--prompt", _prompt_summary]
-        subprocess.run(_cost_args, capture_output=True, timeout=5)
+        subprocess.run(
+            [
+                sys.executable, _cost_tracker, "log",
+                "--model", args.model,
+                "--resolution", args.resolution,
+                "--duration-s", str(args.duration),
+                "--audio-enabled", "true",
+                "--prompt", _prompt_summary,
+            ],
+            capture_output=True, timeout=5, check=False,
+        )
     except Exception:
         pass  # Cost logging is best-effort; never block generation output
 

@@ -38,6 +38,20 @@ class TestCostTrackerPerSecondByResolution(unittest.TestCase):
         )
         self.assertIsNone(cost)
 
+    def test_negative_duration_returns_none(self):
+        cost = cost_tracker._lookup_cost(
+            "veo-3.1-lite", "720p", duration_s=-5,
+        )
+        self.assertIsNone(cost)
+
+    def test_batch_discount_applies(self):
+        # $0.05/s × 8s × BATCH_DISCOUNT (check the multiplier matches the constant)
+        cost = cost_tracker._lookup_cost(
+            "veo-3.1-lite", "720p", duration_s=8, batch=True,
+        )
+        expected = round(0.05 * 8 * cost_tracker.BATCH_DISCOUNT, 4)
+        self.assertEqual(cost, expected)
+
 
 class TestCostTrackerPerSecondByAudio(unittest.TestCase):
     def test_veo_fast_with_audio_8s(self):
@@ -64,6 +78,12 @@ class TestCostTrackerPerSecondByAudio(unittest.TestCase):
     def test_missing_audio_flag_returns_none(self):
         cost = cost_tracker._lookup_cost(
             "veo-3.1-fast", "1080p", duration_s=8,
+        )
+        self.assertIsNone(cost)
+
+    def test_negative_duration_returns_none(self):
+        cost = cost_tracker._lookup_cost(
+            "veo-3.1-fast", "1080p", duration_s=-5, audio_enabled=True,
         )
         self.assertIsNone(cost)
 
@@ -99,6 +119,52 @@ class TestCostTrackerPerSecondByResolutionAndAudio(unittest.TestCase):
             "kling-v3", "1080p", duration_s=8,
         )
         self.assertIsNone(cost)
+
+    def test_negative_duration_returns_none(self):
+        cost = cost_tracker._lookup_cost(
+            "kling-v3", "1080p", duration_s=-5, audio_enabled=True,
+        )
+        self.assertIsNone(cost)
+
+    def test_kling_v3_720p_pro_audio_8s(self):
+        # 720p with audio: $0.252/s × 8s = $2.016
+        cost = cost_tracker._lookup_cost(
+            "kling-v3", "720p", duration_s=8, audio_enabled=True,
+        )
+        self.assertEqual(cost, 2.016)
+
+
+class TestCostLoggingSmoke(unittest.TestCase):
+    """Smoke test for the CLI surface used by video_generate.py callers."""
+
+    def test_cli_log_accepts_new_flags(self):
+        """Minimal check that the log subcommand accepts the v4.2.1 flags
+        without errors. Doesn't verify ledger write — just CLI surface."""
+        import subprocess
+        import tempfile
+        # Point HOME to a temp dir so we don't pollute real ~/.banana
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env = {"HOME": tmpdir, "PATH": "/usr/bin:/bin"}
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(Path(__file__).resolve().parent.parent
+                        / "skills" / "create-image" / "scripts" / "cost_tracker.py"),
+                    "log",
+                    "--model", "kling-v3",
+                    "--resolution", "1080p",
+                    "--duration-s", "8",
+                    "--audio-enabled", "true",
+                    "--prompt", "smoke test",
+                ],
+                capture_output=True,
+                timeout=10,
+                env=env,
+            )
+            # We tolerate non-zero returncodes (e.g., if ledger fs fails)
+            # but the process must NOT crash with "unrecognized arguments".
+            self.assertNotIn(b"unrecognized arguments", result.stderr)
+            self.assertNotIn(b"error: argument", result.stderr)
 
 
 if __name__ == "__main__":

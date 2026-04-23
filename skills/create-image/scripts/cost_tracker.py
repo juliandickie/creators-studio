@@ -248,6 +248,9 @@ def _lookup_cost(model, resolution, *, duration_s=None, audio_enabled=None, batc
         if duration_s is None:
             print(f"Warning: per_second_by_resolution model '{model}' requires --duration-s", file=sys.stderr)
             return None
+        if duration_s is not None and duration_s < 0:
+            print(f"Warning: negative duration_s={duration_s} for {model}", file=sys.stderr)
+            return None
         cost = round(rates[resolution] * float(duration_s), 4)
         if batch:
             cost *= BATCH_DISCOUNT
@@ -262,6 +265,9 @@ def _lookup_cost(model, resolution, *, duration_s=None, audio_enabled=None, batc
             return None
         if duration_s is None:
             print(f"Warning: per_second_by_audio model '{model}' requires --duration-s", file=sys.stderr)
+            return None
+        if duration_s is not None and duration_s < 0:
+            print(f"Warning: negative duration_s={duration_s} for {model}", file=sys.stderr)
             return None
         key = "with_audio" if audio_enabled else "without_audio"
         rate = rates.get(key)
@@ -285,6 +291,9 @@ def _lookup_cost(model, resolution, *, duration_s=None, audio_enabled=None, batc
             return None
         if duration_s is None:
             print(f"Warning: per_second_by_resolution_and_audio model '{model}' requires --duration-s", file=sys.stderr)
+            return None
+        if duration_s is not None and duration_s < 0:
+            print(f"Warning: negative duration_s={duration_s} for {model}", file=sys.stderr)
             return None
         key = "with_audio" if audio_enabled else "without_audio"
         rate = rates[resolution].get(key)
