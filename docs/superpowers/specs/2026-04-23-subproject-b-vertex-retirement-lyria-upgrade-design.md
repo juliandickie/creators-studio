@@ -34,6 +34,11 @@ ElevenLabs Music remains the overall music default per the v3.8.3 verdict. Nothi
 - Delete `skills/create-video/scripts/_vertex_backend.py` (958 lines).
 - Replace the placeholder `references/models/veo-3.1.md` written in v4.2.0 with real content covering all three tiers.
 
+**Bonus scope — Kling pricing correction:**
+- Fix `kling-v3` and `kling-v3-omni` pricing in `models.json` (v4.2.0 registered `$0.02/s` from an outdated source; actual Replicate rates are ~10–17× higher — see §3.1d).
+- Add `per_second_by_resolution_and_audio` as a new pricing mode in `cost_tracker.py`.
+- Queue Kling-vs-VEO default re-evaluation on the roadmap. Correcting the pricing data is a data-honesty fix; any default change requires fresh bake-off evidence and is NOT in B.
+
 **Lyria migration + upgrade:**
 - Register `lyria-2`, `lyria-3`, and `lyria-3-pro` in the model registry.
 - Wire `music-generation` into `ReplicateBackend._TASK_PARAM_MAPS` (the canonical task type listed in the v4.2.0 spec but not yet implemented).
@@ -258,7 +263,7 @@ Kling / Fabric / DreamActor keep using the `{min, max, integer}` shape — no ch
 
 ### 3.1c Pricing mode additions for `cost_tracker.py`
 
-Two new pricing modes join the existing four (`per_call`, `per_clip`, `per_second`, `by_resolution`):
+Three new pricing modes join the existing four (`per_call`, `per_clip`, `per_second`, `by_resolution`):
 
 **`per_second_by_resolution`** — used by VEO 3.1 Lite. Dispatch logic:
 
@@ -277,7 +282,61 @@ def _cost_per_second_by_audio(pricing: dict, audio_enabled: bool, duration_s: fl
     return rate * Decimal(str(duration_s))
 ```
 
-Callers (`video_generate.py` after Replicate success) pass `duration_s` + either `resolution` or `audio_enabled` alongside the log-cost subprocess call, same pattern as existing `per_second` Kling cost logging.
+**`per_second_by_resolution_and_audio`** — used by Kling v3 and Kling v3 Omni. Two-dimensional keying (resolution outer, audio inner). Dispatch logic:
+
+```python
+def _cost_per_second_by_resolution_and_audio(
+    pricing: dict, resolution: str, audio_enabled: bool, duration_s: float,
+) -> Decimal:
+    audio_key = "with_audio" if audio_enabled else "without_audio"
+    rate = Decimal(str(pricing["rates"][resolution][audio_key]))
+    return rate * Decimal(str(duration_s))
+```
+
+Callers (`video_generate.py` after Replicate success) pass `duration_s` + whichever keying fields the mode requires. Same pattern as existing `per_second` Kling cost logging.
+
+### 3.1d Pricing corrections for v4.2.0-seeded entries (Kling v3 + v3 Omni)
+
+**Bonus scope:** sub-project B corrects the Kling v3 pricing in `scripts/registry/models.json`. The v4.2.0 registry seeded Kling v3 with `{"mode": "per_second", "rate": 0.02}` — this figure was carried forward from an outdated `cost_tracker.py` PRICING dict and does not match Replicate's current published rates (per `dev-docs/kwaivgi-kling-v3-video-llms.md`):
+
+| Kling v3 variant | Actual rate |
+|---|---|
+| `standard` (720p), no audio | $0.168/s |
+| `standard-audio` (720p), with audio | $0.252/s |
+| `pro` (1080p), no audio | $0.224/s |
+| `pro-audio` (1080p), with audio | $0.336/s |
+
+**Corrected registry entry:**
+
+```json
+"kling-v3": {
+  "providers": {
+    "replicate": {
+      "pricing": {
+        "mode": "per_second_by_resolution_and_audio",
+        "rates": {
+          "720p":  {"with_audio": 0.252, "without_audio": 0.168},
+          "1080p": {"with_audio": 0.336, "without_audio": 0.224}
+        },
+        "currency": "USD"
+      }
+    }
+  }
+}
+```
+
+`kling-v3-omni` gets the same treatment during Phase 1 — verify exact rates against `dev-docs/kwaivgi-kling-v3-omni-video-llms.md` at implementation time (may differ from v3 Video).
+
+**Cost narrative correction (important):** the corrected pricing inverts the v3.8.0 "Kling is 7.5× cheaper than VEO" claim. At current Replicate rates for an 8-second 1080p clip with audio:
+
+| Model | 8s @ 1080p with audio |
+|---|---|
+| VEO 3.1 Lite (audio always on) | $0.64 |
+| VEO 3.1 Fast (with_audio) | $1.20 |
+| Kling v3 pro-audio | **$2.69** |
+| VEO 3.1 Standard (with_audio) | $3.20 |
+
+VEO Lite is **~4× cheaper** than Kling pro-audio at the same resolution and audio configuration. This doesn't change sub-project B's scope — we correct the pricing data only, not the default. But it IS a new datapoint for a future bake-off re-evaluation of the Kling-as-default decision. Queued in §8 ROADMAP updates.
 
 ### 3.2 Canonical task type: `music-generation`
 
@@ -494,6 +553,17 @@ Ledger entries look like:
 ## 8. Roadmap additions (post-B)
 
 Added to `ROADMAP.md`:
+
+### Kling vs VEO default re-evaluation (queued post-B pricing correction)
+
+**Trigger:** the v4.2.1 pricing correction for Kling v3 changes the cost comparison significantly. The v3.8.0 "Kling wins at 7.5× lower cost" decision was based on a `$0.02/s` figure that turned out to be wrong. At the corrected rate ($0.336/s at pro-audio), **VEO 3.1 Lite is ~4× CHEAPER than Kling at comparable settings** (1080p with audio).
+
+**Scope of re-evaluation:**
+- Re-run the v3.8.0 spike 5 methodology (15 shot types, playback-verified) against VEO 3.1 Lite (previously excluded as "backup only" because it was assumed more expensive — this premise is now false).
+- Quality remains the primary criterion, but cost-per-clip becomes a meaningful tiebreaker when Kling and VEO are quality-close.
+- Possible outcomes: (a) Kling quality still wins decisively → keep Kling default, note VEO Lite as cost-optimized opt-in; (b) VEO Lite quality is within 1-2 shot-types of Kling → consider flipping default to VEO Lite; (c) VEO Lite quality is better → flip default outright.
+
+**Not in B.** Correcting the price data is a data-honesty fix; changing the default is a separate decision that deserves fresh empirical evidence. Queued for the same post-sub-project-C window as the music bake-off, since by that point there will be meaningful load of real user comparisons to ground the decision.
 
 ### Music bake-off (queued post-sub-project-C)
 
