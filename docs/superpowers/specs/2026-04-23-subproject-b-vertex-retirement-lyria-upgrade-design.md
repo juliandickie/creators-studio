@@ -78,15 +78,22 @@ Seven new entries in `scripts/registry/models.json`:
     "tasks": ["text-to-video", "image-to-video"],
     "doc": "references/models/veo-3.1.md",
     "canonical_constraints": {
-      "duration_s": {"min": 4, "max": 8, "integer": true}
+      "duration_s": {"enum": [4, 6, 8]},
+      "aspect_ratio": ["16:9", "9:16"],
+      "resolutions": ["720p", "1080p"],
+      "conditional": "resolution=1080p requires duration_s=8"
     },
     "providers": {
       "replicate": {
         "slug": "google/veo-3.1-lite",
-        "capabilities": ["audio_generation", "reference_image", "last_frame"],
-        "pricing": {"mode": "per_second", "rate": 0.05, "currency": "USD"},
+        "capabilities": ["audio_generation", "last_frame"],
+        "pricing": {
+          "mode": "per_second_by_resolution",
+          "rates": {"720p": 0.05, "1080p": 0.08},
+          "currency": "USD"
+        },
         "availability": "GA",
-        "notes": "Cheapest VEO tier. Per v3.8.0 spike 5, Kling v3 wins 8/15 shot types at 7.5x lower cost; VEO is opt-in backup only."
+        "notes": "Cheapest VEO tier. Audio always on (no without_audio variant). Does NOT support reference images or video extension. 1080p requires exactly 8-second duration. Per v3.8.0 spike 5, Kling v3 wins 8/15 shot types at ~7x lower cost; VEO is opt-in backup only."
       }
     }
   },
@@ -96,15 +103,21 @@ Seven new entries in `scripts/registry/models.json`:
     "tasks": ["text-to-video", "image-to-video"],
     "doc": "references/models/veo-3.1.md",
     "canonical_constraints": {
-      "duration_s": {"min": 4, "max": 8, "integer": true}
+      "duration_s": {"enum": [4, 6, 8]},
+      "aspect_ratio": ["16:9", "9:16"],
+      "resolutions": ["720p", "1080p"]
     },
     "providers": {
       "replicate": {
         "slug": "google/veo-3.1-fast",
-        "capabilities": ["audio_generation", "reference_image", "last_frame"],
-        "pricing": {"mode": "per_second", "rate": 0.10, "currency": "USD"},
+        "capabilities": ["audio_generation", "audio_toggle", "reference_images", "last_frame"],
+        "pricing": {
+          "mode": "per_second_by_audio",
+          "rates": {"with_audio": 0.15, "without_audio": 0.10},
+          "currency": "USD"
+        },
         "availability": "GA",
-        "notes": "Mid-tier VEO. Opt-in backup via --provider replicate --model veo-3.1-fast."
+        "notes": "Mid-tier VEO, optimized for generation speed. Supports up to 3 reference images and frame-to-frame generation. Opt-in backup via --provider replicate --model veo-3.1-fast."
       }
     }
   },
@@ -114,15 +127,21 @@ Seven new entries in `scripts/registry/models.json`:
     "tasks": ["text-to-video", "image-to-video"],
     "doc": "references/models/veo-3.1.md",
     "canonical_constraints": {
-      "duration_s": {"min": 4, "max": 8, "integer": true}
+      "duration_s": {"enum": [4, 6, 8]},
+      "aspect_ratio": ["16:9", "9:16"],
+      "resolutions": ["720p", "1080p", "4K"]
     },
     "providers": {
       "replicate": {
         "slug": "google/veo-3.1",
-        "capabilities": ["audio_generation", "reference_image", "last_frame", "higher_fidelity"],
-        "pricing": {"mode": "per_second", "rate": 0.15, "currency": "USD"},
+        "capabilities": ["audio_generation", "audio_toggle", "reference_images", "last_frame", "video_extension", "4k_output", "higher_fidelity"],
+        "pricing": {
+          "mode": "per_second_by_audio",
+          "rates": {"with_audio": 0.40, "without_audio": 0.20},
+          "currency": "USD"
+        },
         "availability": "GA",
-        "notes": "Highest-fidelity VEO tier. Opt-in backup only."
+        "notes": "Highest-fidelity VEO tier. Only tier supporting 4K output and video extension. Up to 3 reference images. Most expensive in the roster at $0.40/s with audio — use Kling v3 for cost-sensitive workflows."
       }
     }
   },
@@ -212,6 +231,53 @@ And the `family_defaults` block updates:
   }
 }
 ```
+
+### 3.1b Canonical schema extensions
+
+Two small additions to `_canonical.py::validate_canonical_params()` to support the VEO constraint shapes:
+
+**`duration_s: {enum: [...]}`** — alternative to the existing `{min, max, integer}` shape. Matches VEO's "only 4, 6, or 8 seconds accepted." Implementation:
+
+```python
+c = constraints.get("duration_s")
+if c is not None and "duration_s" in params:
+    v = params["duration_s"]
+    if "enum" in c:
+        if v not in c["enum"]:
+            raise CanonicalValidationError(
+                f"duration_s={v} not in allowed values {c['enum']}"
+            )
+    else:
+        # existing min/max/integer path
+        ...
+```
+
+Kling / Fabric / DreamActor keep using the `{min, max, integer}` shape — no change.
+
+**Conditional constraints note.** VEO 3.1 Lite has a cross-field rule: `resolution=1080p` requires `duration_s=8`. This is NOT enforced by the canonical layer (which validates fields independently). Instead, `ReplicateBackend` submits the request and trusts Replicate to reject invalid combinations with a clear 400. The registry's `canonical_constraints.conditional` field documents the rule for human readers but isn't machine-enforced in B. If user error rates are high, a follow-up release can add a cross-field validator.
+
+### 3.1c Pricing mode additions for `cost_tracker.py`
+
+Two new pricing modes join the existing four (`per_call`, `per_clip`, `per_second`, `by_resolution`):
+
+**`per_second_by_resolution`** — used by VEO 3.1 Lite. Dispatch logic:
+
+```python
+def _cost_per_second_by_resolution(pricing: dict, resolution: str, duration_s: float) -> Decimal:
+    rate = Decimal(str(pricing["rates"][resolution]))
+    return rate * Decimal(str(duration_s))
+```
+
+**`per_second_by_audio`** — used by VEO 3.1 Fast and VEO 3.1 Standard. Dispatch logic:
+
+```python
+def _cost_per_second_by_audio(pricing: dict, audio_enabled: bool, duration_s: float) -> Decimal:
+    key = "with_audio" if audio_enabled else "without_audio"
+    rate = Decimal(str(pricing["rates"][key]))
+    return rate * Decimal(str(duration_s))
+```
+
+Callers (`video_generate.py` after Replicate success) pass `duration_s` + either `resolution` or `audio_enabled` alongside the log-cost subprocess call, same pattern as existing `per_second` Kling cost logging.
 
 ### 3.2 Canonical task type: `music-generation`
 
@@ -481,10 +547,11 @@ The writing-plans skill will produce a detailed task-by-task breakdown. High-lev
 
 ## 10. Open questions and known unknowns
 
-- **VEO pricing per tier.** Replicate documents `google/veo-3.1-lite/fast/standard` with `per_second` pricing but exact rates per tier need to be verified against the live Replicate model pages at implementation time. Placeholders in §3.1 are best-guess (0.05/0.10/0.15) — pin exact rates during Phase 1.
-- **Lyria 3 `reference_images` capability in canonical schema.** The existing `_base.py` doesn't define `reference_images` as a canonical param for `music-generation` specifically. Plan needs to decide whether to extend the canonical schema or route `reference_images` through `provider_opts`.
+- **Lyria 3 `reference_images` capability in canonical schema.** The existing `_base.py` doesn't define `reference_images` as a canonical param for `music-generation`. Plan needs to decide whether to extend the canonical schema or route `reference_images` through `provider_opts`. Lyria 3 / Pro accept up to 10 images; Lyria 2 doesn't support them.
 - **Lyria 3 Pro duration control.** The model card says duration is "influenced by prompting" (not strictly controlled). Our canonical `duration_max_s: 180` is aspirational. If users need precise length, the bake-off will surface this.
 - **Replicate Lyria `negative_prompt` behavior at different prompt lengths.** Lyria 2 accepts it, Lyria 3 / Pro don't. The orchestrator warning is sufficient for the default case, but an unknown is whether Lyria 3 silently incorporates negative-prompt text into the audio (hallucinating it as a topic) vs ignoring it. Plan verifies empirically.
+- **ElevenLabs Music variant generation.** The ElevenLabs web app offers generating 1-4 variants from a single prompt in one call. API support is not confirmed in the public docs. When ElevenLabs is eventually refactored into `_elevenlabs.py` (future sub-project), investigate whether the API exposes this feature. If yes, register it as a canonical `count` parameter on the `music-generation` task. Not blocking for B.
+- **VEO conditional constraint enforcement.** VEO 3.1 Lite's `1080p requires duration_s=8` rule is documented in the registry `canonical_constraints.conditional` field but not machine-enforced in B. Relying on Replicate's server-side rejection. If error rates are high post-launch, a future release adds a cross-field validator to `_canonical.py`.
 
 ## 11. Success criteria
 
