@@ -35,9 +35,10 @@ ElevenLabs Music remains the overall music default per the v3.8.3 verdict. Nothi
 - Replace the placeholder `references/models/veo-3.1.md` written in v4.2.0 with real content covering all three tiers.
 
 **Bonus scope — Kling pricing correction:**
-- Fix `kling-v3` and `kling-v3-omni` pricing in `models.json` (v4.2.0 registered `$0.02/s` from an outdated source; actual Replicate rates are ~10–17× higher — see §3.1d).
+- Fix `kling-v3` and `kling-v3-omni` pricing in `models.json` (v4.2.0 registered `$0.02/s` from an outdated source; actual Replicate rates are ~10–17× higher — see §3.1d). Kling v3 Omni has slightly different rates from v3 Video, both using the same new pricing mode.
 - Add `per_second_by_resolution_and_audio` as a new pricing mode in `cost_tracker.py`.
 - Queue Kling-vs-VEO default re-evaluation on the roadmap. Correcting the pricing data is a data-honesty fix; any default change requires fresh bake-off evidence and is NOT in B.
+- Queue Kling 3.0 motion-control as a future registration candidate (different task shape than existing image-to-video — out of scope for B).
 
 **Lyria migration + upgrade:**
 - Register `lyria-2`, `lyria-3`, and `lyria-3-pro` in the model registry.
@@ -325,7 +326,33 @@ Callers (`video_generate.py` after Replicate success) pass `duration_s` + whiche
 }
 ```
 
-`kling-v3-omni` gets the same treatment during Phase 1 — verify exact rates against `dev-docs/kwaivgi-kling-v3-omni-video-llms.md` at implementation time (may differ from v3 Video).
+**Kling v3 Omni corrected pricing** (from `dev-docs/kwaivgi-kling-v3-omni-video-llms.md`):
+
+| Kling v3 Omni variant | Actual rate |
+|---|---|
+| `standard` (720p), no audio | $0.168/s |
+| `standard-audio` (720p), with audio | $0.224/s |
+| `pro` (1080p), no audio | $0.224/s |
+| `pro-audio` (1080p), with audio | $0.28/s |
+
+Same `per_second_by_resolution_and_audio` pricing mode as v3 Video, but different rates. Omni is slightly cheaper on audio-enabled generations than v3 Video ($0.224 vs $0.252 at standard-audio, $0.28 vs $0.336 at pro-audio).
+
+```json
+"kling-v3-omni": {
+  "providers": {
+    "replicate": {
+      "pricing": {
+        "mode": "per_second_by_resolution_and_audio",
+        "rates": {
+          "720p":  {"with_audio": 0.224, "without_audio": 0.168},
+          "1080p": {"with_audio": 0.28,  "without_audio": 0.224}
+        },
+        "currency": "USD"
+      }
+    }
+  }
+}
+```
 
 **Cost narrative correction (important):** the corrected pricing inverts the v3.8.0 "Kling is 7.5× cheaper than VEO" claim. At current Replicate rates for an 8-second 1080p clip with audio:
 
@@ -394,11 +421,21 @@ def resolve_lyria_version(prompt: str, explicit_version: str | None) -> str:
     return "lyria-3"
 ```
 
-**Cost visibility:** when auto-routing resolves to `lyria-3-pro`, log one line:
+**Cost safety — hard gate via `--confirm-upgrade`:** when auto-detection would route to `lyria-3-pro` (2× the cost of Lyria 3 Clip), the plugin ABORTS with a clear error unless the user explicitly confirms. This prevents silent cost surprises.
+
+Flow:
 
 ```
-[audio] Detected song structure in prompt; routing to Lyria 3 Pro ($0.08/file vs Lyria 3 Clip $0.04). Pass --lyria-version 3 to force the cheaper variant.
+$ audio_pipeline.py music --source lyria --prompt "[Verse 1] walking home tonight..."
+ERROR: Detected song structure in prompt — full-song generation requires Lyria 3 Pro ($0.08/file vs Lyria 3 Clip $0.04/file).
+  To proceed with Lyria 3 Pro, add --confirm-upgrade.
+  To force Lyria 3 Clip (may produce lower quality for structured prompts), add --lyria-version 3.
+  To explicitly pick Pro without auto-detect, add --lyria-version 3-pro (equivalent to --confirm-upgrade for this prompt).
 ```
+
+`--confirm-upgrade` is a boolean flag that suppresses this gate. Scope: Lyria auto-routing only (for now). Generalizes later if other auto-routing surfaces emerge. Explicit `--lyria-version 3-pro` is equivalent — both paths produce the same Lyria 3 Pro call.
+
+Users who don't want the gate in their automation: always pass `--lyria-version` explicitly, so auto-detection never triggers. Batch/script workflows thus get deterministic behavior without surprise prompts.
 
 ### 3.4 `audio_pipeline.py` refactor — what changes
 
@@ -553,6 +590,16 @@ Ledger entries look like:
 ## 8. Roadmap additions (post-B)
 
 Added to `ROADMAP.md`:
+
+### Register Kling 3.0 motion-control (queued as candidate future addition)
+
+**What it is:** `kwaivgi/kling-v3-motion-control` — a separate Kling v3 model that transfers motion from a reference video onto a character from a reference image. Output: video where the reference-image character performs the reference-video's motion. Pricing: $0.07/s (std/720p) or $0.12/s (pro/1080p) — cheaper than Kling v3 Video/Omni at the same resolutions because there's no base generation, just motion transfer.
+
+**Why not in B:** it introduces a new canonical task shape (motion transfer — input: one image + one video + optional prompt → output: one video). Neither the existing `image-to-video` nor any other canonical task cleanly fits this. Adding it means extending the canonical schema and adding a CLI surface — meaningful scope that belongs in its own mini-release.
+
+**Positioning:** fills a different niche than DreamActor M2.0. DreamActor also does motion transfer but works at lower resolution (694×1242) and higher cost ($0.05/s flat). Kling motion-control operates at 1080p and pro/std keying matches the rest of the Kling family, giving users a faster / higher-res alternative for the same workflow.
+
+**Queued for:** v4.3.x or later — likely after sub-project C ships and adds new canonical capabilities that may pave the way for motion-transfer abstractions.
 
 ### Kling vs VEO default re-evaluation (queued post-B pricing correction)
 
