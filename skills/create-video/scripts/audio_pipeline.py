@@ -558,160 +558,223 @@ def generate_music(prompt: str, api_key: str | None = None, source: str = DEFAUL
 
 
 def generate_music_lyria(prompt: str, negative_prompt: str | None = None,
+                         lyria_version: str | None = None,
+                         confirm_upgrade: bool = False,
                          output_path: Path | None = None,
                          keep_wav: bool = True,
                          mp3_bitrate: str = "256k",
-                         allow_creators: bool = False) -> dict:
-    """Call Google Vertex AI Lyria 2 (lyria-002) for a 32.768s instrumental clip.
+                         allow_creators: bool = False,
+                         **kwargs) -> dict:
+    """Generate a single Lyria music clip via Replicate (v4.2.1+).
 
-    Uses bound-to-service-account API-key auth via the existing vertex_api_key
-    in ~/.banana/config.json. The same auth path the rest of the plugin uses
-    for VEO video generation. No OAuth or service account JSON required.
+    Resolves which Lyria variant to use (2 / 3 / 3-pro) via
+    resolve_lyria_version(), then submits through ReplicateBackend.
 
-    Lyria 2 has a fixed 32.768-second clip length — there is no duration
-    parameter. The output is high-fidelity 48kHz stereo PCM WAV.
+    Variant cost + duration (2026-04-23):
+      - lyria-2      $0.06/call  30s (fixed)   negative_prompt + seed
+      - lyria-3      $0.04/call  30s (fixed)   reference_images, vocals
+      - lyria-3-pro  $0.08/call  up to 180s    reference_images + lyrics + timestamps
 
-    v3.7.2 dual-output: this function preserves BOTH the lossless WAV source
-    AND a 256 kbps MP3 transcoded copy. The WAV is the canonical master for
-    downstream editing (layering, EQ, mastering); the MP3 is for preview,
-    sharing, and the audio pipeline mix stage. Storage cost is ~6.3 MB per
-    WAV vs ~1 MB per MP3 — both are kept by default since the MP3 alone
-    discards the lossless source which can't be recovered.
+    Routing precedence (see resolve_lyria_version):
+      1. Explicit lyria_version parameter.
+      2. negative_prompt set → lyria-2 (only variant that accepts it).
+      3. Prompt contains song-structure tags → lyria-3-pro, gated by
+         confirm_upgrade.
+      4. Default → lyria-3 (Clip).
 
-    Pass keep_wav=False to skip the WAV file (output_path will be MP3 only).
-    Pass mp3_bitrate="192k" or other libmp3lame bitrate to override the default
-    256k MP3 quality (192k matches v3.7.1 ElevenLabs convention; 256k is the
-    new v3.7.2 default for more transparent preview quality).
+    Output format: Replicate returns MP3 directly. Unlike the retired Vertex
+    path, the lossless WAV master is not exposed — keep_wav=True triggers a
+    local WAV transcode from the downloaded MP3 (lossy source, but keeps
+    downstream edit tools happy). Pass keep_wav=False to skip the extra file.
 
-    Lyria supports negative_prompt for explicit exclusions ("vocals, dissonance,
-    harsh percussion") — use this generously since Lyria honors it cleanly.
+    **kwargs swallow legacy arguments (e.g., 'project', 'location') for
+    backward compat during the v4.2.1 transition. They are ignored —
+    Replicate doesn't need Vertex project/location.
 
-    Cost: $0.06 per call (10 RPM rate limit per Google docs).
+    Cost: see table above; logged via cost_tracker.py on success.
 
     Empirically validated in spike 4 of the strategic reset session — Lyria 2
     won the 5-way bake-off against ElevenLabs, Stable Audio 2.5, MiniMax 1.5,
-    and Meta MusicGen.
+    and Meta MusicGen. v3.8.3 flipped the default to ElevenLabs after a
+    12-genre bake-off (ElevenLabs 12-0 sweep), but Lyria remains the choice
+    when negative_prompt exclusion or full-song lyric structure is required.
     """
-    config = _load_config()
-    api_key = config.get("vertex_api_key")
-    project = config.get("vertex_project_id")
-    location = config.get("vertex_location", "us-central1")
-
-    if not (api_key and project and location):
-        _error_exit(
-            "Lyria requires vertex_api_key, vertex_project_id, and vertex_location "
-            "in ~/.banana/config.json. These are the same credentials used for VEO. "
-            "See video/references/veo-models.md → Backend Availability for setup."
+    if kwargs:
+        _logger.debug(
+            "generate_music_lyria: ignoring legacy kwargs %s (Vertex context)",
+            list(kwargs.keys()),
         )
 
-    if output_path is None:
-        DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        ts = time.strftime("%Y%m%d_%H%M%S")
-        output_path = DEFAULT_OUTPUT_DIR / f"music_lyria_{ts}.mp3"
-    output_path = Path(output_path)
-
     # v3.7.4: pre-flight strip of known named-creator triggers. Both Lyria and
-    # ElevenLabs Music reject these server-side, but Lyria's error message is
-    # generic ("content policy") while ElevenLabs's is actionable. Strip here
-    # so Lyria gets a clean prompt and so BOTH providers behave consistently.
+    # ElevenLabs Music reject these server-side. Strip here so Lyria gets a
+    # clean prompt and so BOTH providers behave consistently.
     removed_terms: list[str] = []
     if not allow_creators:
         prompt, removed_terms = strip_named_creators(prompt)
         if negative_prompt:
             negative_prompt, _ = strip_named_creators(negative_prompt)
 
-    # Construct Vertex AI Lyria endpoint URL
-    endpoint = (
-        f"https://{location}-aiplatform.googleapis.com/v1/projects/{project}/"
-        f"locations/{location}/publishers/google/models/{LYRIA_MODEL_ID}:predict"
+    # Pick the right Lyria variant (2 / 3 / 3-pro). May raise
+    # LyriaUpgradeGateError when lyrics detected and confirm_upgrade=False.
+    model_id = resolve_lyria_version(
+        prompt,
+        explicit_version=lyria_version,
+        confirm_upgrade=confirm_upgrade,
+        has_negative_prompt=(negative_prompt is not None),
     )
-    url_with_key = f"{endpoint}?key={api_key}"
 
-    instance: dict = {"prompt": prompt}
-    if negative_prompt:
-        instance["negative_prompt"] = negative_prompt
+    if output_path is None:
+        DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        output_path = DEFAULT_OUTPUT_DIR / f"music_{model_id}_{ts}.mp3"
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    body = json.dumps({
-        "instances": [instance],
-        "parameters": {},
-    }).encode()
+    # Registry lookup for the model's Replicate slug.
+    registry = _reg.load_registry()
+    model = registry.get_model(model_id)
+    if "replicate" not in model.providers:
+        _error_exit(
+            f"Model {model_id!r} has no Replicate provider registered. "
+            f"Check scripts/registry/models.json."
+        )
+    slug = model.providers["replicate"]["slug"]
+
+    # Build canonical params — the ReplicateBackend filters out ones the
+    # specific Lyria variant doesn't support (Lyria 3 / 3 Pro drop
+    # negative_prompt + seed; Lyria 2 drops reference_images).
+    canonical_params: dict = {"prompt": prompt}
+    if negative_prompt is not None:
+        canonical_params["negative_prompt"] = negative_prompt
+
+    # Config for credential loading via the backend.
+    config = _load_config()
+    backend = _ReplicateBackend()
 
     t0 = time.time()
-    req = urllib.request.Request(
-        url_with_key,
-        data=body,
-        headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            data = json.loads(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        _error_exit(f"Lyria gen failed: {_http_error_message(e)}")
-    except Exception as e:
-        _error_exit(f"Lyria gen failed: {type(e).__name__}: {e}")
+        job_ref = backend.submit(
+            task="music-generation",
+            model_slug=slug,
+            canonical_params=canonical_params,
+            provider_opts={},
+            config=config,
+        )
+    except _ProviderAuthError as e:
+        _error_exit(
+            f"Replicate auth failed for Lyria: {e}. Configure the Replicate "
+            f"API key via setup_mcp.py or providers.replicate.api_key in "
+            f"~/.banana/config.json."
+        )
+    except _ProviderError as e:
+        _error_exit(f"Lyria submit via Replicate failed: {e}")
 
-    predictions = data.get("predictions", [])
-    if not predictions:
-        _error_exit(f"Lyria returned no predictions. Response keys: {list(data.keys())}")
+    # Poll until terminal state. Replicate's Lyria jobs typically finish in
+    # 30-90 s; the 5 s interval keeps the request rate reasonable.
+    poll_interval_s = 5.0
+    max_wait_s = 300.0
+    elapsed = 0.0
 
-    pred = predictions[0]
-    audio_b64 = pred.get("audioContent") or pred.get("bytesBase64Encoded")
-    if not audio_b64:
-        _error_exit(f"Lyria prediction missing audioContent. Keys: {list(pred.keys())}")
-    wav_bytes = base64.b64decode(audio_b64)
+    status = None
+    while True:
+        try:
+            status = backend.poll(job_ref, config)
+        except _ProviderError as e:
+            _error_exit(f"Lyria poll failed: {e}")
+        if status.state == "succeeded":
+            break
+        if status.state in ("failed", "canceled"):
+            _error_exit(
+                f"Lyria generation {status.state}: "
+                f"{status.error or '(no error detail)'}"
+            )
+        if elapsed >= max_wait_s:
+            _error_exit(
+                f"Lyria generation timed out after {max_wait_s:.0f}s. "
+                f"Prediction ID: {job_ref.external_id}"
+            )
+        time.sleep(poll_interval_s)
+        elapsed += poll_interval_s
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    _check_ffmpeg()
+    # Download the generated MP3 to the requested output path.
+    try:
+        result = backend.parse_result(status, download_to=output_path)
+    except _ProviderError as e:
+        _error_exit(f"Lyria download failed: {e}")
 
-    # v3.7.2 dual output: write the lossless WAV source first, then transcode
-    # to MP3. Both files share the same basename so they're paired on disk.
-    wav_path = output_path.with_suffix(".wav") if keep_wav else None
-    if keep_wav:
-        with open(wav_path, "wb") as f:
-            f.write(wav_bytes)
+    mp3_path = result.output_paths[0] if result.output_paths else output_path
+    mp3_size = mp3_path.stat().st_size if mp3_path.exists() else 0
 
-    # Transcode WAV → MP3. Read from the WAV file on disk (if kept) for
-    # cleaner ffmpeg behavior on unusual WAV headers; fall back to stdin pipe
-    # if WAV wasn't saved.
-    if keep_wav:
-        ffmpeg_input = ["-i", str(wav_path)]
-        ffmpeg_stdin = None
-    else:
-        ffmpeg_input = ["-f", "wav", "-i", "pipe:0"]
-        ffmpeg_stdin = wav_bytes
+    # Optional WAV transcode. Replicate delivers MP3; we generate a WAV copy
+    # locally for downstream tools that prefer lossless intermediates. The
+    # transcode is best-effort — if ffmpeg isn't available, we continue with
+    # MP3-only output.
+    wav_path: Path | None = None
+    if keep_wav and mp3_path.exists():
+        wav_path = mp3_path.with_suffix(".wav")
+        try:
+            _check_ffmpeg()
+            proc = subprocess.run(
+                ["ffmpeg", "-y", "-i", str(mp3_path),
+                 "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
+                 str(wav_path)],
+                capture_output=True,
+            )
+            if proc.returncode != 0:
+                _logger.warning(
+                    "WAV transcode failed (ffmpeg rc=%d); MP3-only output",
+                    proc.returncode,
+                )
+                wav_path = None
+        except SystemExit:
+            # _check_ffmpeg calls _error_exit on missing ffmpeg. We catch to
+            # keep the WAV step optional — MP3 is already written.
+            wav_path = None
 
-    proc = subprocess.run(
-        ["ffmpeg", "-y", *ffmpeg_input,
-         "-c:a", "libmp3lame", "-b:a", mp3_bitrate, str(output_path)],
-        input=ffmpeg_stdin,
-        capture_output=True,
-    )
-    if proc.returncode != 0:
-        # Fall back to writing only the WAV if transcoding fails
-        if not keep_wav:
-            wav_path = output_path.with_suffix(".wav")
-            with open(wav_path, "wb") as f:
-                f.write(wav_bytes)
-        # Return WAV path as the primary output
-        output_path = wav_path
+    # Cost tracking: per_call pricing (mode registered in registry).
+    # Log cost best-effort — never block the successful generation.
+    try:
+        _log_cost_replicate(model_id, mp3_path)
+    except Exception:
+        pass
 
     return {
-        "mp3_path": str(output_path) if output_path.suffix == ".mp3" else None,
+        "mp3_path": str(mp3_path),
         "wav_path": str(wav_path) if wav_path else None,
-        "path": str(output_path),  # back-compat: primary output for downstream callers
-        "mp3_bytes": output_path.stat().st_size if output_path.suffix == ".mp3" else None,
-        "wav_bytes": len(wav_bytes),
-        "mp3_bitrate": mp3_bitrate if output_path.suffix == ".mp3" else None,
+        "path": str(mp3_path),  # back-compat: primary output for downstream callers
+        "mp3_bytes": mp3_size,
+        "wav_bytes": wav_path.stat().st_size if wav_path and wav_path.exists() else None,
+        "mp3_bitrate": None,  # Replicate-delivered MP3; bitrate not re-encoded
         "source": "lyria",
-        "model_id": LYRIA_MODEL_ID,
-        "duration_seconds": LYRIA_FIXED_DURATION_SEC,
+        "model_id": model_id,
+        "provider": "replicate",
+        "replicate_id": job_ref.external_id,
+        "replicate_output_urls": result.output_urls,
+        "duration_seconds": result.metadata.get("duration_s"),
         "elapsed_seconds": round(time.time() - t0, 2),
-        "stripped_terms": removed_terms,  # v3.7.4: empty if no triggers matched
+        "stripped_terms": removed_terms,
     }
+
+
+def _log_cost_replicate(model_id: str, output_path: Path) -> None:
+    """Best-effort cost-tracker logging for a successful Lyria Replicate call.
+
+    Shells out to cost_tracker.py log with --resolution N/A (per_call pricing
+    mode ignores resolution). Non-fatal on any error — never block on logging.
+    """
+    try:
+        script = Path(__file__).resolve().parent.parent.parent.parent / \
+            "skills" / "create-image" / "scripts" / "cost_tracker.py"
+        if not script.exists():
+            return
+        subprocess.run(
+            [sys.executable, str(script), "log",
+             "--model", model_id, "--resolution", "N/A",
+             "--path", str(output_path)],
+            capture_output=True, timeout=5,
+        )
+    except Exception:
+        pass  # intentionally swallowed — cost logging never blocks output
 
 
 def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
