@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "family_defaults": {
+    "image": "nano-banana-2",
+    "video": "kling-v3"
+  },
+  "models": {
+    "kling-v3": {
+      "display_name": "Kling Video 3.0",
+      "family": "video",
+      "tasks": ["text-to-video", "image-to-video"],
+      "doc": "references/models/kling-v3.md",
+      "canonical_constraints": {
+        "aspect_ratio": ["16:9", "9:16", "1:1"],
+        "duration_s": {"min": 3, "max": 15, "integer": true},
+        "resolutions": ["720p", "1080p"],
+        "prompt_max_chars": 2500
+      },
+      "providers": {
+        "replicate": {
+          "slug": "kwaivgi/kling-v3-video",
+          "capabilities": ["audio_generation", "multi_prompt", "start_image", "end_image", "negative_prompt"],
+          "pricing": {"mode": "per_second", "rate": 0.02, "currency": "USD"},
+          "availability": "GA",
+          "notes": "aspect_ratio ignored when start_image provided; sum of multi_prompt durations must equal top-level duration"
+        }
+      }
+    },
+    "kling-v3-omni": {
+      "display_name": "Kling Video 3.0 Omni",
+      "family": "video",
+      "tasks": ["text-to-video", "image-to-video", "video-edit"],
+      "doc": "references/models/kling-v3-omni.md",
+      "canonical_constraints": {
+        "aspect_ratio": ["16:9", "9:16", "1:1"],
+        "duration_s": {"min": 3, "max": 15, "integer": true},
+        "resolutions": ["720p", "1080p"],
+        "prompt_max_chars": 2500
+      },
+      "providers": {
+        "replicate": {
+          "slug": "kwaivgi/kling-v3-omni-video",
+          "capabilities": ["audio_generation", "multi_prompt", "start_image", "end_image", "negative_prompt", "reference_images", "video_editing"],
+          "pricing": {"mode": "per_second", "rate": 0.02, "currency": "USD"},
+          "availability": "GA",
+          "notes": "Supports reference_images array for multimodal conditioning"
+        }
+      }
+    },
+    "fabric-1.0": {
+      "display_name": "VEED Fabric 1.0",
+      "family": "video",
+      "tasks": ["lipsync"],
+      "doc": "references/models/fabric-1.0.md",
+      "canonical_constraints": {
+        "resolutions": ["480p", "720p"],
+        "duration_s": {"min": 1, "max": 60}
+      },
+      "providers": {
+        "replicate": {
+          "slug": "veed/fabric-1.0",
+          "capabilities": ["audio_driven_lipsync"],
+          "pricing": {"mode": "per_second", "rate": 0.15, "currency": "USD"},
+          "availability": "GA",
+          "notes": "Cost is per second of output duration (driven by audio length). No prompt parameter. Mouth region only."
+        }
+      }
+    },
+    "dreamactor-m2.0": {
+      "display_name": "ByteDance DreamActor M2.0",
+      "family": "video",
+      "tasks": ["image-to-video"],
+      "doc": "references/models/dreamactor-m2.0.md",
+      "canonical_constraints": {
+        "duration_s": {"min": 1, "max": 30}
+      },
+      "providers": {
+        "replicate": {
+          "slug": "bytedance/dreamactor-m2.0",
+          "capabilities": ["motion_transfer", "character_animation"],
+          "pricing": {"mode": "per_second", "rate": 0.05, "currency": "USD"},
+          "availability": "GA",
+          "notes": "Requires driving video input. Preserves character identity from start_image at lower res than Kling."
+        }
+      }
+    },
+    "recraft-vectorize": {
+      "display_name": "Recraft Vectorize",
+      "family": "image",
+      "tasks": ["vectorize"],
+      "doc": "references/models/recraft-vectorize.md",
+      "canonical_constraints": {
+        "max_input_bytes": 5242880,
+        "max_input_pixels": 16777216,
+        "input_dim_range": {"min_px": 256, "max_px": 4096}
+      },
+      "providers": {
+        "replicate": {
+          "slug": "recraft-ai/recraft-vectorize",
+          "capabilities": ["raster_to_svg"],
+          "pricing": {"mode": "per_call", "rate": 0.01, "currency": "USD"},
+          "availability": "GA",
+          "notes": "Flat fee regardless of input dimensions within constraints"
+        }
+      }
+    },
+    "nano-banana-2": {
+      "display_name": "Google Nano Banana 2 (Gemini 3.1 Flash Image)",
+      "family": "image",
+      "tasks": ["text-to-image", "image-to-image"],
+      "doc": "references/models/nano-banana-2.md",
+      "canonical_constraints": {
+        "aspect_ratio": ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9", "1:4", "4:1", "1:8", "8:1"],
+        "resolutions": ["512", "1K", "2K", "4K"]
+      },
+      "providers": {
+        "gemini-direct": {
+          "slug": "gemini-3.1-flash-image-preview",
+          "capabilities": ["text_to_image", "image_editing", "reference_images", "multilingual"],
+          "pricing": {"mode": "by_resolution", "rates": {"512": 0.0005, "1K": 0.002, "2K": 0.008, "4K": 0.032}, "currency": "USD"},
+          "availability": "GA",
+          "notes": "Primary backend; uses API key from providers.gemini.api_key"
+        },
+        "replicate": {
+          "slug": "google/nano-banana-2",
+          "capabilities": ["text_to_image", "image_editing"],
+          "pricing": {"mode": "by_resolution", "rates": {"1K": 0.003}, "currency": "USD"},
+          "availability": "GA",
+          "notes": "Fallback path when Gemini direct or MCP unavailable"
+        }
+      }
+    }
+  }
+}
