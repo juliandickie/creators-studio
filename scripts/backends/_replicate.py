@@ -1013,7 +1013,39 @@ _TASK_PARAM_MAPS: dict[str, dict[str, str]] = {
     "vectorize": {
         "source_image": "image",
     },
+    "music-generation": {
+        "prompt": "prompt",
+        "negative_prompt": "negative_prompt",  # Lyria 2 only; filtered per-model in Task 12
+        "reference_images": "images",          # Lyria 3 / 3 Pro only; filtered per-model
+        "seed": "seed",                         # Lyria 2 only; filtered per-model
+    },
 }
+
+
+# Per-model param drops: when the canonical request uses a param that the
+# specific model doesn't support, silently filter it out and log a WARN.
+# Structure: model_slug -> set of canonical_param names to drop.
+_MODEL_PARAM_DROPS: dict[str, set[str]] = {
+    # Lyria 3 + Pro accept prompt + images but NOT negative_prompt or seed.
+    "google/lyria-3": {"negative_prompt", "seed"},
+    "google/lyria-3-pro": {"negative_prompt", "seed"},
+    # Lyria 2 accepts prompt + negative_prompt + seed but NOT images.
+    "google/lyria-2": {"reference_images"},
+}
+
+
+def _filter_unsupported_params(
+    model_slug: str, canonical_params: dict[str, Any],
+) -> tuple[dict[str, Any], list[str]]:
+    """Remove params the model doesn't support. Returns (filtered, dropped_keys).
+
+    Callers can use dropped_keys to log a WARN explaining what was silently
+    removed. Empty list if nothing was dropped.
+    """
+    drops = _MODEL_PARAM_DROPS.get(model_slug, set())
+    filtered = {k: v for k, v in canonical_params.items() if k not in drops}
+    dropped = sorted(k for k in canonical_params if k in drops)
+    return filtered, dropped
 
 
 def _resolution_to_kling_mode(resolution: str) -> str:
@@ -1066,6 +1098,7 @@ class ReplicateBackend(ProviderBackend):
         "image-to-video",
         "lipsync",
         "vectorize",
+        "music-generation",
     }
 
     def _api_key(self, config: dict[str, Any]) -> str:
@@ -1136,6 +1169,17 @@ class ReplicateBackend(ProviderBackend):
             raise ProviderValidationError(
                 f"Replicate backend does not handle task {task!r}. "
                 f"Supported: {sorted(_TASK_PARAM_MAPS.keys())}"
+            )
+
+        # v4.2.1: filter out canonical params the specific model doesn't support,
+        # logging a WARN. This lets callers pass a rich canonical payload without
+        # knowing every model's exact surface.
+        canonical_params, dropped = _filter_unsupported_params(model_slug, canonical_params)
+        if dropped:
+            _logger.warning(
+                "Dropped unsupported params for %s: %s (these canonical params "
+                "are not accepted by this model and were silently removed)",
+                model_slug, dropped,
             )
 
         # Translate canonical params to Replicate's input schema.
