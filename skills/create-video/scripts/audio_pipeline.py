@@ -232,15 +232,11 @@ DEFAULT_VOICE_SETTINGS = {
 # v3.7.2: Lyria 2 is the default music source after the 5-way bake-off in spike 4
 # (Lyria > ElevenLabs > MusicGen > MiniMax > Stable Audio per user listening verdict).
 # ElevenLabs Music is retained as the alternative for users who prefer its character
-# or want subscription-billed cost (Lyria is fixed $0.06 per call regardless of subscription).
+# or want subscription-billed cost (per-call pricing varies by Lyria variant).
 DEFAULT_MUSIC_SOURCE = "elevenlabs"  # "elevenlabs" | "lyria" — v3.8.3: flipped after 12-genre blind bake-off (ElevenLabs 12-0 sweep)
-DEFAULT_MUSIC_LENGTH_MS = 32000  # Lyria fixed at 32.768s; ElevenLabs configurable up to 600000
-
-# Lyria 2 defaults — google vertex AI lyria-002
-LYRIA_MODEL_ID = "lyria-002"
-# Lyria has a fixed clip duration of 32.768 seconds. The music_length_ms parameter
-# is ignored when source=lyria. Users who need different lengths must use elevenlabs.
-LYRIA_FIXED_DURATION_SEC = 32.768
+# v4.2.1: Lyria variants 2 and 3-Clip deliver ~30 s MP3 clips via Replicate;
+# Lyria 3-Pro generates up to ~180 s natively. ElevenLabs accepts 3000-300000 ms.
+DEFAULT_MUSIC_LENGTH_MS = 32000
 
 # ElevenLabs Music defaults — music_v1
 DEFAULT_ELEVEN_MUSIC_MODEL = "music_v1"
@@ -472,21 +468,25 @@ def generate_narration(text: str, voice_id: str, api_key: str, model_id: str = D
 # ---------------------------------------------------------------------------
 # Stage 2: Music generation (multi-provider)
 #
-# v3.7.2 supports two music providers, validated empirically in spike 4 of the
-# strategic reset session:
+# v4.2.1+ supports two music provider families:
 #
-#   - Lyria 2 (Google Vertex AI, source="lyria") — DEFAULT
-#       * Highest fidelity in the spike 4 5-way bake-off (48kHz/192kbps stereo)
-#       * Fixed $0.06 per call, fixed 32.768s clip duration
-#       * Supports negative_prompt for explicit exclusions
-#       * Reuses existing Vertex API-key auth from ~/.banana/config.json
+#   - Lyria via Replicate (source="lyria") — three variants auto-selected
+#     by resolve_lyria_version() based on prompt intent + flags:
+#       * Lyria 3 Clip (default)  $0.04/call  30 s (fixed)
+#       * Lyria 2                 $0.06/call  30 s (fixed)  — negative_prompt
+#       * Lyria 3 Pro             $0.08/call  up to 180 s  — full-song lyrics
+#     Config: providers.replicate.api_key (or REPLICATE_API_TOKEN env var).
+#     v3.8.3 retained Lyria as the NON-default after the 12-genre bake-off.
 #
-#   - ElevenLabs Music (source="elevenlabs") — ALTERNATIVE
-#       * Close second in the bake-off (44.1kHz/128kbps stereo)
+#   - ElevenLabs Music (source="elevenlabs") — DEFAULT as of v3.8.3
 #       * Subscription-billed (effectively free on Creator tier within quota)
-#       * Configurable duration 3000-600000ms
+#       * Configurable duration 3000-300000 ms
 #       * No negative prompt support
 #       * Music API blocks named-creator/brand prompts (HTTP 400 with prompt_suggestion)
+#
+# v4.2.1 migration: the inline Vertex URL/API-key path to lyria-002 was
+# retired in favor of ReplicateBackend. The lyria-002 model is still
+# accessible via --lyria-version 2 (routes to google/lyria-2 on Replicate).
 #
 # Spike 4 also tested Stable Audio 2.5, MiniMax Music 1.5, and Meta MusicGen.
 # All three lost the listening test to Lyria + ElevenLabs and are NOT integrated
@@ -1444,9 +1444,10 @@ def pipeline(video_path: Path, narration_text: str, music_prompt: str,
         output_path = DEFAULT_OUTPUT_DIR / f"pipeline_{ts}.mp4"
 
     # Compute target music length from video duration if not specified.
-    # NOTE: Lyria has a fixed 32.768s clip duration regardless of this value;
-    # the parameter only matters for source=elevenlabs. We still compute it for
-    # the mix stage which uses the actual generated music length as the apad target.
+    # NOTE: Lyria 2 / Lyria 3 Clip deliver 30 s per call (chained if longer);
+    # Lyria 3 Pro generates up to ~180 s natively. We still compute music
+    # length for the mix stage — it uses the actual generated music duration
+    # (probed from disk) as the apad target regardless of the request value.
     if music_length_ms is None:
         video_duration = _probe_duration(video_path)
         music_length_ms = max(int(video_duration * 1000), 3000)
@@ -1483,10 +1484,11 @@ def pipeline(video_path: Path, narration_text: str, music_prompt: str,
 
     # Stage B: mix narration over music with ducking
     print(json.dumps({"status": "stage_b", "step": "ffmpeg_mix"}), file=sys.stderr)
-    # Use the ACTUAL generated music duration (probed from disk) rather than the
-    # requested length_ms. Lyria delivers a fixed 32.768s clip regardless of the
-    # requested length, and ElevenLabs may also produce slightly off-target durations.
-    # The apad target in the mix stage must match what's actually on disk.
+    # Use the ACTUAL generated music duration (probed from disk) rather than
+    # the requested length_ms. Lyria delivers 30 s per-call (or up to ~180 s
+    # on Pro) regardless of the request, and ElevenLabs may also produce
+    # slightly off-target durations. The apad target in the mix stage must
+    # match what's actually on disk.
     actual_music_duration = _probe_duration(music_result["path"])
     mix_result = mix_narration_with_music(
         narration_path=Path(narr_result["path"]),
@@ -2055,17 +2057,27 @@ def status() -> dict:
 
     config = _load_config()
 
-    # Lyria (Vertex AI) — primary music source as of v3.7.2
-    has_vertex = bool(
-        config.get("vertex_api_key")
-        and config.get("vertex_project_id")
-        and config.get("vertex_location")
-    )
+    # Lyria via Replicate (v4.2.1+ — retired the Vertex path).
+    # Uses providers.replicate.api_key in the v4.2.0 config schema, or the
+    # legacy flat replicate_api_token key. Resolution delegated to
+    # ReplicateBackend so this stays in sync with the actual auth path.
+    has_replicate = False
+    try:
+        providers = config.get("providers", {})
+        if isinstance(providers, dict):
+            rep = providers.get("replicate", {})
+            if isinstance(rep, dict) and rep.get("api_key"):
+                has_replicate = True
+        if not has_replicate and config.get("replicate_api_token"):
+            has_replicate = True
+        if not has_replicate and os.environ.get("REPLICATE_API_TOKEN"):
+            has_replicate = True
+    except Exception:
+        pass
     result["checks"].append({
-        "name": "lyria_vertex_credentials",
-        "ok": has_vertex,
-        "vertex_project_id": config.get("vertex_project_id") if has_vertex else None,
-        "vertex_location": config.get("vertex_location") if has_vertex else None,
+        "name": "lyria_replicate_credentials",
+        "ok": has_replicate,
+        "note": "Lyria now uses Replicate (v4.2.1+). Vertex path retired.",
     })
 
     # ElevenLabs — narration TTS + alternative music source
@@ -2264,8 +2276,8 @@ def main() -> None:
             output_path=Path(args.out) if args.out else None,
         )
     elif args.cmd == "music":
-        # Lyria reads vertex_api_key from config; ElevenLabs needs its own key.
-        # Only fetch the ElevenLabs key when source=elevenlabs.
+        # v4.2.1: Lyria uses Replicate (ReplicateBackend reads the Replicate
+        # token from config internally). ElevenLabs still needs its own key.
         api_key = None
         if args.source == "elevenlabs":
             api_key = _get_api_key(args.api_key)
