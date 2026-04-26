@@ -64,6 +64,25 @@ This repo follows the official Claude Code plugin layout:
 6. Verify output image files exist at the logged path
 7. Check cost log if cost_tracker.py is active
 
+## Publishing changes
+
+**Direct pushes to `main` are blocked by the Claude Code harness's default safety rail.** Every change to this repo lands via Pull Request, even when authored by the maintainer. The flow is:
+
+1. Make edits in your working tree (don't pre-create a branch — the script does it).
+2. Run `scripts/dev/publish.sh "docs: short title"` — see the script header for full options.
+3. The script: derives a kebab-case branch name (`docs/short-title`), creates the branch, stages tracked files only (no `git add -A`), commits with the Co-Authored-By trailer, pushes, opens a `gh` PR, and prints the PR URL.
+4. Review on GitHub and merge (squash recommended for single-commit PRs).
+5. Locally: `git checkout main && git pull origin main && git branch -D <feature-branch>` to clean up.
+
+**Two scripts exist** (both in `scripts/dev/`, both stdlib bash, no extra deps beyond `git`/`gh`/`jq`/`zip`):
+
+| Script | When to use |
+|---|---|
+| `scripts/dev/publish.sh "<title>" [body]` | Any docs/infra/feature change that doesn't bump the version. The everyday "land my edits" command. |
+| `scripts/dev/release-zip.sh <version> [notes]` | After a version-bump commit has merged to main: builds the distribution zip and creates a GitHub Release with it attached. Refuses to run if the version doesn't match `plugin.json` or if the CHANGELOG section is missing. |
+
+**Branch hygiene:** delete merged feature branches promptly. Single-commit PRs that go through squash-merge can be deleted immediately (no history is lost — the squashed commit is identical to the branch's commit). Multi-commit feature branches: wait 24-72 hours after merge so the granular sub-commits remain inspectable in case of post-merge regression. The `commit-commands:clean_gone` skill cleans up any branch whose remote tracking branch has been deleted (`[gone]` status in `git branch -vv`).
+
 ## File responsibilities
 
 | File | Purpose |
@@ -135,6 +154,8 @@ This repo follows the official Claude Code plugin layout:
 | `tests/test_*.py` | **v4.2.0** Test suite (stdlib `unittest`, zero pip deps, 74 tests). Run with `python3 -m unittest discover tests`. HTTP mocked via `urllib.request.urlopen` patch; no network required. Fixtures at `tests/fixtures/*.json`. |
 | `references/providers/replicate.md` | **v4.2.0** Provider reference: auth, polling, Cloudflare User-Agent rule, 6-value status enum, pricing modes. Provider references live at plugin-root to be shared across skills. |
 | `references/models/*.md` | **v4.2.0** Per-model references (capabilities, prompt quirks, constraints, authoritative source). Follow-up to sub-project A — initial references seeded from the existing `skills/create-*/references/*-models.md` files as they're migrated. |
+| `scripts/dev/publish.sh` | Bash helper for the everyday PR flow: derives a kebab-case branch name from the commit title, stages tracked files only (`git add -u`, never `-A`), commits with the Co-Authored-By trailer, pushes, opens a `gh` PR. Rolls local main back to `origin/main` if the user accidentally committed there. Stdlib bash only — needs `git` + `gh`. See "Publishing changes" section above. |
+| `scripts/dev/release-zip.sh` | Bash helper for version releases: validates the version arg matches `plugin.json` AND that a `## [X.Y.Z]` section exists in CHANGELOG.md before doing anything destructive. Builds the distribution zip with the canonical exclude list (the same list documented in step 11 of the Feature Completion Checklist). Then runs `gh release create` with the zip attached. Stdlib bash only — needs `git` + `gh` + `jq` + `zip`. Tags `origin/main` HEAD; refuses to run on a dirty working tree. |
 
 ## Scripts use stdlib only
 
@@ -381,37 +402,49 @@ Update `~/.claude/projects/.../memory/project_creators_studio_workflow.md` if:
 - New key constraints added
 - Architecture changed (e.g., new skill files, new reference files)
 
-### 10. Git Commit
+### 10. Git Commit + Push (via PR)
 
-Stage specific files (not `git add -A`). Commit with descriptive message following the pattern:
-- `feat:` for new features
-- `fix:` for bug fixes
-- `docs:` for documentation only
-- `refactor:` for restructuring
+**Direct pushes to `main` are blocked.** Land changes via PR using the helper script:
 
-Push to fork: `git push origin main`
+```bash
+scripts/dev/publish.sh "feat: short title describing the change"
+# or
+scripts/dev/publish.sh "fix: short title" "Multi-line PR body."
+```
+
+Use Conventional Commit prefixes — they drive the branch name:
+- `feat:` for new features → branch `feat/<slug>`
+- `fix:` for bug fixes → branch `fix/<slug>`
+- `docs:` for documentation only → branch `docs/<slug>`
+- `refactor:` for restructuring → branch `refactor/<slug>`
+- `chore:` for housekeeping → branch `chore/<slug>`
+
+The script stages ONLY tracked files (never `git add -A`), opens the PR with the Co-Authored-By trailer, and prints the PR URL. After merge, run `git checkout main && git pull && git branch -D <feature-branch>` to clean up.
 
 ### 11. GitHub Release + Distribution Zips (on version bumps)
 
-When a version is bumped, create a GitHub Release with distribution zips:
+After the version-bump commit has merged to `main`, run:
 
 ```bash
-# Build plugin zip (excludes .git, screenshots, dev files, .claude/)
-cd /path/to/creators-studio
+scripts/dev/release-zip.sh 4.2.2
+# or with custom release notes:
+scripts/dev/release-zip.sh 4.2.2 "Marketplace install flow + provider abstraction patch."
+```
+
+The script validates: (a) the version arg matches `plugin.json`, (b) a `## [X.Y.Z]` section exists in `CHANGELOG.md`, (c) working tree is clean, (d) local `main` matches `origin/main`, (e) the release tag doesn't already exist. Then it builds the distribution zip with the canonical exclude list (`.git/`, `screenshots/`, `__pycache__`, `PROGRESS.md`, `ROADMAP.md`, `tests/`, `dev-docs/`, `spikes/`, `scripts/dev/`, etc) and runs `gh release create` with the zip attached.
+
+**NOTE: skill-only zips (`banana-skill-vX.Y.Z.zip`) are no longer built as of v3.8.4.** The plugin requires the full plugin structure to function (two skills, agents, `.claude-plugin/` manifest). Historical skill-only zips at the workspace root are archived build artifacts — do not delete.
+
+If you ever need to bypass the script (e.g., to debug a failing pre-flight check), the underlying commands it runs are:
+
+```bash
 zip -r ../creators-studio-vX.Y.Z.zip . -x ".git/*" ".DS_Store" "*/.DS_Store" \
   "*__pycache__/*" "*.pyc" ".github/*" "screenshots/*" "PROGRESS.md" \
   "ROADMAP.md" "CODEOWNERS" "CODE_OF_CONDUCT.md" "SECURITY.md" \
-  "CITATION.cff" ".gitattributes" ".gitignore" ".claude/*" "spikes/*"
-
-# Create GitHub Release with plugin zip attached
-# NOTE: skill-only zips (banana-skill-vX.Y.Z.zip) are no longer built
-# as of v3.8.4. The plugin requires the full plugin structure to function
-# (two skills, agents, .claude-plugin/ manifest). Historical skill-only
-# zips at the workspace root are archived build artifacts — do not delete.
-gh release create vX.Y.Z \
-  ../creators-studio-vX.Y.Z.zip \
-  --title "vX.Y.Z" \
-  --notes "See CHANGELOG.md for details"
+  "CITATION.cff" ".gitattributes" ".gitignore" ".claude/*" "spikes/*" \
+  "tests/*" "dev-docs/*" "scripts/dev/*"
+gh release create vX.Y.Z ../creators-studio-vX.Y.Z.zip \
+  --title "vX.Y.Z" --notes "See CHANGELOG.md for details"
 ```
 
 ## Plugin development notes
@@ -424,3 +457,21 @@ gh release create vX.Y.Z \
 - Test locally with `claude --plugin-dir .` (loads plugin without installing).
 - After changes, run `/reload-plugins` in Claude Code to pick up updates without restarting.
 - Validate with `claude plugin validate .` or `/plugin validate .` before releasing.
+
+### marketplace.json maintenance constraints (verified against the 2026 spec)
+
+**Authoritative reference:** [https://code.claude.com/docs/en/plugin-marketplaces](https://code.claude.com/docs/en/plugin-marketplaces). Always re-fetch before making schema changes — the spec evolves.
+
+- `owner` only allows `name` (required) and `email` (optional). Do NOT add `url`, `homepage`, or any other field — `claude plugin validate` will pass them silently today but they're not in the spec and may break.
+- `metadata` only allows `description`, `version`, and `pluginRoot`. Do NOT add `homepage` (validator silently accepts but it's non-spec).
+- Do NOT include `"$schema"` at the top level. The official `claude-plugins-official` repo includes it, but the validator currently rejects it (issue #9686). Once that issue is fixed and the URL serves a real schema, this rule can flip.
+- Do NOT set `version` on a plugin entry inside `marketplace.json` — `plugin.json`'s `version` always wins silently, so a stale marketplace `version` would mask an updated plugin version. Single-source from `plugin.json`.
+- The plugin entry's `source` should stay `"./"` for this repo. Paths resolve relative to the directory CONTAINING `.claude-plugin/`, not to `.claude-plugin/` itself — and our `.claude-plugin/marketplace.json` sits at the plugin root, so `"./"` correctly points at the plugin.
+- After any marketplace.json edit, run `claude plugin validate .` from the plugin root before committing.
+
+### Branch hygiene
+
+- Direct pushes to `main` are blocked by the harness. Use `scripts/dev/publish.sh` for the PR flow. Direct pushes to feature branches are fine.
+- Delete merged feature branches promptly. GitHub auto-deletes the remote branch on merge (Settings → General → "Automatically delete head branches" is enabled). Locally, run `git checkout main && git pull && git branch -D <feature-branch>`.
+- The `commit-commands:clean_gone` skill cleans up any local branch whose remote tracking branch has been deleted (`[gone]` status). Use it whenever the local branch list grows beyond `main`.
+- Multi-commit feature branches that go through squash-merge: wait 24-72 hours after merge before deleting locally — the squashed commit on main loses the granular sub-commit history, and the feature branch is the only local copy.
