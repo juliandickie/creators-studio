@@ -4,18 +4,45 @@
     "name": "juliandickie"
   },
   "metadata": {
-    "description": "AI image and video generation Creative Director powered by best-in-class AI models"
+    "description": "AI image, video, and audio Creative Director powered by best-in-class models — Gemini Nano Banana 2, Kling v3, VEO 3.1, ElevenLabs, Lyria, and more."
   },
   "plugins": [
     {
       "name": "creators-studio",
       "source": "./",
       "description": "AI image and video generation Creative Director. Claude interprets intent, selects domain expertise, constructs optimized prompts, and orchestrates best-in-class AI models for stunning results.",
+      "author": {
+        "name": "juliandickie"
+      },
       "homepage": "https://github.com/juliandickie/creators-studio",
       "repository": "https://github.com/juliandickie/creators-studio",
       "license": "MIT",
-      "keywords": ["image-generation", "video-generation", "ai-art", "creative-director", "creative-engine"],
-      "category": "creative"
+      "category": "creative",
+      "keywords": [
+        "image-generation",
+        "video-generation",
+        "audio-generation",
+        "ai-art",
+        "creative-director",
+        "creative-engine",
+        "gemini",
+        "nano-banana",
+        "kling",
+        "veo",
+        "elevenlabs",
+        "lyria",
+        "replicate",
+        "mcp",
+        "prompt-engineering"
+      ],
+      "tags": [
+        "creative-tools",
+        "content-creation",
+        "social-media",
+        "branding",
+        "design",
+        "marketing"
+      ]
     }
   ]
 }
