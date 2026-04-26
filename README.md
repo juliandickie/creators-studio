@@ -127,12 +127,30 @@ Three creative surfaces, one Creative Director.
 - [Git](https://git-scm.com/) installed
 - [Node.js 18+](https://nodejs.org/) installed (for the MCP server)
 
-### Install
+### Install (recommended — native plugin marketplace)
+
+In any Claude Code session, run:
+
+```
+/plugin marketplace add juliandickie/creators-studio
+/plugin install creators-studio@creators-studio-marketplace
+```
+
+That's it. Claude Code clones the marketplace, fetches the plugin, and registers `/create-image` and `/create-video` immediately. No `git clone`, no `--plugin-dir`, no `/reload-plugins` dance.
+
+<details>
+<summary><b>Alternative: clone for local development</b></summary>
+
+If you want to hack on the plugin itself rather than just use it:
 
 ```bash
 git clone https://github.com/juliandickie/creators-studio.git ~/creators-studio
 claude --plugin-dir ~/creators-studio
 ```
+
+Use `/reload-plugins` after edits to pick up changes without restarting.
+
+</details>
 
 ### Configure your Google AI API key
 
@@ -158,11 +176,12 @@ If you see an image path and the file exists, you're all set.
 
 ### Updating
 
-```bash
-cd ~/creators-studio && git pull
+```
+/plugin marketplace update creators-studio-marketplace
+/plugin update creators-studio
 ```
 
-Then in Claude Code type `/reload-plugins` to pick up changes.
+The first command refreshes the marketplace catalog from GitHub; the second pulls down any new plugin version. If you installed via the local-clone alternative above, run `cd ~/creators-studio && git pull` instead, then `/reload-plugins`.
 
 <details>
 <summary><b>🔧 Optional: Replicate as fallback backend</b></summary>

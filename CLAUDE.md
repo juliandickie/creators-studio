@@ -57,7 +57,7 @@ This repo follows the official Claude Code plugin layout:
 ## How to test changes
 
 1. Test as plugin: `claude --plugin-dir .`
-2. Or install from GitHub: `claude plugin add juliandickie/creators-studio`
+2. Or install from GitHub via the marketplace: `claude plugin marketplace add juliandickie/creators-studio` then `claude plugin install creators-studio@creators-studio-marketplace`
 3. Test basic generation: `/create-image generate "a red apple on a white table"`
 4. Test domain routing: `/create-image generate "product shot for headphones"`
 5. Test editing: `/create-image edit [path] "make the background blurry"`
