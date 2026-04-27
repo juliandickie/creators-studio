@@ -145,8 +145,11 @@ PRICING = {
     "bytedance/dreamactor-m2.0": {
         "per_second": 0.05,
     },
+    # v4.2.x Fabric pricing: 480p is ~47% cheaper than 720p per Replicate's
+    # official model card (verified 2026-04-27). The previous flat $0.15/s
+    # entry was the 720p rate assumed equal across resolutions.
     "veed/fabric-1.0": {
-        "per_second": 0.15,
+        "per_second_by_resolution": {"480p": 0.08, "720p": 0.15},
     },
     # v4.2.1: VEO 3.1 tiers — Lite is resolution-keyed, Fast/Standard are
     # audio-keyed. These entries are canonical (non-preview, non-001) IDs.
