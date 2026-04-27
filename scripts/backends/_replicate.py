@@ -131,6 +131,31 @@ REPLICATE_MODELS = {
         "max_dimension_px": 4096,                  # 4096 px max per model card
         "price_usd_per_call": 0.01,                # $0.01/output image confirmed 2026-04-17
     },
+    # 2026-04-27: PixVerse V6 — flagship text-to-video competitor to Kling
+    # and VEO. Distinguishing features: 4-tier resolution pricing
+    # (360p/540p/720p/1080p), native multilingual text-in-video, multi-shot
+    # via boolean toggle. Up to 15s output. See dev-docs/pixverse-pixverse-
+    # v6-llms.md for the full input schema.
+    "pixverse/pixverse-v6": {
+        "family": "pixverse",
+        "display_name": "PixVerse V6",
+        "aspects": ["16:9", "9:16"],
+        "resolutions": ["360p", "540p", "720p", "1080p"],
+        "min_duration_s": 1,
+        "max_duration_s": 15,
+        "supports_audio": True,
+        "supports_audio_toggle": True,
+        "supports_multi_shot": True,
+        "supports_negative_prompt": True,
+        "supports_start_image": True,
+        "supports_last_frame_image": True,  # Transition mode (requires start_image)
+        "supports_text_in_video": True,
+        "supports_multilingual": True,
+        # Pricing (per_second_by_resolution_and_audio):
+        # See scripts/registry/models.json → models.pixverse-v6 → pricing
+        # for the canonical rates table. Mirrored in cost_tracker.py PRICING.
+        "price_usd_per_8s_clip_1080p_audio": 1.84,  # 8s × $0.23/s
+    },
 }
 
 
@@ -200,6 +225,37 @@ RECRAFT_IMAGE_MIME_MAP = {
     ".jpeg": "image/jpeg",
     ".webp": "image/webp",
 }
+
+
+# ─── PixVerse V6 parameter constraints (2026-04-27) ────────────────
+# Sourced from dev-docs/pixverse-pixverse-v6-llms.md. PixVerse V6 is a
+# general-purpose text-to-video competitor to Kling and VEO with three
+# differentiating features:
+#   1. 4-tier resolution pricing (360p/540p/720p/1080p) — most granular
+#      in the video roster.
+#   2. Native multilingual text-in-video (English, Chinese, others).
+#   3. Multi-shot via boolean toggle (`generate_multi_clip_switch`)
+#      with a single structured prompt — different shape than Kling's
+#      `multi_prompt` JSON array.
+#
+# Field-name quirks vs canonical:
+#   - canonical `resolution` → Pixverse `quality`
+#   - canonical `start_image` → Pixverse `image`
+#   - canonical `end_image` → Pixverse `last_frame_image` (transition mode)
+#   - canonical `audio_enabled` → Pixverse `generate_audio_switch`
+#   - Pixverse-only `multi_shot` → `generate_multi_clip_switch`
+# These translations live in ReplicateBackend.submit().
+#
+# Conditional rules (enforced by validate_pixverse_params + submit):
+#   - last_frame_image requires image (transition uses both frames)
+#   - multi_shot is NOT available in transition mode (image+last_frame)
+#   - aspect_ratio is IGNORED when image is provided (output uses image's aspect)
+
+VALID_PIXVERSE_RESOLUTIONS = {"360p", "540p", "720p", "1080p"}
+VALID_PIXVERSE_ASPECT_RATIOS = {"16:9", "9:16"}
+PIXVERSE_MIN_DURATION_S = 1
+PIXVERSE_MAX_DURATION_S = 15
+PIXVERSE_MAX_PROMPT_CHARS = 8000  # Pixverse readme examples include ~6500-char prompts; exact limit unverified
 
 
 # ─── Logger ─────────────────────────────────────────────────────────
@@ -625,6 +681,166 @@ def build_fabric_request_body(image, audio, resolution="720p"):
             "resolution": resolution,
         }
     }
+
+
+# ─── PixVerse V6 helpers (2026-04-27) ──────────────────────────────
+
+def validate_pixverse_params(
+    *,
+    duration,
+    resolution,
+    aspect_ratio=None,
+    image=None,
+    last_frame_image=None,
+    multi_shot=False,
+    prompt=None,
+    negative_prompt=None,
+):
+    """Validate PixVerse V6 input against the model card's rules.
+
+    Rules enforced (all sourced from dev-docs/pixverse-pixverse-v6-llms.md):
+
+      1. duration is an integer in [1, 15]
+      2. resolution ∈ {"360p", "540p", "720p", "1080p"}
+      3. aspect_ratio (when set) ∈ {"16:9", "9:16"}
+      4. last_frame_image requires image (transition mode uses both frames)
+      5. multi_shot is NOT available in transition mode (image+last_frame)
+      6. prompt length <= PIXVERSE_MAX_PROMPT_CHARS (when prompt is set)
+      7. negative_prompt length <= PIXVERSE_MAX_PROMPT_CHARS (when set)
+
+    Non-blocking warning:
+      - If both aspect_ratio AND image are provided, the model card says
+        aspect_ratio is ignored. We log a WARNING so the caller knows.
+
+    Raises ReplicateValidationError on any rule violation. Returns None.
+    """
+    # 1. duration
+    if not isinstance(duration, int) or not (
+        PIXVERSE_MIN_DURATION_S <= duration <= PIXVERSE_MAX_DURATION_S
+    ):
+        raise ReplicateValidationError(
+            f"Invalid duration {duration!r}. PixVerse V6 supports integer "
+            f"seconds in [{PIXVERSE_MIN_DURATION_S}, {PIXVERSE_MAX_DURATION_S}]."
+        )
+
+    # 2. resolution
+    if resolution not in VALID_PIXVERSE_RESOLUTIONS:
+        raise ReplicateValidationError(
+            f"Invalid resolution '{resolution}'. PixVerse V6 supports: "
+            f"{sorted(VALID_PIXVERSE_RESOLUTIONS)}."
+        )
+
+    # 3. aspect_ratio (when set)
+    if aspect_ratio is not None and aspect_ratio not in VALID_PIXVERSE_ASPECT_RATIOS:
+        raise ReplicateValidationError(
+            f"Invalid aspect_ratio '{aspect_ratio}'. PixVerse V6 supports: "
+            f"{sorted(VALID_PIXVERSE_ASPECT_RATIOS)}."
+        )
+
+    # 4. last_frame_image requires image
+    if last_frame_image is not None and image is None:
+        raise ReplicateValidationError(
+            "last_frame_image requires image. PixVerse V6's transition mode "
+            "uses both first and last frames; provide image (first frame) "
+            "alongside last_frame_image."
+        )
+
+    # 5. multi_shot in transition mode is not supported
+    if multi_shot and last_frame_image is not None:
+        raise ReplicateValidationError(
+            "multi_shot is NOT available in transition mode (when "
+            "last_frame_image is set). Per the PixVerse V6 model card, "
+            "generate_multi_clip_switch only works for text-to-video and "
+            "image-to-video, not transitions."
+        )
+
+    # 6-7. prompt / negative_prompt length
+    if prompt is not None and len(prompt) > PIXVERSE_MAX_PROMPT_CHARS:
+        raise ReplicateValidationError(
+            f"prompt is {len(prompt)} chars; PixVerse V6 max is "
+            f"{PIXVERSE_MAX_PROMPT_CHARS} chars (estimated upper bound; "
+            f"exact limit not published in the model card)."
+        )
+    if negative_prompt is not None and len(negative_prompt) > PIXVERSE_MAX_PROMPT_CHARS:
+        raise ReplicateValidationError(
+            f"negative_prompt is {len(negative_prompt)} chars; PixVerse V6 max is "
+            f"{PIXVERSE_MAX_PROMPT_CHARS} chars."
+        )
+
+    # Non-blocking warning: aspect_ratio is ignored when image is set.
+    if image is not None and aspect_ratio is not None:
+        _logger.warning(
+            "aspect_ratio='%s' will be IGNORED by PixVerse V6 because image "
+            "is provided. The output will use the image's native aspect "
+            "ratio per the PixVerse V6 model card.",
+            aspect_ratio,
+        )
+
+
+def build_pixverse_request_body(
+    prompt,
+    *,
+    duration,
+    resolution,
+    aspect_ratio=None,
+    image=None,
+    last_frame_image=None,
+    generate_audio=True,
+    generate_multi_clip=False,
+    negative_prompt=None,
+    seed=None,
+):
+    """Build the JSON dict to serialize for PixVerse V6 predictions.
+
+    Wraps the input parameters in the Replicate-required `{"input": {...}}`
+    envelope using PixVerse's native field names:
+
+        canonical name          PixVerse field name
+        ─────────────           ──────────────────
+        resolution              quality
+        start_image (or image)  image
+        end_image               last_frame_image
+        audio_enabled           generate_audio_switch
+        multi_shot              generate_multi_clip_switch
+
+    The translation lives here (not in submit()) so module-level callers
+    that don't go through ReplicateBackend.submit() also get the right
+    field names automatically.
+
+    Only fields with non-None values (or non-default audio/multi_clip flags)
+    are emitted, to keep the request body minimal and match the examples
+    from the PixVerse V6 model card.
+
+    Does NOT call validate_pixverse_params() internally — callers should
+    validate separately so the error surface is predictable.
+    """
+    input_dict: dict = {
+        "prompt": prompt,
+        "duration": duration,
+        "quality": resolution,  # PixVerse field name is "quality"
+    }
+    # aspect_ratio: PixVerse silently ignores it when image is provided,
+    # but we still send it for text-to-video paths so the orchestrator's
+    # intent is unambiguous on the wire.
+    if aspect_ratio is not None and image is None:
+        input_dict["aspect_ratio"] = aspect_ratio
+    # generate_audio_switch: send only when explicitly false, since
+    # Pixverse's native default is false (per the readme schema). Sending
+    # true when our plugin default is true ensures audio is on by default
+    # for plugin users.
+    input_dict["generate_audio_switch"] = bool(generate_audio)
+    # generate_multi_clip_switch: same — explicit emit.
+    if generate_multi_clip:
+        input_dict["generate_multi_clip_switch"] = True
+    if image is not None:
+        input_dict["image"] = image
+    if last_frame_image is not None:
+        input_dict["last_frame_image"] = last_frame_image
+    if negative_prompt is not None:
+        input_dict["negative_prompt"] = negative_prompt
+    if seed is not None:
+        input_dict["seed"] = seed
+    return {"input": input_dict}
 
 
 # ─── Recraft Vectorize helpers (v4.1.0+) ───────────────────────────
@@ -1193,6 +1409,42 @@ class ReplicateBackend(ProviderBackend):
         # Kling-specific: resolution → mode translation
         if model_slug.startswith("kwaivgi/kling-") and "resolution" in canonical_params:
             input_body["mode"] = _resolution_to_kling_mode(canonical_params["resolution"])
+
+        # PixVerse-specific: field-name renames + canonical-keys-not-in-param-map.
+        # The text-to-video / image-to-video param maps assume Kling/VEO field
+        # names. PixVerse uses different names for the same concepts, so we
+        # rename here. Also map two PixVerse-only canonical concepts
+        # (resolution, audio_enabled) that aren't in the standard param maps.
+        if model_slug.startswith("pixverse/pixverse-"):
+            # Validation: end_image (canonical) requires start_image
+            if "end_image" in canonical_params and "start_image" not in canonical_params:
+                raise ProviderValidationError(
+                    "PixVerse transition mode requires both start_image and "
+                    "end_image canonical params (rendered as image + "
+                    "last_frame_image on the wire)."
+                )
+            # Rename: start_image → image (PixVerse field name)
+            if "start_image" in input_body:
+                input_body["image"] = input_body.pop("start_image")
+            # Rename: end_image → last_frame_image (PixVerse field name)
+            if "end_image" in input_body:
+                input_body["last_frame_image"] = input_body.pop("end_image")
+            # Map: canonical resolution → PixVerse `quality` field. resolution
+            # isn't in _TASK_PARAM_MAPS for text-to-video / image-to-video, so
+            # we read from canonical_params directly (same pattern as Kling's
+            # mode translation above).
+            if "resolution" in canonical_params:
+                input_body["quality"] = canonical_params["resolution"]
+            # Map: canonical audio_enabled → PixVerse `generate_audio_switch`.
+            # PixVerse defaults to false on the API; the plugin convention is
+            # audio-on by default, so we explicitly emit true unless caller
+            # passes audio_enabled=False.
+            audio_enabled = canonical_params.get("audio_enabled", True)
+            input_body["generate_audio_switch"] = bool(audio_enabled)
+            # Pixverse-only canonical: multi_shot → generate_multi_clip_switch.
+            # Only emit when true (default false matches PixVerse's API).
+            if canonical_params.get("multi_shot"):
+                input_body["generate_multi_clip_switch"] = True
 
         # Merge provider_opts LAST so they can shadow auto-derived fields.
         input_body.update(provider_opts)

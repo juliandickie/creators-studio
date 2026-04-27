@@ -72,6 +72,7 @@ VALID_MODELS = {
     "google/veo-3.1",                 # VEO 3.1 Standard (Replicate)
     "google/veo-3.1-fast",            # VEO 3.1 Fast (Replicate)
     "google/veo-3.1-lite",            # VEO 3.1 Lite (Replicate)
+    "pixverse/pixverse-v6",           # PixVerse V6 (multi-shot toggle, native text-in-video, 4-tier res)
     # Legacy Gemini-API preview IDs — still callable on the direct Gemini API.
     "veo-3.1-generate-preview",       # Standard (preview API)
     "veo-3.1-fast-generate-preview",  # Fast (preview API)
@@ -91,6 +92,7 @@ MODELS_REPLICATE = {
     "google/veo-3.1",
     "google/veo-3.1-fast",
     "google/veo-3.1-lite",
+    "pixverse/pixverse-v6",
 }
 
 # v4.2.1: Vertex retirement. Map legacy Vertex VEO model IDs to their Replicate
@@ -151,6 +153,9 @@ VALID_DURATIONS_BY_MODEL = {
     # an explicit set so the existing `duration not in valid_durations`
     # check works without conditional logic.
     "kwaivgi/kling-v3-video": set(range(3, 16)),
+    # PixVerse V6 accepts integer seconds in [1, 15] per the model card at
+    # dev-docs/pixverse-pixverse-v6-llms.md.
+    "pixverse/pixverse-v6": set(range(1, 16)),
 }
 
 STANDARD_RATIOS = {"16:9", "9:16"}
@@ -160,10 +165,15 @@ VALID_RATIOS_BY_MODEL = {
     # plugin-registered model that does. v3.5.0 documented 1:1 for VEO
     # Lite but that claim was wrong; Vertex AI explicitly rejects it.
     "kwaivgi/kling-v3-video": {"16:9", "9:16", "1:1"},
+    # PixVerse V6 supports 16:9 and 9:16. The model-card examples never
+    # show 1:1 or 4:3, so we don't claim them. (Pixverse silently ignores
+    # aspect_ratio when image is provided — handled by validator.)
+    "pixverse/pixverse-v6": {"16:9", "9:16"},
 }
 
 # Lite does NOT support 4K per reference doc line 55, 274.
 # Kling v3 Std maxes at 1080p (pro mode) per the Kling model card.
+# PixVerse V6 maxes at 1080p per the model card pricing block.
 # v4.2.1: adds the Replicate VEO slugs (google/veo-3.1-lite) alongside the
 # legacy Vertex -001 IDs so the 4K gate works for both forms.
 MODELS_WITHOUT_4K = {
@@ -171,9 +181,15 @@ MODELS_WITHOUT_4K = {
     "veo-3.0-generate-001",
     "kwaivgi/kling-v3-video",
     "google/veo-3.1-lite",
+    "pixverse/pixverse-v6",
 }
 
-VALID_RESOLUTIONS = {"720p", "1080p", "4K"}
+# 2026-04-27: VALID_RESOLUTIONS expanded to include 360p + 540p for PixVerse
+# V6's 4-tier pricing model. Other models reject these via their own
+# validation paths (Kling/VEO have their own resolution allowlists in their
+# registry constraints; the canonical-validator catches mismatches before
+# any HTTP call). PixVerse is currently the only model that USES 360p/540p.
+VALID_RESOLUTIONS = {"360p", "540p", "720p", "1080p", "4K"}
 
 
 def _valid_durations(model):
@@ -449,6 +465,20 @@ def _submit_replicate(prompt, model, duration, ratio, resolution,
             seed=seed, video_input=video_input,
         )
 
+    # PixVerse V6 also uses the ReplicateBackend ABC path. Same dispatch
+    # function as VEO; the backend's submit() recognizes the model_slug
+    # prefix and translates canonical params to PixVerse's field names
+    # (resolution → quality, start_image → image, end_image → last_frame_image,
+    # audio_enabled → generate_audio_switch, multi_shot → generate_multi_clip_switch).
+    if model.startswith("pixverse/pixverse-"):
+        return _submit_replicate_via_backend(
+            prompt=prompt, model=model, duration=duration, ratio=ratio,
+            resolution=resolution, replicate_creds=replicate_creds,
+            first_frame=first_frame, last_frame=last_frame,
+            ref_images=ref_images, negative_prompt=negative_prompt,
+            seed=seed, video_input=video_input,
+        )
+
     # Kling path (preserved from v3.8.0) — uses the legacy Kling-specific
     # helpers (validate_kling_params / build_kling_request_body).
     if ref_images:
@@ -573,6 +603,8 @@ def _submit_replicate_via_backend(*, prompt, model, duration, ratio, resolution,
         )
 
     task = "image-to-video" if first_frame else "text-to-video"
+    is_pixverse = model.startswith("pixverse/pixverse-")
+    encode_label = "PixVerse" if is_pixverse else "VEO"
 
     canonical_params: dict = {
         "prompt": prompt,
@@ -589,14 +621,25 @@ def _submit_replicate_via_backend(*, prompt, model, duration, ratio, resolution,
                 Path(first_frame)
             )
         except replicate.ReplicateValidationError as e:
-            _error_exit(f"VEO first-frame encode failed: {e}")
+            _error_exit(f"{encode_label} first-frame encode failed: {e}")
     if last_frame:
         try:
             canonical_params["end_image"] = replicate.image_path_to_data_uri(
                 Path(last_frame)
             )
         except replicate.ReplicateValidationError as e:
-            _error_exit(f"VEO last-frame encode failed: {e}")
+            _error_exit(f"{encode_label} last-frame encode failed: {e}")
+
+    # PixVerse-specific canonical extras. Submit()'s pixverse block reads
+    # these from canonical_params (they're not in _TASK_PARAM_MAPS for
+    # text-to-video / image-to-video). VEO's path ignores these keys.
+    if is_pixverse:
+        canonical_params["resolution"] = resolution
+        # Plugin convention: audio is on by default. PixVerse's API default
+        # is false. A future PR can add a CLI flag to override; for now,
+        # always emit true.
+        canonical_params["audio_enabled"] = True
+        # multi_shot defaults to false. A future PR can add a CLI flag.
 
     # Build a minimal config dict for ReplicateBackend._api_key().
     config = {
