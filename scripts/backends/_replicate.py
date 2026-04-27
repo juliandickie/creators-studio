@@ -307,7 +307,7 @@ def load_replicate_credentials(*, cli_token=None):
     Precedence:
         1. CLI flag (explicit --replicate-key)
         2. Env var REPLICATE_API_TOKEN
-        3. ~/.banana/config.json field replicate_api_token
+        3. ~/.creators-studio/config.json field replicate_api_token
 
     Returns a dict with key: api_token.
     Raises ReplicateAuthError with a setup pointer if the token is missing.
@@ -315,7 +315,11 @@ def load_replicate_credentials(*, cli_token=None):
     token = cli_token or os.environ.get("REPLICATE_API_TOKEN")
 
     if not token:
-        config_path = Path.home() / ".banana" / "config.json"
+        # v4.2.2: use the canonical config dir (auto-migrates from ~/.banana/).
+        # Sibling module — scripts/ is on sys.path via callers' shims, or via
+        # direct module invocation for the diagnose subcommand.
+        from scripts.paths import config_path as _csd_config  # noqa: E402
+        config_path = _csd_config()
         if config_path.exists():
             try:
                 with open(config_path) as f:
@@ -1329,7 +1333,7 @@ class ReplicateBackend(ProviderBackend):
         if not key:
             raise ProviderAuthError(
                 "No Replicate API key configured. Set "
-                "providers.replicate.api_key in ~/.banana/config.json "
+                "providers.replicate.api_key in ~/.creators-studio/config.json "
                 "or run /create-video setup."
             )
         return key

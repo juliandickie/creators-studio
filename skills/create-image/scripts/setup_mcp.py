@@ -20,8 +20,20 @@ import sys
 import os
 from pathlib import Path
 
+# v4.2.2: import the migration helper from plugin-root scripts/paths.py.
+# Calling config_path() triggers the one-time copy from ~/.banana/ to
+# ~/.creators-studio/ on first invocation after upgrading. The old
+# directory is preserved (never deleted) for safe fallback.
+_plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+if _plugin_root not in sys.path:
+    sys.path.insert(0, _plugin_root)
+from scripts.paths import config_path as _creators_config_path  # noqa: E402
+
 SETTINGS_PATH = Path.home() / ".claude" / "settings.json"
-BANANA_CONFIG = Path.home() / ".banana" / "config.json"
+# BANANA_CONFIG: name kept for backward-compat with code that imports it.
+# Post-v4.2.2 it points at ~/.creators-studio/config.json after migration
+# (or ~/.banana/config.json if migration fell back per paths.py error path).
+BANANA_CONFIG = _creators_config_path()
 MCP_NAME = "nanobanana-mcp"
 MCP_PACKAGE = "@ycse/nanobanana-mcp"
 DEFAULT_MODEL = "gemini-3.1-flash-image-preview"
@@ -209,7 +221,7 @@ def setup_mcp(api_key: str) -> None:
 
     save_settings(settings)
 
-    # Also save to ~/.banana/config.json so fallback scripts can access it
+    # Also save to ~/.creators-studio/config.json so fallback scripts can access it
     config = load_banana_config()
     config["google_ai_api_key"] = api_key
     save_banana_config(config)
@@ -234,7 +246,7 @@ def main() -> None:
         print("  --remove               Remove MCP configuration")
         print()
         print("Replicate Options:")
-        print("  --replicate-key TOKEN  Set Replicate API token (stored in ~/.banana/config.json)")
+        print("  --replicate-key TOKEN  Set Replicate API token (stored in ~/.creators-studio/config.json)")
         print("  --check-replicate      Verify Replicate setup")
         print()
         print("General:")

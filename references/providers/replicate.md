@@ -7,7 +7,7 @@
 ## Authentication
 
 - HTTP Bearer token: `Authorization: Bearer r8_...`
-- Stored at `~/.banana/config.json` under `providers.replicate.api_key`
+- Stored at `~/.creators-studio/config.json` under `providers.replicate.api_key`
 - Migration shim reads the legacy flat key `replicate_api_token` for existing configs
 - Get a key at <https://replicate.com/account/api-tokens>
 

@@ -97,7 +97,7 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/assets.py delete itero-scanner --confirm
 
 ## Storage
 
-Assets stored at `~/.banana/assets/NAME.json`. Each file contains:
+Assets stored at `~/.creators-studio/assets/NAME.json`. Each file contains:
 - `name` — sanitized identifier
 - `type` — character, product, equipment, or environment
 - `description` — physical description for prompts

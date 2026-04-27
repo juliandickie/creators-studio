@@ -46,4 +46,4 @@ cost_tracker.py reset --confirm
 
 ## Storage
 
-Ledger stored at `~/.banana/costs.json`. Created automatically on first use.
+Ledger stored at `~/.creators-studio/costs.json`. Created automatically on first use.

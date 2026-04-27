@@ -21,15 +21,26 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
+# v4.2.2: import the migration helper from plugin-root scripts/paths.py.
+_plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+if _plugin_root not in sys.path:
+    sys.path.insert(0, _plugin_root)
+from scripts.paths import (  # noqa: E402
+    ab_preferences_path as _csd_ab_prefs,
+    ab_history_dir as _csd_ab_hist,
+    presets_dir as _csd_presets,
+    config_path as _csd_config,
+)
+
 DEFAULT_MODEL = "gemini-3.1-flash-image-preview"
 DEFAULT_RESOLUTION = "2K"
 DEFAULT_RATIO = "1:1"
 COST_PER_IMAGE = 0.078
 API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 OUTPUT_DIR = Path.home() / "Documents" / "creators_generated"
-PREFS_PATH = Path.home() / ".banana" / "ab_preferences.json"
-HISTORY_DIR = Path.home() / ".banana" / "ab_history"
-PRESETS_DIR = Path.home() / ".banana" / "presets"
+PREFS_PATH = _csd_ab_prefs()
+HISTORY_DIR = _csd_ab_hist()
+PRESETS_DIR = _csd_presets()
 
 VARIATION_STYLES = {
     "literal": {
@@ -54,7 +65,7 @@ def _load_api_key(cli_key):
     key = cli_key or os.environ.get("GOOGLE_AI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if key:
         return key
-    config_path = Path.home() / ".banana" / "config.json"
+    config_path = _csd_config()
     if config_path.exists():
         try:
             with open(config_path) as f:

@@ -18,7 +18,13 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-HISTORY_DIR = Path.home() / ".banana" / "history"
+# v4.2.2: import the migration helper from plugin-root scripts/paths.py.
+_plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+if _plugin_root not in sys.path:
+    sys.path.insert(0, _plugin_root)
+from scripts.paths import history_dir as _csd_history  # noqa: E402
+
+HISTORY_DIR = _csd_history()
 
 
 def _get_history_dir():

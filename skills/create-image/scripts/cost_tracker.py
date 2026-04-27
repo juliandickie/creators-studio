@@ -17,7 +17,15 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-LEDGER_PATH = Path.home() / ".banana" / "costs.json"
+# v4.2.2: import the migration helper from plugin-root scripts/paths.py.
+# costs_path() resolves to ~/.creators-studio/costs.json and triggers
+# auto-migration from ~/.banana/ on first call after upgrading.
+_plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+if _plugin_root not in sys.path:
+    sys.path.insert(0, _plugin_root)
+from scripts.paths import costs_path as _creators_costs_path  # noqa: E402
+
+LEDGER_PATH = _creators_costs_path()
 
 # Cost per image in USD (approximate, based on ~1,290 output tokens)
 PRICING = {

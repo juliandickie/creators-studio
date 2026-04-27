@@ -62,7 +62,7 @@ Use `--format markdown`, `--format pptx`, or `--format html` for a single format
 
 | Flag | Description |
 |------|-------------|
-| `--preset NAME` | Brand preset to use (from `~/.banana/presets/`) |
+| `--preset NAME` | Brand preset to use (from `~/.creators-studio/presets/`) |
 | `--output PATH` | Output directory |
 | `--tier TIER` | `quick`, `standard`, or `comprehensive` (default: standard) |
 | `--format FORMAT` | `all`, `markdown`, `pptx`, or `html` (default: all) |

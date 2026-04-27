@@ -37,7 +37,17 @@ from pantone_lookup import get_color_specs, hex_to_rgb
 
 DEFAULT_MODEL = "gemini-3.1-flash-image-preview"
 API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
-PRESETS_DIR = Path.home() / ".banana" / "presets"
+
+# v4.2.2: import the migration helper from plugin-root scripts/paths.py.
+_plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+if _plugin_root not in sys.path:
+    sys.path.insert(0, _plugin_root)
+from scripts.paths import (  # noqa: E402
+    presets_dir as _csd_presets,
+    config_path as _csd_config,
+)
+
+PRESETS_DIR = _csd_presets()
 
 PRICING = {
     "gemini-3.1-flash-image-preview": {"512": 0.020, "1K": 0.039, "2K": 0.078, "4K": 0.156},
@@ -115,7 +125,7 @@ def _load_api_key(cli_key=None):
     """Load Google AI API key from CLI, env, or config file."""
     key = cli_key or os.environ.get("GOOGLE_AI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not key:
-        config_path = Path.home() / ".banana" / "config.json"
+        config_path = _csd_config()
         if config_path.exists():
             try:
                 with open(config_path) as f:

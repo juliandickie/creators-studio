@@ -34,7 +34,7 @@ Cold-start adds ~36s wall time on the first call of a batch but NOT cost — Rep
 
 **Comparisons (720p):** Fabric at `$0.15`/s is ~7.5× more expensive per second than Kling v3 ($0.02/s) and ~3× more expensive per second than VEO Lite at 720p ($0.05/s). At 480p, Fabric closes the gap to VEO Lite (`$0.08`/s vs `$0.05`/s) but still costs more — Fabric remains a premium, not a discount. Justified only when you need a custom-designed ElevenLabs voice paired with a visible face — Kling and VEO can't do that.
 
-**Cost-tracker integration:** `video_lipsync.py` automatically shells out to `cost_tracker.py log` after every successful run, passing the actual resolution and output duration. The cost ledger at `~/.banana/costs.json` will reflect the correct rate per call.
+**Cost-tracker integration:** `video_lipsync.py` automatically shells out to `cost_tracker.py log` after every successful run, passing the actual resolution and output duration. The cost ledger at `~/.creators-studio/costs.json` will reflect the correct rate per call.
 
 ## Canonical 2-step workflow
 

@@ -106,7 +106,7 @@ Lyria delivers a 6.29 MB base64-encoded **48 kHz / 16-bit stereo PCM WAV** in th
 
 ### Lyria auth caveat (important)
 
-Lyria uses the **bound-to-service-account API key** path (the `AQ.*` format from Vertex Express Mode signup) — NOT OAuth or service account JSON. This is the **same auth pattern the plugin uses for VEO** and reuses the existing `vertex_api_key` + `vertex_project_id` + `vertex_location` fields in `~/.banana/config.json`. **No new credentials needed if you've already set up VEO.**
+Lyria uses the **bound-to-service-account API key** path (the `AQ.*` format from Vertex Express Mode signup) — NOT OAuth or service account JSON. This is the **same auth pattern the plugin uses for VEO** and reuses the existing `vertex_api_key` + `vertex_project_id` + `vertex_location` fields in `~/.creators-studio/config.json`. **No new credentials needed if you've already set up VEO.**
 
 Google's official docs only document OAuth for Lyria, but spike 4 empirically verified that API-key auth works (similar to how VEO's docs only documented OAuth before our v3.6.0 backend work confirmed API-key auth was supported). This pattern of "API-key auth works on Vertex publisher models even when only OAuth is documented" is now load-bearing for the plugin's architecture and should be preserved when adding future Vertex models.
 
@@ -214,7 +214,7 @@ audio_pipeline.py swap --video v.mp4 --audio mixed.mp3 --out final.mp4
 audio_pipeline.py status
 ```
 
-Verifies your ElevenLabs API key, ffmpeg/ffprobe availability, and lists any custom voices saved in `~/.banana/config.json`.
+Verifies your ElevenLabs API key, ffmpeg/ffprobe availability, and lists any custom voices saved in `~/.creators-studio/config.json`.
 
 ---
 
@@ -249,7 +249,7 @@ audio_pipeline.py voice-promote \
 audio_pipeline.py voice-list
 ```
 
-Returns the contents of `~/.banana/config.json` `custom_voices` section.
+Returns the contents of `~/.creators-studio/config.json` `custom_voices` section.
 
 ### Using a custom voice
 
@@ -261,7 +261,7 @@ audio_pipeline.py pipeline --voice character_a ...    # different role
 audio_pipeline.py pipeline --voice 21m00Tcm4TlvDq8ikWAM ...  # literal voice_id
 ```
 
-### Custom voice schema (in `~/.banana/config.json`)
+### Custom voice schema (in `~/.creators-studio/config.json`)
 
 ```json
 {
@@ -397,7 +397,7 @@ The list is intentionally curated and small — it covers empirically confirmed 
 
 ## Voice cloning — Instant Voice Cloning (IVC, v3.7.4)
 
-`voice-clone` wraps ElevenLabs' IVC endpoint (`POST /v1/voices/add`) and persists the resulting `voice_id` to `~/.banana/config.json` under `custom_voices.{role}` with `source_type=cloned` and `design_method=ivc`.
+`voice-clone` wraps ElevenLabs' IVC endpoint (`POST /v1/voices/add`) and persists the resulting `voice_id` to `~/.creators-studio/config.json` under `custom_voices.{role}` with `source_type=cloned` and `design_method=ivc`.
 
 ### Quick start
 
@@ -590,9 +590,9 @@ Each finding has a `<!-- verified: 2026-04-14 -->` marker in `video-audio.md` pe
 ## Setup
 
 1. **Get an ElevenLabs API key** at https://elevenlabs.io/app/settings/api-keys (Creator tier recommended for the music API)
-2. **Add it to `~/.banana/config.json`:**
+2. **Add it to `~/.creators-studio/config.json`:**
    ```bash
-   python3 -c "import json,os; p=os.path.expanduser('~/.banana/config.json'); c=json.load(open(p)) if os.path.exists(p) else {}; c['elevenlabs_api_key']='YOUR_KEY_HERE'; json.dump(c, open(p,'w'), indent=2); os.chmod(p, 0o600)"
+   python3 -c "import json,os; p=os.path.expanduser('~/.creators-studio/config.json'); c=json.load(open(p)) if os.path.exists(p) else {}; c['elevenlabs_api_key']='YOUR_KEY_HERE'; json.dump(c, open(p,'w'), indent=2); os.chmod(p, 0o600)"
    ```
 3. **Verify with status check:**
    ```bash

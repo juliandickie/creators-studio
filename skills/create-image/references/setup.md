@@ -73,7 +73,7 @@ Then tell the user to run `/reload-plugins` in Claude Code.
 
 ## Where Keys Are Stored
 
-Both keys are saved to `~/.banana/config.json` (for fallback scripts) and the
+Both keys are saved to `~/.creators-studio/config.json` (for fallback scripts) and the
 Google key is also saved to `~/.claude/settings.json` (for the MCP server).
 Keys never leave the user's machine.
 
@@ -118,7 +118,7 @@ Do NOT silently degrade. Always communicate what the user is giving up by not in
 
 ### API credentials (activate specific model providers)
 
-The `~/.banana/config.json` file holds all API credentials. Missing credentials degrade specific model paths, not the whole plugin:
+The `~/.creators-studio/config.json` file holds all API credentials. Missing credentials degrade specific model paths, not the whole plugin:
 
 | Credential | Activates |
 |---|---|

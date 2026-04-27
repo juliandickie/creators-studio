@@ -222,7 +222,7 @@ def main():
     parser.add_argument(
         "--replicate-key", default=None,
         help="Replicate API token. Loads from REPLICATE_API_TOKEN env var "
-             "or ~/.banana/config.json replicate_api_token field if unset.",
+             "or ~/.creators-studio/config.json replicate_api_token field if unset.",
     )
     parser.add_argument(
         "--poll-interval", type=int, default=DEFAULT_POLL_INTERVAL,
@@ -300,7 +300,7 @@ def main():
     }
     print(json.dumps(result, indent=2))
 
-    # Log cost to ~/.banana/costs.json (v3.8.3+). Shell out to cost_tracker.py
+    # Log cost to ~/.creators-studio/costs.json (v3.8.3+). Shell out to cost_tracker.py
     # to avoid cross-skill imports.
     #
     # Fabric pricing is per_second_by_resolution: 480p = $0.08/s, 720p = $0.15/s

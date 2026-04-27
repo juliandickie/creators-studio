@@ -17,14 +17,25 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+# v4.2.2: import the migration helper from plugin-root scripts/paths.py.
+_plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+if _plugin_root not in sys.path:
+    sys.path.insert(0, _plugin_root)
+from scripts.paths import (  # noqa: E402
+    costs_path as _csd_costs,
+    history_dir as _csd_history,
+    ab_preferences_path as _csd_ab_prefs,
+    analytics_path as _csd_analytics,
+)
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-LEDGER_PATH = Path.home() / ".banana" / "costs.json"
-HISTORY_DIR = Path.home() / ".banana" / "history"
-AB_PREFS_PATH = Path.home() / ".banana" / "ab_preferences.json"
-DEFAULT_OUTPUT = Path.home() / ".banana" / "analytics.html"
+LEDGER_PATH = _csd_costs()
+HISTORY_DIR = _csd_history()
+AB_PREFS_PATH = _csd_ab_prefs()
+DEFAULT_OUTPUT = _csd_analytics()
 DAILY_QUOTA_LIMIT = 500
 VERSION = "2.6.0"
 

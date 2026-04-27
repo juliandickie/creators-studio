@@ -17,6 +17,12 @@ import shutil
 import sys
 from pathlib import Path
 
+# v4.2.2: import the migration helper from plugin-root scripts/paths.py.
+_plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+if _plugin_root not in sys.path:
+    sys.path.insert(0, _plugin_root)
+from scripts.paths import creators_studio_dir as _csd, migration_status as _migration_status  # noqa: E402
+
 SETTINGS_PATH = Path.home() / ".claude" / "settings.json"
 MCP_NAME = "nanobanana-mcp"
 OUTPUT_DIR = Path.home() / "Documents" / "creators_generated"
@@ -31,7 +37,42 @@ def check(label: str, passed: bool, detail: str = "") -> bool:
     return passed
 
 
+def _print_migration_status() -> int:
+    """Print v4.2.2 ~/.banana/ → ~/.creators-studio/ migration status. Used by --check-migration."""
+    print("Creators Studio -- Config Directory Migration Status (v4.2.2+)")
+    print("=" * 65)
+    status = _migration_status()
+    state_label = {
+        "migrated":  "[OK]    Migration complete",
+        "new_only":  "[OK]    Fresh v4.2.2+ install (no migration needed)",
+        "old_only":  "[INFO]  Pre-v4.2.2 install — next plugin command will migrate",
+        "none":      "[NEW]   First-ever install — run /create-image setup to begin",
+    }[status["state"]]
+    print(f"State:           {state_label}")
+    print(f"New path:        {status['new_path']}    (exists: {status['new_exists']})")
+    print(f"Old path:        {status['old_path']}    (exists: {status['old_exists']})")
+    print()
+    print("Recommendation:")
+    for line in status["recommendation"].split(". "):
+        if line.strip():
+            print(f"  {line.strip().rstrip('.')}.")
+    print()
+    print("Notes:")
+    print("  * The old directory (~/.banana/) is NEVER auto-deleted. After")
+    print("    verifying the new path works (e.g., generate an image and")
+    print("    confirm it logs to the new path's costs.json), you can")
+    print("    safely run: rm -rf ~/.banana/")
+    print("  * Migration is COPY (not move). Both directories may exist")
+    print("    simultaneously during the transition period without divergence")
+    print("    risk — all v4.2.2+ writes go to the new path.")
+    return 0
+
+
 def main() -> int:
+    # v4.2.2: --check-migration shortcut
+    if len(sys.argv) > 1 and sys.argv[1] == "--check-migration":
+        return _print_migration_status()
+
     print("Creators Studio -- Setup Validation")
     print("=" * 40)
     results = []
@@ -148,7 +189,7 @@ def main() -> int:
             print("    brew install webp")
 
     # 11. ElevenLabs + Replicate + Vertex config (optional) — informational only.
-    config_path = Path.home() / ".banana" / "config.json"
+    config_path = _csd() / "config.json"
     if config_path.exists():
         try:
             with open(config_path) as f:
