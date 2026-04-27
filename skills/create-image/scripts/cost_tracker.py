@@ -145,9 +145,18 @@ PRICING = {
     "bytedance/dreamactor-m2.0": {
         "per_second": 0.05,
     },
-    # v4.2.x Fabric pricing: 480p is ~47% cheaper than 720p per Replicate's
-    # official model card (verified 2026-04-27). The previous flat $0.15/s
-    # entry was the 720p rate assumed equal across resolutions.
+    # PixVerse V6 (2026-04-27): 4-tier resolution × 2 audio states.
+    # Same pricing-mode shape as Kling v3 (per_second_by_resolution_and_audio).
+    # Source: dev-docs/pixverse-pixverse-v6-llms.md "Pricing" block.
+    # Registered ahead of runtime wiring per the multi-model principle.
+    "pixverse/pixverse-v6": {
+        "per_second_by_resolution_and_audio": {
+            "360p":  {"with_audio": 0.07, "without_audio": 0.05},
+            "540p":  {"with_audio": 0.09, "without_audio": 0.07},
+            "720p":  {"with_audio": 0.12, "without_audio": 0.09},
+            "1080p": {"with_audio": 0.23, "without_audio": 0.18},
+        },
+    },
     "veed/fabric-1.0": {
         "per_second_by_resolution": {"480p": 0.08, "720p": 0.15},
     },
