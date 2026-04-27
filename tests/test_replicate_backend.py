@@ -363,5 +363,320 @@ class TestVEOSubmit(unittest.TestCase):
                         f"Neither 'start_image' nor 'image' in VEO body: {body['input']}")
 
 
+class TestPixverseValidateParams(unittest.TestCase):
+    """Validates the module-level validate_pixverse_params() helper."""
+
+    def test_valid_text_to_video_params_pass(self):
+        # Should not raise
+        _replicate.validate_pixverse_params(
+            duration=8, resolution="1080p", aspect_ratio="16:9",
+            prompt="a cinematic shot",
+        )
+
+    def test_valid_transition_params_pass(self):
+        # image + last_frame_image is valid (transition mode)
+        _replicate.validate_pixverse_params(
+            duration=5, resolution="720p",
+            image="https://example.com/first.jpg",
+            last_frame_image="https://example.com/last.jpg",
+            prompt="morph from first to last",
+        )
+
+    def test_invalid_duration_below_min_rejected(self):
+        with self.assertRaises(_replicate.ReplicateValidationError):
+            _replicate.validate_pixverse_params(
+                duration=0, resolution="720p",
+            )
+
+    def test_invalid_duration_above_max_rejected(self):
+        with self.assertRaises(_replicate.ReplicateValidationError):
+            _replicate.validate_pixverse_params(
+                duration=20, resolution="720p",
+            )
+
+    def test_non_integer_duration_rejected(self):
+        with self.assertRaises(_replicate.ReplicateValidationError):
+            _replicate.validate_pixverse_params(
+                duration=8.5, resolution="720p",
+            )
+
+    def test_invalid_resolution_rejected(self):
+        with self.assertRaises(_replicate.ReplicateValidationError):
+            _replicate.validate_pixverse_params(
+                duration=8, resolution="4K",  # PixVerse maxes at 1080p
+            )
+
+    def test_invalid_aspect_ratio_rejected(self):
+        with self.assertRaises(_replicate.ReplicateValidationError):
+            _replicate.validate_pixverse_params(
+                duration=8, resolution="720p", aspect_ratio="1:1",  # not in PixVerse list
+            )
+
+    def test_last_frame_without_first_frame_rejected(self):
+        with self.assertRaises(_replicate.ReplicateValidationError):
+            _replicate.validate_pixverse_params(
+                duration=5, resolution="720p",
+                last_frame_image="https://example.com/last.jpg",
+                # image not provided — should fail
+            )
+
+    def test_multi_shot_in_transition_mode_rejected(self):
+        with self.assertRaises(_replicate.ReplicateValidationError):
+            _replicate.validate_pixverse_params(
+                duration=5, resolution="720p",
+                image="https://example.com/first.jpg",
+                last_frame_image="https://example.com/last.jpg",
+                multi_shot=True,
+            )
+
+    def test_aspect_ratio_with_image_logs_warning(self):
+        # Non-blocking: aspect_ratio is ignored when image is provided.
+        with self.assertLogs(_replicate._logger, level="WARNING") as cm:
+            _replicate.validate_pixverse_params(
+                duration=5, resolution="720p", aspect_ratio="16:9",
+                image="https://example.com/first.jpg",
+            )
+        self.assertTrue(any("IGNORED" in msg for msg in cm.output))
+
+
+class TestPixverseBuildRequestBody(unittest.TestCase):
+    """Validates the module-level build_pixverse_request_body() helper."""
+
+    def test_text_to_video_minimal(self):
+        body = _replicate.build_pixverse_request_body(
+            "a cat playing",
+            duration=8, resolution="720p", aspect_ratio="16:9",
+        )
+        self.assertEqual(body["input"]["prompt"], "a cat playing")
+        self.assertEqual(body["input"]["duration"], 8)
+        # Critical: canonical 'resolution' becomes PixVerse's 'quality' field
+        self.assertEqual(body["input"]["quality"], "720p")
+        self.assertEqual(body["input"]["aspect_ratio"], "16:9")
+        self.assertTrue(body["input"]["generate_audio_switch"])  # default True
+
+    def test_image_to_video_uses_image_field_name(self):
+        body = _replicate.build_pixverse_request_body(
+            "animate this",
+            duration=5, resolution="720p",
+            image="https://example.com/face.jpg",
+        )
+        # PixVerse uses 'image', not 'start_image' or 'first_frame_image'
+        self.assertEqual(body["input"]["image"], "https://example.com/face.jpg")
+        # aspect_ratio omitted (image is provided)
+        self.assertNotIn("aspect_ratio", body["input"])
+
+    def test_transition_uses_last_frame_image_field_name(self):
+        body = _replicate.build_pixverse_request_body(
+            "morph",
+            duration=5, resolution="720p",
+            image="https://example.com/first.jpg",
+            last_frame_image="https://example.com/last.jpg",
+        )
+        # PixVerse field name is 'last_frame_image' (not 'end_image')
+        self.assertEqual(body["input"]["last_frame_image"], "https://example.com/last.jpg")
+
+    def test_audio_disabled(self):
+        body = _replicate.build_pixverse_request_body(
+            "silent clip", duration=5, resolution="720p", aspect_ratio="16:9",
+            generate_audio=False,
+        )
+        self.assertFalse(body["input"]["generate_audio_switch"])
+
+    def test_multi_clip_emitted_only_when_true(self):
+        body_off = _replicate.build_pixverse_request_body(
+            "test", duration=5, resolution="720p", aspect_ratio="16:9",
+            generate_multi_clip=False,
+        )
+        self.assertNotIn("generate_multi_clip_switch", body_off["input"])
+
+        body_on = _replicate.build_pixverse_request_body(
+            "test", duration=5, resolution="720p", aspect_ratio="16:9",
+            generate_multi_clip=True,
+        )
+        self.assertTrue(body_on["input"]["generate_multi_clip_switch"])
+
+
+class TestPixverseSubmit(unittest.TestCase):
+    """Tests ReplicateBackend.submit() Pixverse-specific dispatch."""
+
+    def setUp(self):
+        self.backend = _replicate.ReplicateBackend()
+        self.config = {"providers": {"replicate": {"api_key": "r8_test"}}}
+
+    @patch("scripts.backends._replicate.urllib.request.urlopen")
+    def test_submit_text_to_video_renames_resolution_to_quality(self, mock_urlopen):
+        with open(str(FIXTURES / "replicate_pixverse_submit.json")) as f:
+            mock_urlopen.return_value = _fake_urlopen_response(json.load(f), 201)
+
+        job_ref = self.backend.submit(
+            task="text-to-video",
+            model_slug="pixverse/pixverse-v6",
+            canonical_params={
+                "prompt": "a cinematic product shot",
+                "duration_s": 8,
+                "aspect_ratio": "16:9",
+                "resolution": "1080p",
+                "audio_enabled": True,
+            },
+            provider_opts={},
+            config=self.config,
+        )
+
+        self.assertEqual(job_ref.external_id, "px1234567890abcdef")
+
+        # Verify on-the-wire body
+        call_args = mock_urlopen.call_args
+        request = call_args[0][0]
+        body = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(body["input"]["prompt"], "a cinematic product shot")
+        self.assertEqual(body["input"]["duration"], 8)
+        # CRITICAL: resolution → quality field rename
+        self.assertEqual(body["input"]["quality"], "1080p")
+        self.assertNotIn("resolution", body["input"])
+        # audio_enabled → generate_audio_switch field rename
+        self.assertTrue(body["input"]["generate_audio_switch"])
+        self.assertNotIn("audio_enabled", body["input"])
+
+    @patch("scripts.backends._replicate.urllib.request.urlopen")
+    def test_submit_image_to_video_renames_start_image_to_image(self, mock_urlopen):
+        with open(str(FIXTURES / "replicate_pixverse_submit.json")) as f:
+            mock_urlopen.return_value = _fake_urlopen_response(json.load(f), 201)
+
+        self.backend.submit(
+            task="image-to-video",
+            model_slug="pixverse/pixverse-v6",
+            canonical_params={
+                "prompt": "animate",
+                "duration_s": 5,
+                "aspect_ratio": "16:9",
+                "resolution": "720p",
+                "start_image": "data:image/png;base64,abc",
+            },
+            provider_opts={},
+            config=self.config,
+        )
+        call_args = mock_urlopen.call_args
+        request = call_args[0][0]
+        body = json.loads(request.data.decode("utf-8"))
+        # CRITICAL: start_image → image rename
+        self.assertEqual(body["input"]["image"], "data:image/png;base64,abc")
+        self.assertNotIn("start_image", body["input"])
+
+    @patch("scripts.backends._replicate.urllib.request.urlopen")
+    def test_submit_transition_renames_end_image_to_last_frame_image(self, mock_urlopen):
+        with open(str(FIXTURES / "replicate_pixverse_submit.json")) as f:
+            mock_urlopen.return_value = _fake_urlopen_response(json.load(f), 201)
+
+        self.backend.submit(
+            task="image-to-video",
+            model_slug="pixverse/pixverse-v6",
+            canonical_params={
+                "prompt": "morph",
+                "duration_s": 5,
+                "aspect_ratio": "16:9",
+                "resolution": "720p",
+                "start_image": "data:image/png;base64,abc",
+                "end_image": "data:image/png;base64,xyz",
+            },
+            provider_opts={},
+            config=self.config,
+        )
+        call_args = mock_urlopen.call_args
+        request = call_args[0][0]
+        body = json.loads(request.data.decode("utf-8"))
+        # CRITICAL: end_image → last_frame_image rename
+        self.assertEqual(body["input"]["last_frame_image"], "data:image/png;base64,xyz")
+        self.assertNotIn("end_image", body["input"])
+
+    def test_submit_end_image_without_start_image_raises(self):
+        with self.assertRaises(_base.ProviderValidationError):
+            self.backend.submit(
+                task="image-to-video",
+                model_slug="pixverse/pixverse-v6",
+                canonical_params={
+                    "prompt": "morph",
+                    "duration_s": 5,
+                    "aspect_ratio": "16:9",
+                    "resolution": "720p",
+                    # start_image missing
+                    "end_image": "data:image/png;base64,xyz",
+                },
+                provider_opts={},
+                config=self.config,
+            )
+
+    @patch("scripts.backends._replicate.urllib.request.urlopen")
+    def test_submit_multi_shot_emits_generate_multi_clip_switch(self, mock_urlopen):
+        with open(str(FIXTURES / "replicate_pixverse_submit.json")) as f:
+            mock_urlopen.return_value = _fake_urlopen_response(json.load(f), 201)
+
+        self.backend.submit(
+            task="text-to-video",
+            model_slug="pixverse/pixverse-v6",
+            canonical_params={
+                "prompt": "Shot 1, ...; Shot 2, ...; Shot 3, ...",
+                "duration_s": 10,
+                "aspect_ratio": "16:9",
+                "resolution": "720p",
+                "multi_shot": True,
+            },
+            provider_opts={},
+            config=self.config,
+        )
+        call_args = mock_urlopen.call_args
+        request = call_args[0][0]
+        body = json.loads(request.data.decode("utf-8"))
+        self.assertTrue(body["input"]["generate_multi_clip_switch"])
+        self.assertNotIn("multi_shot", body["input"])
+
+    @patch("scripts.backends._replicate.urllib.request.urlopen")
+    def test_submit_audio_enabled_false_emits_generate_audio_switch_false(self, mock_urlopen):
+        with open(str(FIXTURES / "replicate_pixverse_submit.json")) as f:
+            mock_urlopen.return_value = _fake_urlopen_response(json.load(f), 201)
+
+        self.backend.submit(
+            task="text-to-video",
+            model_slug="pixverse/pixverse-v6",
+            canonical_params={
+                "prompt": "silent clip",
+                "duration_s": 5,
+                "aspect_ratio": "16:9",
+                "resolution": "720p",
+                "audio_enabled": False,
+            },
+            provider_opts={},
+            config=self.config,
+        )
+        call_args = mock_urlopen.call_args
+        request = call_args[0][0]
+        body = json.loads(request.data.decode("utf-8"))
+        self.assertFalse(body["input"]["generate_audio_switch"])
+
+    @patch("scripts.backends._replicate.urllib.request.urlopen")
+    def test_submit_audio_enabled_defaults_to_true(self, mock_urlopen):
+        # Plugin convention: audio is on by default. PixVerse's API default
+        # is false, so submit() must explicitly emit generate_audio_switch=True
+        # when canonical audio_enabled is not specified.
+        with open(str(FIXTURES / "replicate_pixverse_submit.json")) as f:
+            mock_urlopen.return_value = _fake_urlopen_response(json.load(f), 201)
+
+        self.backend.submit(
+            task="text-to-video",
+            model_slug="pixverse/pixverse-v6",
+            canonical_params={
+                "prompt": "default audio",
+                "duration_s": 5,
+                "aspect_ratio": "16:9",
+                "resolution": "720p",
+            },
+            provider_opts={},
+            config=self.config,
+        )
+        call_args = mock_urlopen.call_args
+        request = call_args[0][0]
+        body = json.loads(request.data.decode("utf-8"))
+        self.assertTrue(body["input"]["generate_audio_switch"])
+
+
 if __name__ == "__main__":
     unittest.main()
