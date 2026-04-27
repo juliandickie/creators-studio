@@ -301,16 +301,22 @@ def main():
     print(json.dumps(result, indent=2))
 
     # Log cost to ~/.banana/costs.json (v3.8.3+). Shell out to cost_tracker.py
-    # to avoid cross-skill imports. Fabric cost = $0.15/s × output duration.
+    # to avoid cross-skill imports.
+    #
+    # Fabric pricing is per_second_by_resolution: 480p = $0.08/s, 720p = $0.15/s
+    # (per Replicate's official model card, verified 2026-04-27). Pass the
+    # actual resolution as --resolution and the output duration as --duration-s.
+    # The previous code-path passed `f"{output_duration}s"` as --resolution to
+    # exploit the legacy per_second dispatch — that hack is gone.
     if output_duration > 0:
         try:
             import subprocess as _sp
             _cost_tracker = str(Path(__file__).resolve().parent.parent.parent / "create-image" / "scripts" / "cost_tracker.py")
-            _duration_key = f"{output_duration}s"
             _sp.run(
                 [sys.executable, _cost_tracker, "log",
                  "--model", FABRIC_MODEL_SLUG,
-                 "--resolution", _duration_key,
+                 "--resolution", args.resolution,
+                 "--duration-s", str(output_duration),
                  "--prompt", f"lipsync {args.resolution}"],
                 capture_output=True, timeout=5,
             )

@@ -148,9 +148,13 @@
         "replicate": {
           "slug": "veed/fabric-1.0",
           "capabilities": ["audio_driven_lipsync"],
-          "pricing": {"mode": "per_second", "rate": 0.15, "currency": "USD"},
+          "pricing": {
+            "mode": "per_second_by_resolution",
+            "rates": {"480p": 0.08, "720p": 0.15},
+            "currency": "USD"
+          },
           "availability": "GA",
-          "notes": "Cost is per second of output duration (driven by audio length). No prompt parameter. Mouth region only."
+          "notes": "Cost is per second of output duration (driven by audio length), keyed by resolution. 480p is ~47% cheaper than 720p — verified 2026-04-27 against Replicate's official Fabric 1.0 model card. The v3.8.1 empirical figure (~$0.15/s) was 720p only; 480p was previously assumed equal. No prompt parameter. Mouth region only."
         }
       }
     },

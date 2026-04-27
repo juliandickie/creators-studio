@@ -158,7 +158,7 @@ PRICING = {
         },
     },
     "veed/fabric-1.0": {
-        "per_second": 0.15,
+        "per_second_by_resolution": {"480p": 0.08, "720p": 0.15},
     },
     # v4.2.1: VEO 3.1 tiers — Lite is resolution-keyed, Fast/Standard are
     # audio-keyed. These entries are canonical (non-preview, non-001) IDs.
