@@ -7,7 +7,7 @@
 
 - **Repo:** https://github.com/juliandickie/creators-studio
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
-- **Current version:** 4.1.2
+- **Current version:** 4.2.2
 - **Local path:** `/Users/juliandickie/code/creators-studio-project/creators-studio/`
 - **Plugin layout:** `.claude-plugin/` + `skills/create-image/` (image) + `skills/create-video/` (video) + `agents/`
 

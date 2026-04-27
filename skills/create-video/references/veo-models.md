@@ -97,13 +97,13 @@ model coverage**. The plugin supports both, with `--backend auto`
 
 | Backend | Auth | Plugin support | Available models |
 |---|---|---|---|
-| **Gemini API** (`generativelanguage.googleapis.com`) | `google_ai_api_key` in `~/.banana/config.json` | ✅ Since v3.0.0 | Standard preview (`veo-3.1-generate-preview`), Fast preview (`veo-3.1-fast-generate-preview`) — text-to-video only |
-| **Vertex AI** (`*-aiplatform.googleapis.com`) | `vertex_api_key` (bound to a service account) + `vertex_project_id` + `vertex_location` in `~/.banana/config.json` | ✅ **Since v3.6.0** | All of the above **plus** Lite (`veo-3.1-lite-generate-001`), Legacy 3.0 (`veo-3.0-generate-001`), GA `-001` IDs for Standard/Fast, image-to-video (first-frame, last-frame, reference images), and Scene Extension v2 (`--video-input`) |
+| **Gemini API** (`generativelanguage.googleapis.com`) | `google_ai_api_key` in `~/.creators-studio/config.json` | ✅ Since v3.0.0 | Standard preview (`veo-3.1-generate-preview`), Fast preview (`veo-3.1-fast-generate-preview`) — text-to-video only |
+| **Vertex AI** (`*-aiplatform.googleapis.com`) | `vertex_api_key` (bound to a service account) + `vertex_project_id` + `vertex_location` in `~/.creators-studio/config.json` | ✅ **Since v3.6.0** | All of the above **plus** Lite (`veo-3.1-lite-generate-001`), Legacy 3.0 (`veo-3.0-generate-001`), GA `-001` IDs for Standard/Fast, image-to-video (first-frame, last-frame, reference images), and Scene Extension v2 (`--video-input`) |
 
 **What this means in practice:**
 
 - **Text-to-video on Standard or Fast preview** stays on the Gemini API path. No new credentials needed if you already had the plugin working in v3.4.x.
-- **Everything else** (Lite, GA IDs, image-to-video, Scene Extension v2) auto-routes through Vertex AI. Requires Vertex credentials in `~/.banana/config.json` (see "Auth setup" below).
+- **Everything else** (Lite, GA IDs, image-to-video, Scene Extension v2) auto-routes through Vertex AI. Requires Vertex credentials in `~/.creators-studio/config.json` (see "Auth setup" below).
 - **`--quality-tier draft`** in `video_sequence.py` maps to Lite via the Vertex backend — **8× cheaper than Standard**.
 
 ### Auth setup (3 minutes, one-time)
@@ -111,7 +111,7 @@ model coverage**. The plugin supports both, with `--backend auto`
 1. Open https://console.cloud.google.com/ and select (or create) a project with billing enabled and the Vertex AI API enabled.
 2. Visit https://console.cloud.google.com/apis/credentials → **Create Credentials** → **API key**.
 3. **Restrict the key**: in the key's settings page, **bind it to a service account** that has the `Vertex AI User` (`roles/aiplatform.user`) role on the project. The bound-to-service-account format starts with `AQ.*` and is the only API key format that works with `predictLongRunning`.
-4. Add three fields to `~/.banana/config.json` (alongside the existing `google_ai_api_key`):
+4. Add three fields to `~/.creators-studio/config.json` (alongside the existing `google_ai_api_key`):
    ```json
    {
      "vertex_api_key": "AQ.Ab8...",

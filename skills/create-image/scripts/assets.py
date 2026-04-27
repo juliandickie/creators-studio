@@ -19,7 +19,13 @@ import re
 import sys
 from pathlib import Path
 
-ASSETS_DIR = Path.home() / ".banana" / "assets"
+# v4.2.2: import the migration helper from plugin-root scripts/paths.py.
+_plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+if _plugin_root not in sys.path:
+    sys.path.insert(0, _plugin_root)
+from scripts.paths import assets_dir as _csd_assets  # noqa: E402
+
+ASSETS_DIR = _csd_assets()
 VALID_TYPES = {"character", "product", "equipment", "environment"}
 MAX_IMAGE_SIZE = 7 * 1024 * 1024  # 7MB per Gemini API limit
 SUPPORTED_FORMATS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}

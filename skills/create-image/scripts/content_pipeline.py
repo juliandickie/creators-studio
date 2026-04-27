@@ -26,8 +26,15 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
+
+# v4.2.2: import the migration helper from plugin-root scripts/paths.py.
+_plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+if _plugin_root not in sys.path:
+    sys.path.insert(0, _plugin_root)
+from scripts.paths import config_path as _csd_config  # noqa: E402
+
 OUTPUT_DIR = Path.home() / "Documents" / "creators_generated"
-CONFIG_PATH = Path.home() / ".banana" / "config.json"
+CONFIG_PATH = _csd_config()
 
 DEFAULT_MODEL = "gemini-3.1-flash-image-preview"
 DEFAULT_RATIO = "16:9"

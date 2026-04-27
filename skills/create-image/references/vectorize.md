@@ -123,7 +123,7 @@ Recraft bills per output image at $0.01, flat. No duration-based or
 resolution-based tiers. The cost is the same whether the input is a 256×256
 icon or a 4096×4096 poster.
 
-Cost logging goes to `~/.banana/costs.json` via `cost_tracker.py log` with
+Cost logging goes to `~/.creators-studio/costs.json` via `cost_tracker.py log` with
 `--resolution N/A` (Recraft's `per_call` pricing mode ignores the resolution
 argument).
 

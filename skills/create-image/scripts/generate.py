@@ -252,8 +252,12 @@ def main():
 
     api_key = args.api_key or os.environ.get("GOOGLE_AI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
-        # Try ~/.banana/config.json
-        config_path = Path.home() / ".banana" / "config.json"
+        # v4.2.2: canonical config dir (auto-migrates from ~/.banana/ on first call).
+        _plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+        if _plugin_root not in sys.path:
+            sys.path.insert(0, _plugin_root)
+        from scripts.paths import config_path as _csd_config  # noqa: E402
+        config_path = _csd_config()
         if config_path.exists():
             try:
                 with open(config_path) as f:

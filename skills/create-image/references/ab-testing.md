@@ -46,7 +46,7 @@ Ratings are format: `"variation_index:score"` (e.g., `"1:4,2:5,3:3"`).
 
 ## Preferences
 
-Ratings aggregate over time in `~/.banana/ab_preferences.json`. The system tracks:
+Ratings aggregate over time in `~/.creators-studio/ab_preferences.json`. The system tracks:
 - Average score per variation style
 - Total tests run
 - Which style is recommended based on aggregate scores
@@ -54,5 +54,5 @@ Ratings aggregate over time in `~/.banana/ab_preferences.json`. The system track
 ## Storage
 
 - Test results: `~/Documents/creators_generated/ab_test_TIMESTAMP/`
-- Preferences: `~/.banana/ab_preferences.json`
-- History: `~/.banana/ab_history/`
+- Preferences: `~/.creators-studio/ab_preferences.json`
+- History: `~/.creators-studio/ab_history/`

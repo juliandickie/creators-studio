@@ -61,7 +61,7 @@ If user mentions a brand/preset: `python3 ${CLAUDE_SKILL_DIR}/scripts/presets.py
 
 **Logo handling:** NEVER mention "logo" in prompts. Describe the area as "clean negative space." Logos are composited in presentation software after generation.
 
-**Example presets:** If no presets exist, offer to install examples: `ls ${CLAUDE_SKILL_DIR}/presets/` shows 12 pre-built brand guides. Copy with: `cp ${CLAUDE_SKILL_DIR}/presets/NAME.json ~/.banana/presets/`
+**Example presets:** If no presets exist, offer to install examples: `ls ${CLAUDE_SKILL_DIR}/presets/` shows 12 pre-built brand guides. Copy with: `cp ${CLAUDE_SKILL_DIR}/presets/NAME.json ~/.creators-studio/presets/`
 
 ### Step 3: Check for Assets
 

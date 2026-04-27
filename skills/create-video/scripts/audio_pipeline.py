@@ -52,7 +52,7 @@ stages and writes a final MP4 with the new audio swapped in. The TTS and music A
 calls run in parallel (concurrent.futures.ThreadPoolExecutor) to roughly halve the
 user-perceived latency from ~19s sequential to ~12s parallel.
 
-Configuration is read from ~/.banana/config.json:
+Configuration is read from ~/.creators-studio/config.json (v4.2.2+; auto-migrates from ~/.banana/):
     elevenlabs_api_key:        ElevenLabs API key (xi-api-key header)
     custom_voices:             Nested dict of role -> voice metadata (see schema below)
 
@@ -214,7 +214,10 @@ def resolve_lyria_version(
 # Constants
 # ---------------------------------------------------------------------------
 
-CONFIG_PATH = Path.home() / ".banana" / "config.json"
+# v4.2.2: canonical config dir auto-migrates from ~/.banana/ on first call.
+# scripts/ is on sys.path via the shim above (line ~107).
+from scripts.paths import config_path as _csd_config  # noqa: E402
+CONFIG_PATH = _csd_config()
 DEFAULT_OUTPUT_DIR = Path.home() / "Documents" / "creators_audio"
 
 ELEVENLABS_API = "https://api.elevenlabs.io"
@@ -272,7 +275,7 @@ SIDECHAIN_FILTER = (
 
 
 def _load_config() -> dict:
-    """Read ~/.banana/config.json. Returns {} if missing."""
+    """Read ~/.creators-studio/config.json. Returns {} if missing."""
     if not CONFIG_PATH.exists():
         return {}
     try:
@@ -314,7 +317,7 @@ def _get_api_key(cli_key: str | None = None) -> str:
         return cfg_key
     _error_exit(
         "no ElevenLabs API key found. Set ELEVENLABS_API_KEY env var, "
-        "pass --api-key, or add 'elevenlabs_api_key' to ~/.banana/config.json"
+        "pass --api-key, or add 'elevenlabs_api_key' to ~/.creators-studio/config.json"
     )
     return ""  # unreachable
 
@@ -676,7 +679,7 @@ def generate_music_lyria(prompt: str, negative_prompt: str | None = None,
         _error_exit(
             f"Replicate auth failed for Lyria: {e}. Configure the Replicate "
             f"API key via setup_mcp.py or providers.replicate.api_key in "
-            f"~/.banana/config.json."
+            f"~/.creators-studio/config.json."
         )
     except _ProviderError as e:
         _error_exit(f"Lyria submit via Replicate failed: {e}")
@@ -1122,7 +1125,7 @@ def _get_elevenlabs_key() -> str:
     if not key:
         _error_exit(
             "ElevenLabs API key not found. Required when using --music-source elevenlabs. "
-            "Add elevenlabs_api_key to ~/.banana/config.json or set ELEVENLABS_API_KEY env var."
+            "Add elevenlabs_api_key to ~/.creators-studio/config.json or set ELEVENLABS_API_KEY env var."
         )
     return key
 
@@ -1198,7 +1201,7 @@ NAMED_CREATOR_TRIGGERS = [
 
 
 def _load_custom_triggers() -> list[str] | None:
-    """Load user-defined strip triggers from ~/.banana/config.json if present.
+    """Load user-defined strip triggers from ~/.creators-studio/config.json if present.
 
     Returns the list if the config has a `named_creator_triggers` key, else None
     (meaning: fall back to the hardcoded NAMED_CREATOR_TRIGGERS list).
@@ -1237,7 +1240,7 @@ def strip_named_creators(prompt: str, triggers: list[str] | None = None) -> tupl
 
     Trigger list precedence:
       1. Explicit `triggers` parameter (caller override)
-      2. `named_creator_triggers` list in ~/.banana/config.json (user override)
+      2. `named_creator_triggers` list in ~/.creators-studio/config.json (user override)
       3. Hardcoded NAMED_CREATOR_TRIGGERS (default)
 
     After stripping creator names, any dangling wrapper phrases ("in the style
@@ -1436,7 +1439,7 @@ def pipeline(video_path: Path, narration_text: str, music_prompt: str,
     v4.2.1: Lyria migrated from Vertex to Replicate; lyria_version picks
     between 2 / 3 / 3-pro (see resolve_lyria_version). The api_key parameter
     is the ElevenLabs key (used for TTS narration); the Replicate API key
-    for Lyria is read by ReplicateBackend from ~/.banana/config.json.
+    for Lyria is read by ReplicateBackend from ~/.creators-studio/config.json.
     """
     if output_path is None:
         DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -1613,7 +1616,7 @@ def promote_voice(generated_voice_id: str, name: str, role: str, api_key: str,
                   should_enhance: bool = False,
                   notes: str | None = None) -> dict:
     """POST /v1/text-to-voice to promote a preview to a permanent voice,
-    then save the metadata to ~/.banana/config.json under custom_voices.{role}.
+    then save the metadata to ~/.creators-studio/config.json under custom_voices.{role}.
     """
     if description is None:
         description = name
@@ -1686,7 +1689,7 @@ def promote_voice(generated_voice_id: str, name: str, role: str, api_key: str,
 
 
 def list_voices() -> dict:
-    """List all custom voices from ~/.banana/config.json."""
+    """List all custom voices from ~/.creators-studio/config.json."""
     config = _load_config()
     custom = config.get("custom_voices", {}) or {}
     return {
@@ -1804,7 +1807,7 @@ def clone_voice(audio_paths: list[Path], name: str, role: str, api_key: str,
     Requires at least 30 seconds of total audio across all uploaded files.
     Each audio file must be a supported format (mp3/wav/m4a/flac/ogg/opus/aiff/webm).
 
-    On success, persists the new voice_id to ~/.banana/config.json under
+    On success, persists the new voice_id to ~/.creators-studio/config.json under
     custom_voices.{role} with source_type="cloned" and design_method="ivc".
     If auto_measure_wpm is True (default), runs a one-shot WPM measurement
     immediately after cloning so the caller can use the voice with correct
@@ -2285,7 +2288,7 @@ def main() -> None:
     p_vm.add_argument("--api-key")
 
     # voice-list
-    sub.add_parser("voice-list", help="List custom voices saved in ~/.banana/config.json")
+    sub.add_parser("voice-list", help="List custom voices saved in ~/.creators-studio/config.json")
 
     args = parser.parse_args()
 

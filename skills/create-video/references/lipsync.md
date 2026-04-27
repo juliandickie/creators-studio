@@ -186,7 +186,7 @@ it's roughly one-third the cost.
 `/create-video lipsync` was verified end-to-end via three successful Replicate
 predictions on 2026-04-15 using a Banana-generated portrait + an ElevenLabs
 custom voice (the `narrator_female` voice designed specifically for this test
-during session 18 — see `~/.banana/config.json` `custom_voices.narrator_female`).
+during session 18 — see `~/.creators-studio/config.json` `custom_voices.narrator_female`).
 
 | Metric | Cold start (run 1) | Warm (run 2) | Warm (run 3) |
 |---|---|---|---|

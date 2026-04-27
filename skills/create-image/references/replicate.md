@@ -35,7 +35,7 @@ Set the `REPLICATE_API_TOKEN` environment variable:
 export REPLICATE_API_TOKEN="r8_your_token_here"
 ```
 
-Or store in `~/.banana/config.json`:
+Or store in `~/.creators-studio/config.json`:
 ```json
 {"replicate_api_token": "r8_your_token_here"}
 ```

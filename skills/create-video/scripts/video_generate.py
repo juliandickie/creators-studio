@@ -271,7 +271,9 @@ def _load_api_key(cli_key):
     """Load API key: CLI -> env -> config.json."""
     api_key = cli_key or os.environ.get("GOOGLE_AI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
-        config_path = Path.home() / ".banana" / "config.json"
+        # v4.2.2: canonical config dir auto-migrates from ~/.banana/ on first call.
+        from scripts.paths import config_path as _csd_config  # noqa: E402
+        config_path = _csd_config()
         if config_path.exists():
             try:
                 with open(config_path) as f:

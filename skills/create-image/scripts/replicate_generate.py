@@ -48,8 +48,13 @@ MAX_IMAGE_INPUTS = 14
 
 
 def _load_config_token():
-    """Try to read replicate_api_token from ~/.banana/config.json."""
-    config_path = Path.home() / ".banana" / "config.json"
+    """Try to read replicate_api_token from the canonical config file."""
+    # v4.2.2: canonical config dir (auto-migrates from ~/.banana/ on first call).
+    _plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+    if _plugin_root not in sys.path:
+        sys.path.insert(0, _plugin_root)
+    from scripts.paths import config_path as _csd_config  # noqa: E402
+    config_path = _csd_config()
     if config_path.is_file():
         try:
             with open(config_path, "r") as f:

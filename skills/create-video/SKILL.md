@@ -38,7 +38,7 @@ argument-hint: "[generate|animate|sequence|extend|stitch|cost|status] <idea, pat
 | `/create-video audio swap --video V --audio A` | **v3.7.1** swap an audio file into a video (lossless video) |
 | `/create-video voice design --description "..."` | **v3.7.1** generate 3 voice previews from a text description |
 | `/create-video voice promote --generated-id ID --name N --role R` | **v3.7.1** save a chosen preview as a permanent custom voice |
-| `/create-video voice list` | **v3.7.1** list saved custom voices from `~/.banana/config.json` |
+| `/create-video voice list` | **v3.7.1** list saved custom voices from `~/.creators-studio/config.json` |
 | `/create-video cost [estimate]` | Video cost estimation |
 | `/create-video status` | Check VEO API access and FFmpeg availability |
 | `/create-video audio status` | **v3.7.1** check ElevenLabs API key + ffmpeg + custom voices |
@@ -208,14 +208,14 @@ only VEO preview IDs to Gemini API). **VEO is opt-in backup only** as of
 v3.8.0 — always prefer Kling unless the user specifically requests VEO.
 
 **Replicate setup** (1 minute, one-time): add `replicate_api_token` to
-`~/.banana/config.json`. If the plugin's image-gen side was already used,
+`~/.creators-studio/config.json`. If the plugin's image-gen side was already used,
 the token is already in place — no new setup needed. Otherwise:
 `python3 skills/create-image/scripts/setup_mcp.py --replicate-key YOUR_TOKEN`.
 Get a token at https://replicate.com/account/api-tokens.
 
 **Vertex AI setup** (for opt-in VEO backup, 3 minutes, one-time): add
 `vertex_api_key`, `vertex_project_id`, and `vertex_location` to
-`~/.banana/config.json`. See `references/veo-models.md` → Backend Availability
+`~/.creators-studio/config.json`. See `references/veo-models.md` → Backend Availability
 for the bound-to-service-account API key creation steps.
 
 ## Audio Quick Guide
@@ -258,7 +258,7 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/audio_pipeline.py pipeline \
 
 **Voice selection:**
 
-- Default: `--voice narrator` reads the saved `custom_voices.narrator` from `~/.banana/config.json`.
+- Default: `--voice narrator` reads the saved `custom_voices.narrator` from `~/.creators-studio/config.json`.
 - To use a different role: `--voice character_a` (reads `custom_voices.character_a`).
 - To use a literal ElevenLabs voice ID: `--voice 21m00Tcm4TlvDq8ikWAM` (any non-role string is treated as a literal ID).
 - To create a new custom voice: `voice-design` then `voice-promote`. See `references/audio-pipeline.md`.

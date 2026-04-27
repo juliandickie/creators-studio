@@ -39,7 +39,7 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/video_sequence.py generate \
 `--quality-tier draft` maps to `veo-3.1-lite-generate-001` (the alias
 `--quality-tier lite` is also accepted). The Vertex AI backend
 auto-routes Lite — no extra flag needed if you have Vertex credentials
-in `~/.banana/config.json` (see `veo-models.md` → Backend Availability
+in `~/.creators-studio/config.json` (see `veo-models.md` → Backend Availability
 for the 3-minute setup).
 
 ### Cost Comparison (4 shots × 8 s, 30-second sequence)

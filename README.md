@@ -12,7 +12,7 @@
 Let an AI that's been trained on the best practices for every model write the prompts for you, instead of spending hours teaching yourself to prompt-engineer a moving target.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-4.2.1-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.2.2-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <details>
@@ -160,7 +160,7 @@ Get a free key at [Google AI Studio](https://aistudio.google.com/apikey), then i
 /create-image setup
 ```
 
-Claude walks you through the key setup conversationally. Your key is saved to `~/.claude/settings.json` (for the MCP server) and `~/.banana/config.json` (for fallback scripts). Keys never leave your machine and are never sent to GitHub.
+Claude walks you through the key setup conversationally. Your key is saved to `~/.claude/settings.json` (for the MCP server) and `~/.creators-studio/config.json` (for fallback scripts; v4.2.2+ — auto-migrates from the legacy `~/.banana/config.json` on first run). Keys never leave your machine and are never sent to GitHub.
 
 > **Free tier:** ~5-15 images per minute, ~20-500 per day. No credit card required.
 >
@@ -199,7 +199,7 @@ The image fallback chain is automatic: MCP → Direct Gemini API → Replicate. 
 <details>
 <summary><b>🎬 Optional: VEO 3.1 video (Vertex AI, paid)</b></summary>
 
-VEO is the opt-in backup for video. For full VEO capabilities (Lite at $0.05/s, image-to-video, Scene Extension v2, GA `-001` IDs) you need a Vertex AI API key. Add three fields to `~/.banana/config.json`:
+VEO is the opt-in backup for video. For full VEO capabilities (Lite at $0.05/s, image-to-video, Scene Extension v2, GA `-001` IDs) you need a Vertex AI API key. Add three fields to `~/.creators-studio/config.json` (v4.2.2+; or `~/.banana/config.json` on older installs):
 
 ```json
 {
@@ -298,7 +298,7 @@ Claude acts as Creative Director for every call — selecting domain modes, cons
 | `/create-video audio swap --video V --audio A` | **v3.7.1** swap an audio file into a video (lossless video) |
 | `/create-video voice design --description "..."` | **v3.7.1** generate 3 voice previews from a text description |
 | `/create-video voice promote --generated-id ID --name N --role R` | **v3.7.1** save a chosen preview as a permanent custom voice |
-| `/create-video voice list` | **v3.7.1** list saved custom voices from `~/.banana/config.json` |
+| `/create-video voice list` | **v3.7.1** list saved custom voices from `~/.creators-studio/config.json` (v4.2.2+) |
 | `/create-video cost [estimate]` | Video cost estimation |
 | `/create-video status` | Check VEO API access and FFmpeg availability |
 | `/create-video audio status` | **v3.7.1** check ElevenLabs API key + ffmpeg + custom voices |
@@ -456,7 +456,14 @@ creators-studio/                       # Claude Code Plugin
 ## Release History
 
 <details>
-<summary><b>🎵 v4.2.1 (current) — Vertex Retirement + Lyria 3 Upgrade · 2026-04-24</b></summary>
+<summary><b>🏷️ v4.2.2 (current) — Config dir rename `~/.banana/` → `~/.creators-studio/` · 2026-04-27</b></summary>
+
+The user state directory finally matches the plugin name. **Auto-migrates safely**: copies `~/.banana/` to `~/.creators-studio/` on first run, preserving the old directory indefinitely so older plugins keep working and you have a fallback. API keys, custom voices, presets, cost ledger, and history all move automatically. Run `python3 skills/create-image/scripts/validate_setup.py --check-migration` to inspect state. Plus PixVerse V6 runtime backend (PR #6) if it's merged into the release zip.
+
+</details>
+
+<details>
+<summary><b>🎵 v4.2.1 — Vertex Retirement + Lyria 3 Upgrade · 2026-04-24</b></summary>
 
 Sub-project B of the provider-agnostic roadmap. Deleted `_vertex_backend.py` (958 lines). VEO 3.1 (all three tiers) and Lyria family now route through Replicate. Lyria upgraded from Lyria 2 → Lyria 3 Clip as within-Lyria default (30% cheaper, new image-input capability). Lyria 2 still available for `negative_prompt` via `--lyria-version 2`. Lyria 3 Pro registered for full-song generation with structure tags, auto-selected when prompt contains `[Verse]`/`[Chorus]`/timestamp markers (gated by `--confirm-upgrade` to prevent 2x cost surprises). Bonus: Kling v3 pricing corrected — VEO Lite turns out to be ~4× cheaper than Kling at 1080p with audio, inverting the v3.8.0 cost narrative.
 
@@ -595,13 +602,14 @@ Run `/create-image status` to see which of these are installed on your machine.
 |---|---|---|
 | Replicate API token | `/create-image setup replicate` | Kling v3 video, Fabric lipsync, Recraft vectorize, Gemini-via-Replicate fallback |
 | ElevenLabs API key | `/create-video audio status` | `/create-video audio` pipeline, TTS narration, voice design + cloning |
-| Vertex AI key | Manual `~/.banana/config.json` edit | VEO 3.1 video backup, Lyria 2 music |
+| Vertex AI key | Manual `~/.creators-studio/config.json` edit | VEO 3.1 video backup, Lyria 2 music |
 
 ## Uninstall
 
 ```bash
 rm -rf ~/creators-studio
-rm -rf ~/.banana                       # removes API keys, custom voices, presets, cost ledger
+rm -rf ~/.creators-studio              # removes API keys, custom voices, presets, cost ledger
+rm -rf ~/.banana                       # legacy directory (pre-v4.2.2; only present after upgrades)
 ```
 
 Then remove the MCP server entry from `~/.claude/settings.json`.

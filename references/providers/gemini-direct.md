@@ -12,7 +12,7 @@
 ## Authentication
 
 - API key query param: `?key=AIza...`
-- Stored at `~/.banana/config.json` → `providers.gemini.api_key` (v4.2.0 schema)
+- Stored at `~/.creators-studio/config.json` → `providers.gemini.api_key` (v4.2.0 schema)
 - Migration shim reads legacy `google_api_key` too
 - Get a key at <https://aistudio.google.com/apikey>
 

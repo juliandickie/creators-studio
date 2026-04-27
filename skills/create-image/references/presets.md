@@ -4,7 +4,7 @@
 
 ## Preset Schema
 
-Each preset is stored as `~/.banana/presets/NAME.json`:
+Each preset is stored as `~/.creators-studio/presets/NAME.json`:
 
 ```json
 {

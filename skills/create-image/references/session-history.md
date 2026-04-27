@@ -34,7 +34,7 @@ If no `--session-id` is provided, commands default to the most recent session.
 
 ## Storage
 
-Session files are stored in `~/.banana/history/SESSION_ID.json`. Each file contains a JSON object with session metadata and an array of generation entries.
+Session files are stored in `~/.creators-studio/history/SESSION_ID.json`. Each file contains a JSON object with session metadata and an array of generation entries.
 
 ## Integration with Pipeline
 

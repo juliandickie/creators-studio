@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.2] - 2026-04-27
+
+### Headline
+
+**User config directory renamed: `~/.banana/` → `~/.creators-studio/`** with **zero-data-loss auto-migration**. The directory name now matches the v4.0.0 plugin rebrand. This was queued in v4.2.1's "Deferred" list and is the final visible artifact of the old `banana-claude` fork name. The migration is COPY (not move) — the old `~/.banana/` directory is preserved indefinitely so users have a fallback and v4.2.1-or-earlier installs on the same machine continue to read it. Plus PixVerse V6 runtime backend (PR #6) is included in this release if merged before the release zip is built.
+
+### Added
+
+- **`scripts/paths.py`** — single source of truth for the user state directory. Exposes:
+  - `creators_studio_dir()` — returns `~/.creators-studio/`. On first call after upgrading from v4.2.1-or-earlier, copies `~/.banana/` to the new path via `shutil.copytree(old, new, symlinks=True)`. Idempotent: subsequent calls return the cached new path.
+  - 8 convenience accessors: `config_path()`, `costs_path()`, `presets_dir()`, `history_dir()`, `assets_dir()`, `ab_preferences_path()`, `ab_history_dir()`, `analytics_path()`. All trigger the migration check on first call.
+  - `migration_status()` — introspects current state; returns one of `migrated` / `new_only` / `old_only` / `none` plus a human-readable recommendation. Used by the new `--check-migration` subcommand.
+- **`tests/test_paths.py`** — 17 stdlib `unittest` tests covering all four state-graph corners (neither / old-only / new-only / both), symlink preservation through the copy, idempotency under repeated calls, convenience-accessor round-trips, and the copy-failure fallback path (mocked `PermissionError` from `shutil.copytree` → falls back to `~/.banana/` and logs the error).
+- **`validate_setup.py --check-migration`** — new subcommand that prints the current migration state plus a recommendation. Useful for users who want to verify the migration worked before deleting `~/.banana/` manually.
+
+### Changed
+
+- **All 19 Python scripts that previously hardcoded `Path.home() / ".banana"`** now use `scripts.paths` accessors instead. The migration triggers automatically on the first `creators_studio_dir()` call from any of them. Scripts touched:
+  - `scripts/backends/_replicate.py` (1 site)
+  - `skills/create-image/scripts/`: `setup_mcp.py`, `cost_tracker.py`, `validate_setup.py`, `presets.py`, `assets.py`, `history.py`, `abtester.py`, `analytics.py`, `brandbook.py`, `content_pipeline.py`, `deckbuilder.py`, `generate.py`, `edit.py`, `replicate_generate.py`, `replicate_edit.py`, `social.py`, `slides.py`
+  - `skills/create-video/scripts/`: `video_generate.py`, `video_sequence.py`, `audio_pipeline.py`
+- **All 20 active reference docs** that mentioned `~/.banana/` now reference `~/.creators-studio/`. Includes the README install section (with explicit migration callout), CLAUDE.md backward-compat boundary note (superseded), all `skills/*/references/*.md` paths, and the `references/models/` + `references/providers/` per-model docs.
+- **README "Uninstall" section** now tells users to remove BOTH `~/.creators-studio/` (current) and `~/.banana/` (legacy, only present after upgrade).
+
+### Preserved (deliberately)
+
+- **`~/.banana/` directory is NEVER auto-deleted.** The plugin only ever copies from it. Users who confirm the new path works can manually `rm -rf ~/.banana/` to clean up. The legacy directory is preserved indefinitely so:
+  1. Older plugin versions on the same machine continue to read it (no behavior change for v4.2.1-or-earlier installs).
+  2. Users have a manual-recovery fallback if anything in the new directory gets corrupted.
+- **`@ycse/nanobanana-mcp` package name** is unchanged — third-party upstream dependency the plugin doesn't own.
+- **The v4.2.0 config schema** (`providers.<name>.api_key` etc.) is unchanged. Only the directory NAME moved; file contents are byte-identical after migration.
+
+### Migration safety properties
+
+- **Copy, not move.** `shutil.copytree(old, new, symlinks=True)` — symlinks are preserved.
+- **Idempotent.** If `~/.creators-studio/` already exists, the migration short-circuits.
+- **Fallback on failure.** If the copy raises (permissions, disk full, etc.), the helper logs the error and returns `~/.banana/` so the user still has access to their state. They can re-run any plugin command after resolving the issue.
+- **Atomic at the file-system level.** macOS / Linux `copytree` builds the new tree completely before the function returns. A killed process mid-copy leaves a partial new directory; the next run sees `~/.banana/` still exists, retries the copy, and overwrites the partial new directory. (Future hardening could add a `.migration_in_progress` lockfile, but it's not currently necessary because the partial-tree case is benign.)
+
+### Manual recovery instructions (if needed)
+
+If the migration produces an unexpected result, users can:
+1. Run `python3 skills/create-image/scripts/validate_setup.py --check-migration` to inspect the current state.
+2. Compare the two directories: `diff -r ~/.banana/ ~/.creators-studio/` — should differ only on `.DS_Store` (macOS metadata) and any new writes that happened after the migration.
+3. Reset to old: `rm -rf ~/.creators-studio/` — the next plugin command will re-trigger the migration from `~/.banana/`.
+4. Manually copy: `cp -R ~/.banana/ ~/.creators-studio/` — equivalent to what the script does.
+5. Reach out via GitHub Issues with the output of `--check-migration` if recovery isn't obvious.
+
+### Deferred (explicit follow-ups)
+
+- **CLI flag `--audio-enabled / --no-audio`** for `/create-video generate --model pixverse-v6` — currently audio defaults to true. (PixVerse V6 runtime PR #6 deferred this for follow-up.)
+- **CLI flag `--multi-shot`** for PixVerse multi-shot generation — defaults to false today.
+- **Empirical bake-off** PixVerse V6 vs Kling v3 Std vs VEO 3.1 Standard.
+- **Wire PixVerse into `video_sequence.py`** as a quality-tier alternative — needs a different shape than Kling's `multi_prompt` JSON array (PixVerse uses a single structured prompt + boolean toggle).
+
+[4.2.2]: https://github.com/juliandickie/creators-studio/releases/tag/v4.2.2
+
 ## [4.2.1] - 2026-04-24
 
 ### Headline

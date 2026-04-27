@@ -128,7 +128,7 @@ ls ${CLAUDE_SKILL_DIR}/presets/
 
 To install an example as a starting point:
 ```bash
-cp ${CLAUDE_SKILL_DIR}/presets/luxury-dark.json ~/.banana/presets/
+cp ${CLAUDE_SKILL_DIR}/presets/luxury-dark.json ~/.creators-studio/presets/
 ```
 
 Then run `/create-image brand` to customize it, or use it as-is.
