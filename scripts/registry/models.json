@@ -172,6 +172,35 @@
         }
       }
     },
+    "pixverse-v6": {
+      "display_name": "PixVerse V6",
+      "family": "video",
+      "tasks": ["text-to-video", "image-to-video"],
+      "doc": "references/models/pixverse-v6.md",
+      "canonical_constraints": {
+        "aspect_ratio": ["16:9", "9:16"],
+        "duration_s": {"min": 1, "max": 15, "integer": true},
+        "resolutions": ["360p", "540p", "720p", "1080p"]
+      },
+      "providers": {
+        "replicate": {
+          "slug": "pixverse/pixverse-v6",
+          "capabilities": ["audio_generation", "audio_toggle", "multi_shot", "start_image", "last_frame", "negative_prompt", "text_in_video", "multilingual"],
+          "pricing": {
+            "mode": "per_second_by_resolution_and_audio",
+            "rates": {
+              "360p":  {"with_audio": 0.07, "without_audio": 0.05},
+              "540p":  {"with_audio": 0.09, "without_audio": 0.07},
+              "720p":  {"with_audio": 0.12, "without_audio": 0.09},
+              "1080p": {"with_audio": 0.23, "without_audio": 0.18}
+            },
+            "currency": "USD"
+          },
+          "availability": "GA",
+          "notes": "4-tier resolution (360p/540p/720p/1080p) — most granular pricing in the video roster. Up to 15s output. Multi-shot via generate_multi_clip_switch boolean (single structured prompt with 'Shot 1, ..., Shot 2, ...' format) — different shape from Kling v3's multi_prompt JSON array. Native multilingual text-in-video including Chinese. Transition mode requires image + last_frame_image (multi-shot NOT available in transition mode). aspect_ratio ignored when image is provided. Backend wiring (canonical-param translation in scripts/backends/_replicate.py) deferred — registry-only entry per multi-model principle (like elevenlabs-music). Source: dev-docs/pixverse-pixverse-v6-llms.md."
+        }
+      }
+    },
     "recraft-vectorize": {
       "display_name": "Recraft Vectorize",
       "family": "image",
