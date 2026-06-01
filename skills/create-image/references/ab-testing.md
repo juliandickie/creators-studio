@@ -29,7 +29,7 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/abtester.py history
 |-------|----------|----------|
 | **Literal** | Clean, commercial, faithful to brief | E-commerce, product pages, documentation |
 | **Creative** | Dramatic angles, unexpected composition | Social media, blog headers, editorial |
-| **Premium** | Luxury editorial, prestigious context anchors | Ads, hero images, print campaigns |
+| **Premium** | Luxury visual register described directly (rich lighting, premium materials, refined composition) | Ads, hero images, print campaigns |
 
 Each style adds a prefix and style hint to the base prompt, keeping the core subject and composition consistent while varying the aesthetic approach.
 

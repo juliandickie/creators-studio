@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.3] - 2026-06-02
+
+### Fixed
+
+- **Image prompt rules realigned with current Gemini 3.1 guidance.** Several spots still taught the v3.6.x "use prestigious context anchors" and "NEVER use banned keywords" rules that `prompt-engineering.md` already supersedes (naming a publication makes Gemini render a literal magazine cover with masthead and gibberish headlines). Updated `SKILL.md` Step 5, `reverse-prompt.md` (5 references), `ab-testing.md`, and the `abtester.py` "Premium" variation (which hardcoded "Vanity Fair editorial quality ... prestigious publication spread" into live prompts) to describe the visual register directly.
+- **Step 5 now teaches text rendering.** Gemini renders text well, but the orchestrator gave no guidance, so finished assets (hero banners, diagrams) were generated text-free. Step 5 now says to brief literal text into finished standalone assets and to suppress text only for background plates and logo areas, plus a "no negative prompts" reminder (write "clean, text-free", never "NO text").
+- **Logo handling no longer triggers white boxes.** The rule now forbids giving the reserved logo area any size, height, or boxed zone -- specifying a dimension made the model render a filled (usually white) rectangle instead of continuing the background -- and clarifies the exception for when the deliverable itself is a logo (Logo mode, vectorize).
+- **Example presets de-published.** `fashion-editorial.json` ("Vogue", "reference real fashion publications") and `real-estate-luxury.json` ("Architectural Digest quality") now use direct register descriptors ("glossy editorial finish", "refined premium-property finish").
+
 ## [4.2.2] - 2026-04-27
 
 ### Headline
@@ -60,6 +69,7 @@ If the migration produces an unexpected result, users can:
 - **Empirical bake-off** PixVerse V6 vs Kling v3 Std vs VEO 3.1 Standard.
 - **Wire PixVerse into `video_sequence.py`** as a quality-tier alternative — needs a different shape than Kling's `multi_prompt` JSON array (PixVerse uses a single structured prompt + boolean toggle).
 
+[4.2.3]: https://github.com/juliandickie/creators-studio/releases/tag/v4.2.3
 [4.2.2]: https://github.com/juliandickie/creators-studio/releases/tag/v4.2.2
 
 ## [4.2.1] - 2026-04-24

@@ -13,8 +13,8 @@ authors:
 repository-code: "https://github.com/juliandickie/creators-studio"
 url: "https://www.skool.com/ai-marketing-hub-pro"
 license: MIT
-version: "4.2.2"
-date-released: "2026-04-27"
+version: "4.2.3"
+date-released: "2026-06-02"
 keywords:
   - ai-image-generation
   - claude-code

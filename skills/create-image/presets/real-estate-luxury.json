@@ -21,6 +21,6 @@
     "mood": ["aspirational", "serene", "exclusive", "refined", "welcoming"],
     "photography": ["natural light", "wide-angle interior", "golden hour exterior", "balanced exposure"]
   },
-  "prompt_suffix": "Luxury architectural aesthetic with natural light, premium interiors, sophisticated and aspirational mood. Architectural Digest quality.",
+  "prompt_suffix": "Luxury architectural aesthetic with natural light, premium interiors, sophisticated and aspirational mood, refined premium-property finish.",
   "technical_specs": {"color_space": "sRGB", "min_dpi": 300}
 }

@@ -59,7 +59,7 @@ Gather the 5-Input Creative Brief: **Purpose** (where used?), **Audience** (who 
 
 If user mentions a brand/preset: `python3 ${CLAUDE_SKILL_DIR}/scripts/presets.py list`. Load with `show NAME`. Preset values are defaults -- user instructions override. See `references/presets.md` for Brand Style Guide fields.
 
-**Logo handling:** NEVER mention "logo" in prompts. Describe the area as "clean negative space." Logos are composited in presentation software after generation.
+**Logo handling:** When you want clear space for a logo to be added later (presentation backgrounds, slide plates), never mention "logo" in the prompt AND never give that space a size, height, or boxed area -- describe the background as simply continuing, calm and uncluttered, through that region. Specifying a dimension or reserved zone makes the model render a filled rectangle (usually white) instead of continuing the background. Composite the logo in afterward. Exception: when the deliverable IS a logo (Logo domain mode or the vectorize workflow), naming "logo" or "icon" is correct.
 
 **Example presets:** If no presets exist, offer to install examples: `ls ${CLAUDE_SKILL_DIR}/presets/` shows 12 pre-built brand guides. Copy with: `cp ${CLAUDE_SKILL_DIR}/presets/NAME.json ~/.creators-studio/presets/`
 
@@ -78,7 +78,11 @@ Choose from: **Cinema**, **Product**, **Portrait**, **Editorial**, **UI/Web**, *
 
 Use the **5-Component Formula**: Subject → Action → Location/Context → Composition → Style (includes lighting). Write as natural narrative prose, NEVER keyword lists. See `references/prompt-engineering.md` → Proven Prompt Templates.
 
-**Critical rules:** Use prestigious context anchors ("Vanity Fair editorial," "National Geographic cover"). NEVER use banned keywords ("8K," "masterpiece," "ultra-realistic"). For constraints use ALL CAPS. For products say "prominently displayed."
+**Critical rules:**
+- **Text:** Gemini renders text well. For a finished standalone asset (hero, banner, diagram, social post, cover), brief the literal text in with quotes and a described font, e.g. `the text "wp-index" in a bold lowercase sans-serif`. Suppress text ONLY for background plates meant for later overlay. See `references/prompt-engineering.md` -> Text Rendering Tips.
+- **No negative prompts:** Gemini ignores them. Frame exclusions positively ("clean, uncluttered, text-free"), never "NO text". Use ALL CAPS only to stress what TO include.
+- **Don't name publications** ("Vanity Fair cover," "National Geographic"). Gemini renders a literal magazine cover with masthead and gibberish headlines. Name lighting, lens, and composition instead.
+- **Products:** say "prominently displayed."
 
 For batch/exploratory requests, offer **Literal/Creative/Premium** prompt variations.
 
