@@ -53,7 +53,7 @@ VARIATION_STYLES = {
     },
     "premium": {
         "prefix": "A premium, luxury editorial",
-        "style_hint": "Vanity Fair editorial quality, dramatic Rembrandt lighting, rich depth. Captured on a Hasselblad H6D-100c medium format camera for a prestigious publication spread.",
+        "style_hint": "luxury print-campaign aesthetic, dramatic Rembrandt lighting, rich depth, refined premium styling. Captured on a Hasselblad H6D-100c medium format camera.",
     },
 }
 

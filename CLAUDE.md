@@ -284,6 +284,8 @@ Previous floor was 3.6+, inherited from the 2023-era `banana-claude` fork. That 
 
 - **v4.2.1 VEO deprecation aliases.** `--backend vertex-ai` and `--provider veo` continue to work but log a one-line deprecation warning and auto-route to Replicate. Legacy Vertex model IDs (`veo-3.1-generate-001` etc.) auto-translate to Replicate slugs via `_VERTEX_TO_REPLICATE_SLUG` map in `video_generate.py`. All three compatibility paths are removed in v4.3.0.
 
+- **v4.2.3 image prompt-rule realignment.** (1) Render literal text INTO finished standalone assets (hero, banner, diagram, social, cover) -- Gemini 3.1 does text well; only suppress text for background plates and logo areas. (2) Reserved logo space must carry NO size, height, or zone -- specifying a dimension makes Gemini render a filled (usually white) rectangle instead of continuing the background. (3) The v3.6.x "prestigious context anchors" + "banned keywords" rules are now fully retired from `SKILL.md` Step 5, `reverse-prompt.md`, `ab-testing.md`, and `abtester.py` (they lagged the `prompt-engineering.md` "Prompt Patterns That Don't Help" supersede). Naming a publication makes Gemini render a literal magazine cover with masthead and gibberish headlines.
+
 ## Upstream tracking
 
 Originally forked from https://github.com/AgriciDaniel/banana-claude (v1.4.1 baseline), now an independent project.

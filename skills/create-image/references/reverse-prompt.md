@@ -29,7 +29,7 @@ Extract each component from what you observe:
 | **Action** (10%) | What is the subject doing? Pose, gesture, movement, state. | Use present-tense verbs |
 | **Location** (15%) | Where is the scene? Time of day, weather, atmosphere, environmental details. | Include mood-setting details |
 | **Composition** (10%) | Camera perspective, framing, angle, focal length, depth of field. | Estimate the lens and f-stop |
-| **Style** (25%) | Visual register, medium, lighting setup, color grading, publication-level reference. | Include prestigious context anchor |
+| **Style** (25%) | Visual register, medium, lighting setup, color grading. | Describe the register directly; do NOT name a publication |
 
 ### Step 3: Identify Technical Details
 
@@ -41,11 +41,13 @@ Extract each component from what you observe:
 ### Step 4: Construct the Prompt
 
 Write the prompt as natural narrative prose following the 5-Component Formula.
-Include a prestigious context anchor if appropriate ("Vanity Fair editorial,"
-"National Geographic cover," "Apple product photography").
+Describe the visual register directly (lighting, lens, composition, colour
+grading). Do NOT name a publication ("Vanity Fair editorial," "National
+Geographic cover") -- Gemini renders a literal magazine cover with masthead and
+gibberish headlines instead of the image you want.
 
 Apply the same rules as regular prompt construction:
-- NEVER use banned keywords ("8K", "masterpiece", "ultra-realistic")
+- Cut useless quality keywords ("8K", "masterpiece", "ultra-realistic") -- noise on Gemini 3.1; do NOT swap in publication names
 - Use specific camera names and lens specs
 - Include micro-details (textures, reflections, atmospheric elements)
 - Describe what you SEE, not what it MEANS
@@ -87,7 +89,7 @@ Compare Claude's analysis (Steps 2-3) with Gemini's response (Step 5) and create
 
 [Claude's full prompt — how Claude describes the image using the 5-Component
 Formula. Tends to be more structured and technically precise about camera
-specs, composition terminology, and prestigious context anchors.]
+specs, composition terminology, and direct visual-register description.]
 
 ### Gemini's Interpretation
 
@@ -124,8 +126,9 @@ It should be a single narrative paragraph, ready to copy.]
   even if the original was generated from a simpler prompt
 - **Estimate camera specs confidently** — "Shot on Canon EOS R5, 85mm f/1.4"
   gives the model concrete depth-of-field information even if you're guessing
-- **Include a prestigious anchor** — "Vanity Fair editorial portrait" or
-  "Bon Appetit food photography" actively improves output quality
+- **Describe the visual register directly** -- "high-contrast studio portrait,
+  single hard key light" beats naming a publication, which renders a literal
+  cover with masthead text
 - **For illustrated/stylized images** — describe the art style, line weight,
   color palette, and shading technique rather than camera specs
 - **The reconstructed prompt should be longer than the original** — good

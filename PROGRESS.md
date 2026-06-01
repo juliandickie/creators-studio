@@ -7,7 +7,7 @@
 
 - **Repo:** https://github.com/juliandickie/creators-studio
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
-- **Current version:** 4.2.2
+- **Current version:** 4.2.3
 - **Local path:** `/Users/juliandickie/code/creators-studio-project/creators-studio/`
 - **Plugin layout:** `.claude-plugin/` + `skills/create-image/` (image) + `skills/create-video/` (video) + `agents/`
 
@@ -854,6 +854,19 @@ VEO Lite is now ~4× **cheaper** than Kling at comparable settings. Doesn't chan
 **One latent bug fixed as freebie**: `subprocess` was never imported in `video_generate.py` — cost-log shell-out at end of `main()` would have raised `NameError` silently (swallowed by bare except). Fixed during Task 20 when the file was already being edited.
 
 **Session spend**: $0 (all tests HTTP-mocked; Task 20 implementer ran one empirical Replicate VEO call to verify the deprecation path, but it's a one-off verification not billed to this session). **Cumulative: ~$1.10**.
+
+### Session 26 (2026-06-02) -- v4.2.3 image prompt-rule realignment
+
+**Scope:** Audit + fix of stale image-prompt guidance, surfaced while using the skill to generate README art for an external project.
+
+1. Root-caused why finished assets were generated text-free: `SKILL.md` Step 5 had no text-rendering guidance and over-generalised the logo/background-plate "clean negative space" suppression onto finished assets.
+2. Rewrote Step 5: render literal text into finished assets (Gemini does text well), positive framing only (no "NO text" negative prompts), and "don't name publications".
+3. Scoped the logo-handling rule and added the white-box guard: never give reserved logo space a dimension/height/zone (it renders a filled white rectangle).
+4. Retired the superseded "prestigious context anchors" + "banned keywords" guidance from `reverse-prompt.md` (5 refs), `ab-testing.md`, and the live `abtester.py` "Premium" style_hint (was injecting "Vanity Fair ... publication spread").
+5. De-published the `fashion-editorial.json` and `real-estate-luxury.json` example presets (Vogue / Architectural Digest -> direct register descriptors).
+6. Verified: presets parse, `abtester.py` compiles, `SKILL.md` 317 lines (< 500), no residual stale refs outside the `prompt-engineering.md` anti-pattern docs.
+
+**Session spend**: $0 (doc/code edits only).
 
 ## Expansion Roadmap
 

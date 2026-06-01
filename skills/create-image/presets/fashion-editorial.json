@@ -1,8 +1,8 @@
 {
   "name": "fashion-editorial",
-  "description": "High fashion editorial — dramatic, couture, Vogue-style, artistic sophistication",
+  "description": "High fashion editorial - dramatic, couture aesthetic, artistic sophistication",
   "colors": ["#000000", "#FFFFFF", "#C9A96E", "#8B0000", "#F5F5F0"],
-  "style": "high fashion editorial photography, dramatic compositions, couture aesthetic, Vogue quality",
+  "style": "high fashion editorial photography, dramatic compositions, couture aesthetic, glossy editorial finish",
   "typography": "thin elegant serif headlines with generous letter-spacing, condensed sans-serif captions",
   "lighting": "dramatic directional lighting, strong shadows, fashion studio or natural editorial light",
   "mood": "sophisticated, dramatic, aspirational, artistic, luxurious",
@@ -14,13 +14,13 @@
   },
   "visual_motifs": "clean negative space, fashion editorial framing with asymmetric crops",
   "logo_placement": "bottom-center, 8% of width",
-  "do_list": ["Use dramatic lighting always", "Embrace negative space", "Focus on texture and material detail", "Reference real fashion publications"],
+  "do_list": ["Use dramatic lighting always", "Embrace negative space", "Focus on texture and material detail", "Reference couture runway and campaign styling"],
   "dont_list": ["No flat or even lighting", "No centered compositions unless intentional", "No casual or everyday settings", "No overly saturated colors"],
   "prompt_keywords": {
     "aesthetic": ["editorial", "couture", "high-fashion", "dramatic", "sophisticated"],
     "mood": ["aspirational", "artistic", "luxurious", "confident", "powerful"],
-    "photography": ["dramatic directional lighting", "fashion studio", "editorial framing", "Vogue quality"]
+    "photography": ["dramatic directional lighting", "fashion studio", "editorial framing", "glossy editorial finish"]
   },
-  "prompt_suffix": "High fashion editorial aesthetic with dramatic directional lighting, couture styling, sophisticated and aspirational mood. Vogue Italia quality.",
+  "prompt_suffix": "High fashion editorial aesthetic with dramatic directional lighting, couture styling, sophisticated and aspirational mood, glossy editorial finish.",
   "technical_specs": {"color_space": "sRGB", "min_dpi": 300}
 }
