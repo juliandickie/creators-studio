@@ -4,8 +4,8 @@
 
 **Source files (current, pre-refactor):**
 
-- `skills/create-image/scripts/generate.py` — text-to-image
-- `skills/create-image/scripts/edit.py` — image-to-image editing
+- `skills/create-image/scripts/generate.py` - text-to-image
+- `skills/create-image/scripts/edit.py` - image-to-image editing
 
 **Refactor status:** In sub-project A, Gemini direct remains wired through the legacy scripts. A follow-up migrates these into `scripts/backends/_gemini_direct.py` implementing the `ProviderBackend` interface. The legacy code paths continue working unchanged until then.
 
@@ -28,8 +28,8 @@
 - No negative prompt parameter. Use semantic reframing in the prompt instead.
 - `responseModalities` MUST explicitly include `"IMAGE"` or the API returns text only.
 - **Describe the scene, don't list keywords.** Gemini 3.1's strength is narrative understanding.
-- **Don't name publication formats in prompts** ("Vanity Fair magazine cover") — the model renders a literal magazine cover.
-- NEVER mention "logo" in Presentation mode prompts — generates unwanted logo artifacts. Say "clean negative space" instead.
+- **Don't name publication formats in prompts** ("Vanity Fair magazine cover") - the model renders a literal magazine cover.
+- NEVER mention "logo" in Presentation mode prompts - generates unwanted logo artifacts. Say "clean negative space" instead.
 
 See `skills/create-image/references/prompt-engineering.md` for the full prompt construction system.
 

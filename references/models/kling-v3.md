@@ -6,7 +6,7 @@
 
 ## Capabilities
 
-- Text-to-video (3–15s clips)
+- Text-to-video (3-15s clips)
 - Image-to-video via `start_image` (first-frame reference)
 - `end_image` for interpolation (requires `start_image`)
 - Native audio generation (English + Chinese; other languages unverified)
@@ -32,7 +32,7 @@
 Empirically verified session 19 (2026-04-16):
 
 - When `start_image` AND prompt describe the SAME character (matching age, gender, hair, clothing, setting), Kling preserves character identity through the full clip at 1072×1928 pro mode.
-- When the prompt describes a DIFFERENT character, Kling morphs completely toward the prompted character within 5 seconds — `start_image` only affects frame 0.
+- When the prompt describes a DIFFERENT character, Kling morphs completely toward the prompted character within 5 seconds - `start_image` only affects frame 0.
 - **Prompt engineering is the critical variable for cross-clip character consistency.** Describe the character precisely in every shot's prompt when using `start_image`.
 - Works for both human and non-human subjects (robot mascot confirmed in spike 5 Phase 2 test_11).
 
@@ -63,4 +63,4 @@ provider_opts = {
 
 ## Authoritative source
 
-`dev-docs/kwaivgi-kling-v3-video-llms.md` — model card from Replicate.
+`dev-docs/kwaivgi-kling-v3-video-llms.md` - model card from Replicate.

@@ -119,7 +119,7 @@ def migrate_config_to_v4_2_0(config: dict | None) -> dict:
     form are present, NEW wins (explicit migration already happened once;
     old key is stale).
 
-    Tolerates None/falsy input for defensive reasons — the config file may
+    Tolerates None/falsy input for defensive reasons - the config file may
     be absent or malformed during first-run.
     """
     if not config:

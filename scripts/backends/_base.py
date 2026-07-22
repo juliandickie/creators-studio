@@ -1,4 +1,4 @@
-"""Creators Studio — Provider backend abstraction.
+"""Creators Studio - Provider backend abstraction.
 
 Defines the canonical types and abstract base class every provider backend
 must implement. This is the contract layer between skill orchestrators and
@@ -42,11 +42,11 @@ class JobStatus:
     """Canonical job state, unified across provider-specific enums.
 
     Canonical states (5 values):
-      pending   — submitted but not yet started (e.g., queued)
-      running   — actively generating
-      succeeded — finished, output is available
-      failed    — finished with an error (including timeouts, content filter)
-      canceled  — explicitly canceled by the caller or the platform
+      pending - submitted but not yet started (e.g., queued)
+      running - actively generating
+      succeeded - finished, output is available
+      failed - finished with an error (including timeouts, content filter)
+      canceled - explicitly canceled by the caller or the platform
 
     Provider-specific states map to one of these. Example: Replicate's
     6-value enum (starting | processing | succeeded | failed | canceled |
@@ -108,7 +108,7 @@ class ProviderHTTPError(ProviderError):
 
 
 class ProviderAuthError(ProviderError):
-    """401/403 — the configured API key is missing, invalid, or lacks permission."""
+    """401/403 - the configured API key is missing, invalid, or lacks permission."""
 
 
 # ─── Provider backend ABC ────────────────────────────────────────────────
@@ -147,10 +147,10 @@ class ProviderBackend(ABC):
         provider's submit endpoint, return a JobRef.
 
         Raises:
-            ProviderValidationError — canonical_params fail validation
+            ProviderValidationError - canonical_params fail validation
                 BEFORE any HTTP call. No budget burned.
-            ProviderAuthError — 401/403 from provider.
-            ProviderHTTPError — other HTTP-level failures.
+            ProviderAuthError - 401/403 from provider.
+            ProviderHTTPError - other HTTP-level failures.
         """
 
     @abstractmethod
@@ -167,6 +167,6 @@ class ProviderBackend(ABC):
         download_to, compute or look up cost, return canonical TaskResult.
 
         Raises:
-            ProviderError — if called with a non-succeeded job_status.
-            ProviderHTTPError — if download fails.
+            ProviderError - if called with a non-succeeded job_status.
+            ProviderHTTPError - if download fails.
         """

@@ -1,6 +1,6 @@
 # Google VEO 3.1 (canonical model IDs: `veo-3.1-lite` / `veo-3.1-fast` / `veo-3.1`)
 
-**Status:** Registered and reachable via Replicate as of v4.2.1. NOT the default — Kling v3 remains the video family default per the v3.8.0 spike 5 quality verdict. VEO is opt-in backup via `--provider replicate --model veo-3.1-{lite,fast,}`. A post-sub-project-C bake-off will re-evaluate the Kling-vs-VEO default in light of v4.2.1's corrected Kling pricing.
+**Status:** Registered and reachable via Replicate as of v4.2.1. NOT the default - Kling v3 remains the video family default per the v3.8.0 spike 5 quality verdict. VEO is opt-in backup via `--provider replicate --model veo-3.1-{lite,fast,}`. A post-sub-project-C bake-off will re-evaluate the Kling-vs-VEO default in light of v4.2.1's corrected Kling pricing.
 
 **Hosting providers:** Replicate (all three tiers). Vertex AI retired in v4.2.1.
 
@@ -15,24 +15,24 @@
 ## Canonical constraints (enforced pre-HTTP)
 
 All three tiers:
-- `duration_s` ∈ {4, 6, 8} — enum, not range
-- `aspect_ratio` ∈ {`16:9`, `9:16`} — no 1:1 support
+- `duration_s` ∈ {4, 6, 8} - enum, not range
+- `aspect_ratio` ∈ {`16:9`, `9:16`} - no 1:1 support
 - `resolution` ∈ {`720p`, `1080p`} for Lite/Fast; Standard adds `4K`
 
-**Lite-specific conditional:** `resolution=1080p` requires `duration_s=8`. NOT machine-enforced by `_canonical.py` in v4.2.1 — Replicate's server-side rejection is the safety net. Documented in the registry entry's `canonical_constraints.conditional` field.
+**Lite-specific conditional:** `resolution=1080p` requires `duration_s=8`. NOT machine-enforced by `_canonical.py` in v4.2.1 - Replicate's server-side rejection is the safety net. Documented in the registry entry's `canonical_constraints.conditional` field.
 
 ## Pricing breakdown
 
-**VEO 3.1 Lite** — `per_second_by_resolution` mode:
+**VEO 3.1 Lite** - `per_second_by_resolution` mode:
 - 720p: $0.05/s
 - 1080p: $0.08/s (requires 8s duration)
-- Audio is always on — no without-audio variant
+- Audio is always on - no without-audio variant
 
-**VEO 3.1 Fast** — `per_second_by_audio` mode:
+**VEO 3.1 Fast** - `per_second_by_audio` mode:
 - With audio: $0.15/s
 - Without audio: $0.10/s
 
-**VEO 3.1 Standard** — `per_second_by_audio` mode:
+**VEO 3.1 Standard** - `per_second_by_audio` mode:
 - With audio: $0.40/s
 - Without audio: $0.20/s
 

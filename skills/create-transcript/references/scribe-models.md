@@ -1,7 +1,7 @@
-# Scribe v2 — Speech-to-Text Model Reference
+# Scribe v2 - Speech-to-Text Model Reference
 
 Authoritative source: `dev-docs/elevenlabs-llms-full.txt` (workspace root). Query
-with an Explore subagent or grep — do not Read the 10 MB file raw.
+with an Explore subagent or grep - do not Read the 10 MB file raw.
 
 ## Model roster
 
@@ -11,7 +11,7 @@ with an Explore subagent or grep — do not Read the 10 MB file raw.
 | `scribe_v2_realtime` | WebSocket streaming recognition, ~150 ms latency. | **Not used.** Live-audio transport, irrelevant to transcribing files on disk. Out of scope by design. |
 | `scribe_v1` | Prior generation. | Superseded by v2. Not used. |
 
-`keyterms` is only accepted with `scribe_v2` — the API returns HTTP 400 if you
+`keyterms` is only accepted with `scribe_v2` - the API returns HTTP 400 if you
 send it with `scribe_v1`.
 
 ## Endpoint
@@ -53,7 +53,7 @@ Fields this skill sends (`transcribe.py`):
 The skill demuxes every input to **mono 16 kHz MP3** (`ffmpeg -vn -ac 1 -ar 16000
 -b:a 64k`) before upload. Scribe resamples to 16 kHz internally, so this is
 lossless for transcription quality while cutting a video-container upload ~20×.
-Files over 8 minutes are chunked and transcribed concurrently server-side (2–4
+Files over 8 minutes are chunked and transcribed concurrently server-side (2-4
 way), so long files still return in reasonable time.
 
 Input formats accepted: both audio and video. The skill walks these extensions in
@@ -80,7 +80,7 @@ than producing an empty transcript.
 
 `type` is `word`, `spacing`, or `audio_event`. Per-word `logprob` is present and
 ignored by the renderers. This raw JSON is cached to disk as `<name>.json` and is
-the single source every other format re-renders from — the API is never called
+the single source every other format re-renders from - the API is never called
 twice for the same file.
 
 ## Billing

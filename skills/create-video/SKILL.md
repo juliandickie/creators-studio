@@ -12,10 +12,10 @@ argument-hint: "[generate|animate|sequence|extend|stitch|cost|status] <idea, pat
 ## Core Principles
 
 1. **Creative Director for Video** -- NEVER pass raw user text to the video model. Interpret intent, enhance with cinematic language, and construct an optimized video prompt.
-2. **Audio is Always Part of the Prompt** -- Both Kling v3 Std (default as of v3.8.0) and VEO 3.1 generate synchronized audio. Every prompt should include dialogue (in quotes), SFX (prefix "SFX:"), or ambient sound descriptions. **Kling audio works best in English and Chinese** per the model card — for other languages, consider generating without audio and using the audio_pipeline.py replacement path.
+2. **Audio is Always Part of the Prompt** -- Both Kling v3 Std (default as of v3.8.0) and VEO 3.1 generate synchronized audio. Every prompt should include dialogue (in quotes), SFX (prefix "SFX:"), or ambient sound descriptions. **Kling audio works best in English and Chinese** per the model card - for other languages, consider generating without audio and using the audio_pipeline.py replacement path.
 3. **Clip Length Thinking** -- Kling supports 3-15 second single-call clips; VEO supports {4, 6, 8}. For sequences beyond 15 seconds, use `video_sequence.py` with independent shot calls stitched by FFmpeg.
 4. **Storyboard Before Generating** -- For sequences, generate still frame previews first. Video generation is expensive even on Kling ($0.16/8s; VEO Standard is $3.20/8s). Preview with images ($0.08/frame) before committing.
-5. **Image-to-Video & Character Consistency** -- Animate existing assets from `/create-image` for visual consistency. **Both Kling and VEO support start_image**; Kling also supports `end_image` for first-and-last-frame interpolation. **For multi-clip character consistency (v3.8.2+)**: pass the same reference image as `--first-frame` on every Kling call AND write each prompt to describe the SAME character as the image (matching age, hair, clothing, setting). Mismatched prompts will override the start image's identity within 5 seconds. Works for human and non-human characters. See `references/kling-models.md` §Character Consistency. **Caveat**: when passing a start image to Kling, the `aspect_ratio` parameter is IGNORED — output uses the start image's native aspect ratio per the Kling model card.
+5. **Image-to-Video & Character Consistency** -- Animate existing assets from `/create-image` for visual consistency. **Both Kling and VEO support start_image**; Kling also supports `end_image` for first-and-last-frame interpolation. **For multi-clip character consistency (v3.8.2+)**: pass the same reference image as `--first-frame` on every Kling call AND write each prompt to describe the SAME character as the image (matching age, hair, clothing, setting). Mismatched prompts will override the start image's identity within 5 seconds. Works for human and non-human characters. See `references/kling-models.md` §Character Consistency. **Caveat**: when passing a start image to Kling, the `aspect_ratio` parameter is IGNORED - output uses the start image's native aspect ratio per the Kling model card.
 
 ## Quick Reference
 
@@ -25,15 +25,15 @@ argument-hint: "[generate|animate|sequence|extend|stitch|cost|status] <idea, pat
 | `/create-video animate <image> <motion>` | Animate a still image (from /create-image or uploaded) |
 | `/create-video sequence plan --script "..." --target Ns [--shot-types ...]` | Break a script into a shot list with semantic shot-type defaults |
 | `/create-video sequence storyboard --plan PATH [--shots 1,3-5]` | Generate start/end frame pairs (optionally a subset) |
-| `/create-video sequence review --plan PATH --storyboard DIR` | Generate REVIEW-SHEET.md — mandatory approval gate in v3.6.3+ |
+| `/create-video sequence review --plan PATH --storyboard DIR` | Generate REVIEW-SHEET.md - mandatory approval gate in v3.6.3+ |
 | `/create-video sequence generate --storyboard PATH [--skip-review]` | Batch-generate clips from approved frames (review-gated) |
 | `/create-video sequence stitch --clips DIR --output PATH` | Assemble clips into final sequence |
-| `/create-video extend <clip> [--to Ns]` | Extend a clip (+7s per hop, max 148s) — **DEPRECATED in v3.8.0**, requires `--acknowledge-veo-limitations` |
-| `/create-video lipsync --image FACE --audio AUDIO [--resolution 480p\|720p]` | **v3.8.1** lip-sync a face image to audio via Fabric 1.0 — pairs perfectly with `/create-video audio narrate` custom voices |
+| `/create-video extend <clip> [--to Ns]` | Extend a clip (+7s per hop, max 148s) - **DEPRECATED in v3.8.0**, requires `--acknowledge-veo-limitations` |
+| `/create-video lipsync --image FACE --audio AUDIO [--resolution 480p\|720p]` | **v3.8.1** lip-sync a face image to audio via Fabric 1.0 - pairs perfectly with `/create-video audio narrate` custom voices |
 | `/create-video stitch <clips...>` | Concatenate arbitrary clips via FFmpeg |
 | `/create-video audio pipeline --video V --text "..." --music-prompt "..." [--music-source lyria\|elevenlabs]` | **v3.7.1+v3.8.3** end-to-end: parallel TTS + music (ElevenLabs default, Lyria alt), mix, swap into video |
 | `/create-video audio narrate --text "..." [--voice ROLE]` | **v3.7.1** generate ElevenLabs TTS narration only |
-| `/create-video audio music --prompt "..." [--source lyria\|elevenlabs] [--negative-prompt "..."]` | **v3.8.3** generate background music — ElevenLabs default, Lyria alternative ($0.06/clip, supports negative-prompt) |
+| `/create-video audio music --prompt "..." [--source lyria\|elevenlabs] [--negative-prompt "..."]` | **v3.8.3** generate background music - ElevenLabs default, Lyria alternative ($0.06/clip, supports negative-prompt) |
 | `/create-video audio mix --narration N --music M` | **v3.7.1** mix existing narration + music with side-chain ducking |
 | `/create-video audio swap --video V --audio A` | **v3.7.1** swap an audio file into a video (lossless video) |
 | `/create-video voice design --description "..."` | **v3.7.1** generate 3 voice previews from a text description |
@@ -42,7 +42,7 @@ argument-hint: "[generate|animate|sequence|extend|stitch|cost|status] <idea, pat
 | `/create-video cost [estimate]` | Video cost estimation |
 | `/create-video status` | Check VEO API access and FFmpeg availability |
 | `/create-video audio status` | **v3.7.1** check ElevenLabs API key + ffmpeg + custom voices |
-| `/create-video social <idea> --platforms <list>` | **Coming in v4.2.0** — platform-native video generation. Spec catalogue is available now at `references/social-platforms.md` (37 placements across 14 platforms with duration min/max). |
+| `/create-video social <idea> --platforms <list>` | **Coming in v4.2.0** - platform-native video generation. Spec catalogue is available now at `references/social-platforms.md` (37 placements across 14 platforms with duration min/max). |
 
 ## Video Creative Director Pipeline
 
@@ -83,7 +83,7 @@ Use the **5-Part Video Framework**: Camera → Subject → Action → Setting �
 - Include audio in every prompt: dialogue in quotes, SFX with "SFX:" prefix, ambient as description
 - One dominant action per clip (must complete within 4-8 seconds)
 - NEVER use banned keywords: "8K," "masterpiece," "ultra-realistic"
-- For character consistency: repeat exact identity phrasing across all shots AND pass the character's reference image as `--first-frame` on every Kling call. The prompt MUST describe the same character as the image — mismatched descriptions cause Kling to morph toward the prompted character within 5 seconds. See `references/kling-models.md` §Character Consistency
+- For character consistency: repeat exact identity phrasing across all shots AND pass the character's reference image as `--first-frame` on every Kling call. The prompt MUST describe the same character as the image - mismatched descriptions cause Kling to morph toward the prompted character within 5 seconds. See `references/kling-models.md` §Character Consistency
 
 ### Step 6: Set Duration + Aspect Ratio + Resolution
 
@@ -100,7 +100,7 @@ Use the **5-Part Video Framework**: Camera → Subject → Action → Setting �
 python3 ${CLAUDE_SKILL_DIR}/scripts/video_generate.py --prompt "..." --duration 8 --aspect-ratio 16:9 --resolution 1080p
 ```
 
-As of v3.8.0, the default provider is **Kling v3 Std** via Replicate. Generation is async: the script submits the prediction, polls for completion (printing progress to stderr), and downloads the MP4 when done. **Typical Kling wall time: 3-6 minutes per call** — longer than VEO Lite's ~2 minutes, which is the trade-off for Kling's 7.5× lower cost and higher motion quality.
+As of v3.8.0, the default provider is **Kling v3 Std** via Replicate. Generation is async: the script submits the prediction, polls for completion (printing progress to stderr), and downloads the MP4 when done. **Typical Kling wall time: 3-6 minutes per call** - longer than VEO Lite's ~2 minutes, which is the trade-off for Kling's 7.5× lower cost and higher motion quality.
 
 **For VEO 3.1 (opt-in backup, requires explicit request):**
 ```bash
@@ -115,7 +115,7 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/video_generate.py --provider veo --tier lite
 python3 ${CLAUDE_SKILL_DIR}/scripts/video_generate.py --prompt "..." --first-frame PATH
 ```
 
-**Caveat for Kling + start_image**: Kling ignores the `aspect_ratio` parameter when `start_image` is provided — output uses the start image's native aspect. If the user requested a specific aspect ratio alongside a first-frame, note that Replicate will override it. Offer to crop or pad the start image first if the aspect conflict matters.
+**Caveat for Kling + start_image**: Kling ignores the `aspect_ratio` parameter when `start_image` is provided - output uses the start image's native aspect. If the user requested a specific aspect ratio alongside a first-frame, note that Replicate will override it. Offer to crop or pad the start image first if the aspect conflict matters.
 
 **For first/last frame (keyframe interpolation):**
 ```bash
@@ -170,11 +170,11 @@ The storyboard stage generates still frame pairs using `/create-image generate` 
 
 **Shot-type semantic defaults** (v3.6.3): pass `--shot-types establishing,medium,closeup,product` to `plan` to pre-fill duration, camera hints, and `use_veo_interpolation` defaults from a built-in 8-type table. Useful for standard commercial structures. Claude can override any field in plan.json after generation.
 
-**Partial iteration:** if one frame needs a redo but the rest are approved, use `video_sequence.py storyboard --shots 3` (or `--shots 1,3-5`) to regenerate only a subset. Shots with `use_veo_interpolation: true` in plan.json skip the end frame entirely — useful for establishing shots that cut away to unrelated material.
+**Partial iteration:** if one frame needs a redo but the rest are approved, use `video_sequence.py storyboard --shots 3` (or `--shots 1,3-5`) to regenerate only a subset. Shots with `use_veo_interpolation: true` in plan.json skip the end frame entirely - useful for establishing shots that cut away to unrelated material.
 
 ## /create-video extend
 
-**DEPRECATED in v3.8.0.** Spike 5 Phase 2C found VEO extended workflows (both Scene Extension v2 and keyframe fallback) produce glitches, inconsistent actors, and audio seam discontinuities at extended durations — user verdict 2026-04-15: "horrible, do not use."
+**DEPRECATED in v3.8.0.** Spike 5 Phase 2C found VEO extended workflows (both Scene Extension v2 and keyframe fallback) produce glitches, inconsistent actors, and audio seam discontinuities at extended durations - user verdict 2026-04-15: "horrible, do not use."
 
 `video_extend.py` now requires `--acknowledge-veo-limitations` to run. Without the flag, the script exits with code 2 and a deprecation message pointing users at `video_sequence.py`.
 
@@ -195,21 +195,21 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/video_extend.py --input clip.mp4 --target-du
 |----------|-------|----------|---------|------|
 | **Default (everything)** | **`kwaivgi/kling-v3-video`** | **3-15s** | **Replicate (auto)** | **v3.8.0+ default. $0.16/8s at 1080p pro mode.** |
 | Instagram square | `kwaivgi/kling-v3-video` | 8s | Replicate | Kling is the ONLY plugin-registered model with 1:1 support |
-| Speed-critical iteration | `veo-3.1-lite-generate-001` | 4-8s | Vertex | ~2 min wall time vs Kling's 3-6 min — trade quality for speed |
+| Speed-critical iteration | `veo-3.1-lite-generate-001` | 4-8s | Vertex | ~2 min wall time vs Kling's 3-6 min - trade quality for speed |
 | VEO output comparison | `veo-3.1-lite-generate-001` | 4-8s | Vertex | Explicit VEO opt-in. **Warn user about spike 5 findings.** |
 | 4K output | `veo-3.1-generate-preview` / `veo-3.1-fast-generate-preview` | 4-8s | Gemini API | Kling maxes at 1080p pro |
 | Reference-image guided | VEO any tier | 4-8s | Vertex | Kling does not support `referenceImages` |
-| Scene Extension v2 | Not recommended | — | — | **Deprecated in v3.8.0**. Use Kling shot list instead. |
+| Scene Extension v2 | Not recommended | - | - | **Deprecated in v3.8.0**. Use Kling shot list instead. |
 | Legacy 3.0 reproduction | `veo-3.0-generate-001` | 8s | Vertex (auto) | Match existing VEO 3.0 style (opt-in) |
 
 Default model: `kwaivgi/kling-v3-video` (Kling v3 Std). Default backend: `auto`
 (routes Replicate slugs to Kling, Vertex-only VEO features to Vertex, text-
 only VEO preview IDs to Gemini API). **VEO is opt-in backup only** as of
-v3.8.0 — always prefer Kling unless the user specifically requests VEO.
+v3.8.0 - always prefer Kling unless the user specifically requests VEO.
 
 **Replicate setup** (1 minute, one-time): add `replicate_api_token` to
 `~/.creators-studio/config.json`. If the plugin's image-gen side was already used,
-the token is already in place — no new setup needed. Otherwise:
+the token is already in place - no new setup needed. Otherwise:
 `python3 skills/create-image/scripts/setup_mcp.py --replicate-key YOUR_TOKEN`.
 Get a token at https://replicate.com/account/api-tokens.
 
@@ -225,7 +225,7 @@ VEO 3.1 generates synchronized audio. Include in every prompt:
 - **SFX:** `SFX: glass shattering, metallic echo` (prefix "SFX:")
 - **Ambient:** `Quiet hum of machinery, distant traffic` (natural description)
 - **Music:** `Soft piano melody in the background` (describe style)
-- **Narration (no visible speaker):** `A narrator says, "..."` — works ONLY when no human is visible in frame; if a person is visible, VEO will lip-sync them to the line regardless of prompt wording (verified spike 1, 2026-04-14)
+- **Narration (no visible speaker):** `A narrator says, "..."` - works ONLY when no human is visible in frame; if a person is visible, VEO will lip-sync them to the line regardless of prompt wording (verified spike 1, 2026-04-14)
 - **Narration line length:** for an 8s clip, target ~16 words at narrator pace. Shorter lines trigger a known failure mode where VEO sings the line to fill time. See `references/video-audio.md` F2.
 
 See `references/video-audio.md` for VEO-native audio prompting and the 12 empirical findings from the strategic reset spikes.
@@ -263,15 +263,15 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/audio_pipeline.py pipeline \
 - To use a literal ElevenLabs voice ID: `--voice 21m00Tcm4TlvDq8ikWAM` (any non-role string is treated as a literal ID).
 - To create a new custom voice: `voice-design` then `voice-promote`. See `references/audio-pipeline.md`.
 
-**Music prompt restriction (TOS guardrail):** Eleven Music blocks prompts that name copyrighted creators or brands (e.g. "Annie Leibovitz", "BBC Earth"). Use generic descriptors only — genre, mood, instrumentation, tempo. This is music-API-specific — image generation prompts welcome creator names.
+**Music prompt restriction (TOS guardrail):** Eleven Music blocks prompts that name copyrighted creators or brands (e.g. "Annie Leibovitz", "BBC Earth"). Use generic descriptors only - genre, mood, instrumentation, tempo. This is music-API-specific - image generation prompts welcome creator names.
 
 **Prompt engineering for ElevenLabs TTS narration:**
 
 - Use `eleven_v3` model (default) for expressiveness
-- Insert audio tags like `[exhales]`, `[reverent]`, `[contemplative]` for emotional beats — tag set is open-ended, not whitelisted
+- Insert audio tags like `[exhales]`, `[reverent]`, `[contemplative]` for emotional beats - tag set is open-ended, not whitelisted
 - Use ellipses (`...`) for contemplative pauses
 - Use selective CAPS for emphasis on key words
-- Match line length to the *voice's* WPM (different voices have different pacing — see `references/audio-pipeline.md` line-length calibration section)
+- Match line length to the *voice's* WPM (different voices have different pacing - see `references/audio-pipeline.md` line-length calibration section)
 
 See `references/audio-pipeline.md` for the full architecture, FFmpeg parameter rationale, voice design flow, custom voice schema, and prompt engineering for both TTS and music.
 

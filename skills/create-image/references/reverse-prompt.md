@@ -25,7 +25,7 @@ Extract each component from what you observe:
 
 | Component | What to Extract | Weight |
 |-----------|----------------|--------|
-| **Subject** (30%) | Who/what is the primary focus? Age, appearance, material, species, physical details. | Most important — be specific |
+| **Subject** (30%) | Who/what is the primary focus? Age, appearance, material, species, physical details. | Most important - be specific |
 | **Action** (10%) | What is the subject doing? Pose, gesture, movement, state. | Use present-tense verbs |
 | **Location** (15%) | Where is the scene? Time of day, weather, atmosphere, environmental details. | Include mood-setting details |
 | **Composition** (10%) | Camera perspective, framing, angle, focal length, depth of field. | Estimate the lens and f-stop |
@@ -54,7 +54,7 @@ Apply the same rules as regular prompt construction:
 
 ## Output Format
 
-Present the analysis with THREE perspectives — how Claude sees it, how Gemini sees it, and a blended best-of-both version. This teaches users how different AI models interpret the same image and how to write better descriptions.
+Present the analysis with THREE perspectives - how Claude sees it, how Gemini sees it, and a blended best-of-both version. This teaches users how different AI models interpret the same image and how to write better descriptions.
 
 ### Step 5: Get Gemini's Perspective
 
@@ -87,13 +87,13 @@ Compare Claude's analysis (Steps 2-3) with Gemini's response (Step 5) and create
 
 ### Claude's Interpretation
 
-[Claude's full prompt — how Claude describes the image using the 5-Component
+[Claude's full prompt - how Claude describes the image using the 5-Component
 Formula. Tends to be more structured and technically precise about camera
 specs, composition terminology, and direct visual-register description.]
 
 ### Gemini's Interpretation
 
-[Gemini's description — how Gemini naturally describes the same image.
+[Gemini's description - how Gemini naturally describes the same image.
 Tends to be more atmospheric and may notice different details, textures,
 or emotional qualities that Claude's structured approach misses.]
 
@@ -122,14 +122,14 @@ It should be a single narrative paragraph, ready to copy.]
 
 ## Tips
 
-- **Be more specific than the original** — the model needs detail to recreate,
+- **Be more specific than the original** - the model needs detail to recreate,
   even if the original was generated from a simpler prompt
-- **Estimate camera specs confidently** — "Shot on Canon EOS R5, 85mm f/1.4"
+- **Estimate camera specs confidently** - "Shot on Canon EOS R5, 85mm f/1.4"
   gives the model concrete depth-of-field information even if you're guessing
 - **Describe the visual register directly** -- "high-contrast studio portrait,
   single hard key light" beats naming a publication, which renders a literal
   cover with masthead text
-- **For illustrated/stylized images** — describe the art style, line weight,
+- **For illustrated/stylized images** - describe the art style, line weight,
   color palette, and shading technique rather than camera specs
-- **The reconstructed prompt should be longer than the original** — good
+- **The reconstructed prompt should be longer than the original** - good
   reverse engineering adds detail the original prompt may have omitted

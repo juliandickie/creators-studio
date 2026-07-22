@@ -2,7 +2,7 @@
 """Creators Studio -- Audio-driven lip-sync via VEED Fabric 1.0 (v3.8.1+)
 
 Generates a talking-head video by pairing a face image with an audio file.
-Fabric 1.0 is a specialised model on Replicate — it doesn't generate speech
+Fabric 1.0 is a specialised model on Replicate - it doesn't generate speech
 or motion from a prompt, it takes an existing image + an existing audio file
 and lip-syncs the face to the audio. This closes the v3.8.0 gap where VEO
 generates speech internally and can't accept external custom voices, and
@@ -10,13 +10,13 @@ Kling doesn't accept audio input at all.
 
 Typical workflow (two-step, decoupled from audio_pipeline.py):
 
-    # Step 1 — generate the narration with your custom voice
+    # Step 1 - generate the narration with your custom voice
     python3 audio_pipeline.py narrate \\
         --text "Welcome to our product demo..." \\
         --voice brand_voice \\
         --out /tmp/narration.mp3
 
-    # Step 2 — lip-sync a face image to the narration
+    # Step 2 - lip-sync a face image to the narration
     python3 video_lipsync.py \\
         --image face.png \\
         --audio /tmp/narration.mp3 \\
@@ -41,7 +41,7 @@ from datetime import datetime
 from pathlib import Path
 
 # Reuse the Replicate backend for HTTP + auth + parsing. We don't duplicate
-# the poll loop — just import the low-level helpers and orchestrate.
+# the poll loop - just import the low-level helpers and orchestrate.
 # v4.2.0: backend lives at plugin-root scripts/backends/_replicate.py.
 _plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
 if _plugin_root not in sys.path:
@@ -76,7 +76,7 @@ def _progress(data):
 def _submit_fabric(*, image_uri, audio_uri, resolution, token):
     """Submit a Fabric 1.0 prediction and return the poll URL.
 
-    image_uri and audio_uri must already be data URIs or HTTPS URLs —
+    image_uri and audio_uri must already be data URIs or HTTPS URLs -
     the caller is responsible for converting local files via
     image_path_to_data_uri() / audio_path_to_data_uri().
     """
@@ -205,7 +205,7 @@ def main():
     )
     parser.add_argument(
         "--audio", required=True,
-        help="Audio file path (mp3/wav/m4a/aac). Any voice audio — typically "
+        help="Audio file path (mp3/wav/m4a/aac). Any voice audio - typically "
              "an ElevenLabs TTS narration from audio_pipeline.py, a recorded "
              "voice-over, or any pre-existing audio track.",
     )
@@ -307,7 +307,7 @@ def main():
     # (per Replicate's official model card, verified 2026-04-27). Pass the
     # actual resolution as --resolution and the output duration as --duration-s.
     # The previous code-path passed `f"{output_duration}s"` as --resolution to
-    # exploit the legacy per_second dispatch — that hack is gone.
+    # exploit the legacy per_second dispatch - that hack is gone.
     if output_duration > 0:
         try:
             import subprocess as _sp

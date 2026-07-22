@@ -138,8 +138,8 @@ Then run `/create-image brand` to customize it, or use it as-is.
 - **Logo handling:** The `logo_placement` field records WHERE the logo goes, but
   it is NEVER mentioned in image prompts. The area is described as "clean negative
   space" instead. Logos are composited in presentation software.
-- **prompt_suffix is the most powerful field** — it's appended verbatim to every
+- **prompt_suffix is the most powerful field** - it's appended verbatim to every
   prompt, ensuring consistent brand language without interpretation.
-- **Start broad, refine narrow** — it's easier to edit a preset than to get
+- **Start broad, refine narrow** - it's easier to edit a preset than to get
   everything perfect on the first try. Save it, generate some images, then
   run `/create-image brand` again to refine.

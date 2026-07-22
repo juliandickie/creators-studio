@@ -69,7 +69,7 @@ class TestMigrateOldFlatKeys(unittest.TestCase):
         new = setup_mcp.migrate_config_to_v4_2_0({})
         self.assertIsInstance(new, dict)
         # No providers section unless there was something to put there
-        # (that's OK — the routing layer handles missing providers gracefully)
+        # (that's OK - the routing layer handles missing providers gracefully)
 
     def test_none_config_is_safe(self):
         # Defensive: migrate should tolerate None/falsy

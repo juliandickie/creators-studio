@@ -5,9 +5,9 @@
 
 # Creators Studio
 
-> **Imagine · Direct · Generate** — Creative Engine for Claude Code
+> **Imagine · Direct · Generate** - Creative Engine for Claude Code
 
-**You shouldn't have to be an AI prompt engineer to make on-brand content.** Most AI image tools hand you a text box and a generic model — you spend more time wrangling prompts than creating, and the output never quite matches your brand voice. Creators Studio flips the script: **Claude becomes your Creative Director**, interpreting your intent, selecting the right domain expertise, and orchestrating the best-in-class AI models for every shot — images, video, audio, and lip-sync — all from inside Claude Code.
+**You shouldn't have to be an AI prompt engineer to make on-brand content.** Most AI image tools hand you a text box and a generic model - you spend more time wrangling prompts than creating, and the output never quite matches your brand voice. Creators Studio flips the script: **Claude becomes your Creative Director**, interpreting your intent, selecting the right domain expertise, and orchestrating the best-in-class AI models for every shot - images, video, audio, and lip-sync - all from inside Claude Code.
 
 Let an AI that's been trained on the best practices for every model write the prompts for you, instead of spending hours teaching yourself to prompt-engineer a moving target.
 
@@ -43,17 +43,17 @@ Let an AI that's been trained on the best practices for every model write the pr
 
 **Generic AI tools cost you hours and give you work that doesn't look like your brand.** If you've tried producing visual content with AI, you already know the pattern:
 
-- 🎯 **Prompt fatigue** — you spend more time tuning the wording than creating the thing
-- 🎨 **Brand drift** — the output looks like "AI art," not your product, your tone, or your aesthetic
-- 🔄 **Model lock-in** — you pick a tool, learn its quirks, and a better model ships six weeks later
+- 🎯 **Prompt fatigue** - you spend more time tuning the wording than creating the thing
+- 🎨 **Brand drift** - the output looks like "AI art," not your product, your tone, or your aesthetic
+- 🔄 **Model lock-in** - you pick a tool, learn its quirks, and a better model ships six weeks later
 
 The AI race is emphatically **not finished**. Kling beat VEO to become the video default. ElevenLabs beat Lyria to become the music default. Fabric opened lip-sync that Kling can't do. The next swap is coming. Anchoring your workflow to any one model will cost you.
 
 ## Meet Your Creative Director
 
-Creators Studio installs a **Creative Director skill** into Claude Code. Claude isn't just calling a model API — it's reading your intent, consulting the locked reference guides for every model (*"describe the scene, don't just list keywords"* for Gemini 3.1; character-matching start_image prompts for Kling; audio-duration-calibrated line lengths for ElevenLabs voices), selecting the right provider, constructing the optimized prompt, and orchestrating the result. You describe what you want. Claude figures out how.
+Creators Studio installs a **Creative Director skill** into Claude Code. Claude isn't just calling a model API - it's reading your intent, consulting the locked reference guides for every model (*"describe the scene, don't just list keywords"* for Gemini 3.1; character-matching start_image prompts for Kling; audio-duration-calibrated line lengths for ElevenLabs voices), selecting the right provider, constructing the optimized prompt, and orchestrating the result. You describe what you want. Claude figures out how.
 
-**The model-agnostic philosophy is deliberate.** When a new model wins a head-to-head bake-off, it becomes the new default — without you having to relearn the prompting rules. v3.8.0 made Kling v3 the video default after a 94-generation bake-off against VEO. v3.8.3 made ElevenLabs Music the music default after a 12-genre blind A/B test. The underlying `/create-image` and `/create-video` commands don't change. Your brand presets don't change. Your existing workflow doesn't change.
+**The model-agnostic philosophy is deliberate.** When a new model wins a head-to-head bake-off, it becomes the new default - without you having to relearn the prompting rules. v3.8.0 made Kling v3 the video default after a 94-generation bake-off against VEO. v3.8.3 made ElevenLabs Music the music default after a 12-genre blind A/B test. The underlying `/create-image` and `/create-video` commands don't change. Your brand presets don't change. Your existing workflow doesn't change.
 
 ![How It Works](screenshots/pipeline-flow.webp)
 
@@ -63,7 +63,7 @@ Three steps. No prompt engineering required.
 
 | 1 | 2 | 3 |
 |---|---|---|
-| **Install the plugin** — one `claude plugin install` command, guided API-key setup | **Describe your intent** — "a product launch hero for wireless earbuds" or "30-second narrated explainer video" | **Claude directs best-in-class AI** — selects domain mode, constructs optimized prompts, orchestrates generation, hands you the result |
+| **Install the plugin** - one `claude plugin install` command, guided API-key setup | **Describe your intent** - "a product launch hero for wireless earbuds" or "30-second narrated explainer video" | **Claude directs best-in-class AI** - selects domain mode, constructs optimized prompts, orchestrates generation, hands you the result |
 
 ## What You Can Make
 
@@ -71,7 +71,7 @@ Three creative surfaces, one Creative Director.
 
 ### 📷 Images
 
-**Brand-native visual assets across 87 sizes and ratios on 16 platforms** — broadcast social (Instagram, Facebook, YouTube, LinkedIn, Twitter/X, TikTok, Pinterest, Threads, Snapchat, Google Ads, Spotify, BlueSky) plus messaging channels for marketing campaigns and automated response engines (Telegram, Signal, WhatsApp, ManyChat). Presentations, brand books, and product assets too. Claude reads your intent, picks a domain lens (Cinema, Product, Editorial, UI/Web, Logo, Landscape, etc.), applies your brand style guide if you have one, and generates at the correct aspect ratio and resolution for the target surface — at max-quality upload specs, not platform minimums.
+**Brand-native visual assets across 87 sizes and ratios on 16 platforms** - broadcast social (Instagram, Facebook, YouTube, LinkedIn, Twitter/X, TikTok, Pinterest, Threads, Snapchat, Google Ads, Spotify, BlueSky) plus messaging channels for marketing campaigns and automated response engines (Telegram, Signal, WhatsApp, ManyChat). Presentations, brand books, and product assets too. Claude reads your intent, picks a domain lens (Cinema, Product, Editorial, UI/Web, Logo, Landscape, etc.), applies your brand style guide if you have one, and generates at the correct aspect ratio and resolution for the target surface - at max-quality upload specs, not platform minimums.
 
 ![5-Input Creative Brief](screenshots/creative-brief.webp)
 
@@ -109,7 +109,7 @@ Three creative surfaces, one Creative Director.
 
 ### 🎙️ Audio
 
-**Narration, music, and mixed audio beds — designed to replace VEO's emergent audio on stitched sequences.** Custom voice design from plain-English descriptions. Instant Voice Cloning. Multi-provider music with negative-prompt support. Side-chain ducking. End-to-end audio-bed replacement in one command.
+**Narration, music, and mixed audio beds - designed to replace VEO's emergent audio on stitched sequences.** Custom voice design from plain-English descriptions. Instant Voice Cloning. Multi-provider music with negative-prompt support. Side-chain ducking. End-to-end audio-bed replacement in one command.
 
 ![Audio Pipeline](screenshots/audio-pipeline.webp)
 
@@ -127,7 +127,7 @@ Three creative surfaces, one Creative Director.
 - [Git](https://git-scm.com/) installed
 - [Node.js 18+](https://nodejs.org/) installed (for the MCP server)
 
-### Install (recommended — native plugin marketplace)
+### Install (recommended - native plugin marketplace)
 
 In any Claude Code session, run:
 
@@ -160,7 +160,7 @@ Get a free key at [Google AI Studio](https://aistudio.google.com/apikey), then i
 /create-image setup
 ```
 
-Claude walks you through the key setup conversationally. Your key is saved to `~/.claude/settings.json` (for the MCP server) and `~/.creators-studio/config.json` (for fallback scripts; v4.2.2+ — auto-migrates from the legacy `~/.banana/config.json` on first run). Keys never leave your machine and are never sent to GitHub.
+Claude walks you through the key setup conversationally. Your key is saved to `~/.claude/settings.json` (for the MCP server) and `~/.creators-studio/config.json` (for fallback scripts; v4.2.2+ - auto-migrates from the legacy `~/.banana/config.json` on first run). Keys never leave your machine and are never sent to GitHub.
 
 > **Free tier:** ~5-15 images per minute, ~20-500 per day. No credit card required.
 >
@@ -243,7 +243,7 @@ Invoke via `/create-video generate "..." --provider veo --tier {lite|fast|standa
 /create-image status
 ```
 
-Claude acts as Creative Director for every call — selecting domain modes, constructing optimized prompts, and managing brand/asset consistency across media.
+Claude acts as Creative Director for every call - selecting domain modes, constructing optimized prompts, and managing brand/asset consistency across media.
 
 ## Commands
 
@@ -251,7 +251,7 @@ Claude acts as Creative Director for every call — selecting domain modes, cons
 
 | Command | Description |
 |---------|-------------|
-| `/create-image` | Interactive — Claude detects intent and guides you |
+| `/create-image` | Interactive - Claude detects intent and guides you |
 | `/create-image generate <idea>` | Full Creative Director pipeline |
 | `/create-image edit <path> <instructions>` | Intelligent image editing |
 | `/create-image chat` | Multi-turn visual session (character/style consistent) |
@@ -285,15 +285,15 @@ Claude acts as Creative Director for every call — selecting domain modes, cons
 | `/create-video animate <image> <motion>` | Animate a still image (from /create-image or uploaded) |
 | `/create-video sequence plan --script "..." --target Ns [--shot-types ...]` | Break a script into a shot list with shot-type defaults |
 | `/create-video sequence storyboard --plan PATH [--shots 1,3-5]` | Generate start/end frame pairs (optionally a subset) |
-| `/create-video sequence review --plan PATH --storyboard DIR` | Generate REVIEW-SHEET.md — mandatory approval gate in v3.6.3+ |
+| `/create-video sequence review --plan PATH --storyboard DIR` | Generate REVIEW-SHEET.md - mandatory approval gate in v3.6.3+ |
 | `/create-video sequence generate --storyboard PATH [--skip-review]` | Batch-generate clips from approved storyboard frames |
 | `/create-video sequence stitch --clips DIR --output PATH` | Assemble clips into final sequence via FFmpeg |
-| `/create-video extend <clip> [--to Ns]` | Extend a clip (+7s per hop, max 148s) — **DEPRECATED in v3.8.0**, requires `--acknowledge-veo-limitations` |
-| `/create-video lipsync --image FACE --audio AUDIO [--resolution 480p\|720p]` | **v3.8.1** lip-sync a face image to audio via Fabric 1.0 — pairs with `/create-video audio narrate` custom voices |
+| `/create-video extend <clip> [--to Ns]` | Extend a clip (+7s per hop, max 148s) - **DEPRECATED in v3.8.0**, requires `--acknowledge-veo-limitations` |
+| `/create-video lipsync --image FACE --audio AUDIO [--resolution 480p\|720p]` | **v3.8.1** lip-sync a face image to audio via Fabric 1.0 - pairs with `/create-video audio narrate` custom voices |
 | `/create-video stitch <clips...>` | Concat, trim, convert video via FFmpeg |
 | `/create-video audio pipeline --video V --text "..." --music-prompt "..." [--music-source lyria\|elevenlabs]` | **v3.7.1+v3.8.3** end-to-end: parallel TTS + music (ElevenLabs default, Lyria alt), mix, swap into video |
 | `/create-video audio narrate --text "..." [--voice ROLE]` | **v3.7.1** generate ElevenLabs TTS narration only |
-| `/create-video audio music --prompt "..." [--source lyria\|elevenlabs] [--negative-prompt "..."]` | **v3.8.3** background music — ElevenLabs default, Lyria alt ($0.06/clip, supports negative-prompt) |
+| `/create-video audio music --prompt "..." [--source lyria\|elevenlabs] [--negative-prompt "..."]` | **v3.8.3** background music - ElevenLabs default, Lyria alt ($0.06/clip, supports negative-prompt) |
 | `/create-video audio mix --narration N --music M` | **v3.7.1** mix existing narration + music with side-chain ducking |
 | `/create-video audio swap --video V --audio A` | **v3.7.1** swap an audio file into a video (lossless video) |
 | `/create-video voice design --description "..."` | **v3.7.1** generate 3 voice previews from a text description |
@@ -302,7 +302,7 @@ Claude acts as Creative Director for every call — selecting domain modes, cons
 | `/create-video cost [estimate]` | Video cost estimation |
 | `/create-video status` | Check VEO API access and FFmpeg availability |
 | `/create-video audio status` | **v3.7.1** check ElevenLabs API key + ffmpeg + custom voices |
-| `/create-video social <idea> --platforms <list>` | **Coming in v4.2.0** — platform-native video generation (spec catalogue shipped in v4.1.2 at `references/social-platforms.md`: 37 placements × 14 platforms with duration ranges) |
+| `/create-video social <idea> --platforms <list>` | **Coming in v4.2.0** - platform-native video generation (spec catalogue shipped in v4.1.2 at `references/social-platforms.md`: 37 placements × 14 platforms with duration ranges) |
 
 ### 📝 Transcript Commands
 
@@ -313,7 +313,7 @@ Claude acts as Creative Director for every call — selecting domain modes, cons
 | `/create-transcript <file> --keyterms "Medit,iTero,iDD"` | **v4.3.0** Bias vocabulary toward brand/product names (adds to the config standing list) |
 | `/create-transcript <file> --speakers "0=Julian,1=Dr Ahmad"` | **v4.3.0** Name diarized speakers up front |
 | `/create-transcript <folder> --batch` | **v4.3.0** Transcribe every audio/video file in a folder |
-| `/create-transcript rename --json X.json --speakers "0=Name,1=Name"` | **v4.3.0** Re-render formats with named speakers — no API call, no charge |
+| `/create-transcript rename --json X.json --speakers "0=Name,1=Name"` | **v4.3.0** Re-render formats with named speakers - no API call, no charge |
 | `/create-transcript cost <file or folder>` | **v4.3.0** Estimate audio-minutes before running |
 | `/create-transcript status` | **v4.3.0** Check ElevenLabs key + ffmpeg/ffprobe + config keyterms |
 
@@ -321,13 +321,13 @@ Claude acts as Creative Director for every call — selecting domain modes, cons
 
 Every generation follows the same Creative Director pipeline:
 
-1. **Intent** — Claude reads your request and gathers the 5-Input Creative Brief (Purpose, Audience, Subject, Brand, References)
-2. **Domain** — Claude selects the right creative lens (Cinema, Product, Portrait, Editorial, UI/Web, Logo, Landscape, Abstract, Infographic, Presentation)
-3. **Prompt** — Claude constructs the prompt using the model's native strengths (Gemini 3.1's narrative understanding, Kling's multi_prompt shot list, ElevenLabs' audio-tag vocabulary)
-4. **Generate** — Claude calls the best-in-class model for the task with the optimized parameters
-5. **Deliver** — Save the asset, log the cost, offer refinement suggestions
+1. **Intent** - Claude reads your request and gathers the 5-Input Creative Brief (Purpose, Audience, Subject, Brand, References)
+2. **Domain** - Claude selects the right creative lens (Cinema, Product, Portrait, Editorial, UI/Web, Logo, Landscape, Abstract, Infographic, Presentation)
+3. **Prompt** - Claude constructs the prompt using the model's native strengths (Gemini 3.1's narrative understanding, Kling's multi_prompt shot list, ElevenLabs' audio-tag vocabulary)
+4. **Generate** - Claude calls the best-in-class model for the task with the optimized parameters
+5. **Deliver** - Save the asset, log the cost, offer refinement suggestions
 
-Every reference guide (`references/prompt-engineering.md`, `references/kling-models.md`, `references/audio-pipeline.md`, etc.) is loaded on demand — Claude only reads what's relevant to the current task. The references are revised against the official model docs every time a new model version ships; that's the "AI writes for AI" loop in practice.
+Every reference guide (`references/prompt-engineering.md`, `references/kling-models.md`, `references/audio-pipeline.md`, etc.) is loaded on demand - Claude only reads what's relevant to the current task. The references are revised against the official model docs every time a new model version ships; that's the "AI writes for AI" loop in practice.
 
 ## The 5-Component Prompt Formula
 
@@ -359,29 +359,29 @@ Instead of sending "a cat in space" to the API, Claude constructs:
 
 ## Models
 
-Creators Studio is model-agnostic — models are swapped in and out based on empirical bake-offs, not brand loyalty. The current roster reflects tried-and-tested winners as of v4.0.0.
+Creators Studio is model-agnostic - models are swapped in and out based on empirical bake-offs, not brand loyalty. The current roster reflects tried-and-tested winners as of v4.0.0.
 
 | Surface | Default | Alternative | Specialist |
 |---|---|---|---|
-| **Image** | Gemini 3.1 Flash (free tier) | Gemini 2.5 Flash · Replicate `google/nano-banana-2` | — |
+| **Image** | Gemini 3.1 Flash (free tier) | Gemini 2.5 Flash · Replicate `google/nano-banana-2` | - |
 | **Video** | Kling v3 Std ($0.02/s, 1080p) | VEO 3.1 Lite/Fast/Standard (opt-in, `--provider veo`) | DreamActor M2.0 (deferred to v4.1.x) |
-| **Music** | ElevenLabs Music (won 12-0 bake-off) | Lyria 2 ($0.06/clip, supports negative-prompt) | — |
-| **Voice/TTS** | ElevenLabs (custom design + cloning) | — | — |
-| **Lip-sync** | — | — | VEED Fabric 1.0 ($0.15/s output, 720p max) |
+| **Music** | ElevenLabs Music (won 12-0 bake-off) | Lyria 2 ($0.06/clip, supports negative-prompt) | - |
+| **Voice/TTS** | ElevenLabs (custom design + cloning) | - | - |
+| **Lip-sync** | - | - | VEED Fabric 1.0 ($0.15/s output, 720p max) |
 
 ## What Makes This Different
 
-- **5-Input Creative Brief** — Gathers Purpose, Audience, Subject, Brand, References before generating
-- **Domain Expertise** — Selects the right creative lens per the 11 modes above
-- **5-Component Prompt Formula** — Subject + Action + Location + Composition + Style
-- **Start with Intent, Refine with Specs** — Two-phase prompting with the PEEL strategy (Position, Expression, Environment, Lens)
-- **Edit-First Workflow** — 90% of refinements edit the image rather than regenerating
-- **Brand Style Guides** — Rich preset system with background styles, motifs, keywords, do's/don'ts, and prompt suffixes
-- **Asset Registry** — Save characters, products, equipment, environments once; reuse forever across sessions
-- **Presentation Mode** — Complete slides with rendered text, or clean backgrounds for layering
-- **Multi-Provider Fallback** — MCP → Direct Gemini API → Replicate for maximum availability
-- **Session Consistency** — Character/style maintained across multi-turn chat with progressive enhancement
-- **4K Output · 14 Aspect Ratios** — Including ultra-wide 21:9 and extreme 8:1 banners
+- **5-Input Creative Brief** - Gathers Purpose, Audience, Subject, Brand, References before generating
+- **Domain Expertise** - Selects the right creative lens per the 11 modes above
+- **5-Component Prompt Formula** - Subject + Action + Location + Composition + Style
+- **Start with Intent, Refine with Specs** - Two-phase prompting with the PEEL strategy (Position, Expression, Environment, Lens)
+- **Edit-First Workflow** - 90% of refinements edit the image rather than regenerating
+- **Brand Style Guides** - Rich preset system with background styles, motifs, keywords, do's/don'ts, and prompt suffixes
+- **Asset Registry** - Save characters, products, equipment, environments once; reuse forever across sessions
+- **Presentation Mode** - Complete slides with rendered text, or clean backgrounds for layering
+- **Multi-Provider Fallback** - MCP → Direct Gemini API → Replicate for maximum availability
+- **Session Consistency** - Character/style maintained across multi-turn chat with progressive enhancement
+- **4K Output · 14 Aspect Ratios** - Including ultra-wide 21:9 and extreme 8:1 banners
 
 ## Architecture
 
@@ -478,70 +478,70 @@ creators-studio/                       # Claude Code Plugin
 ## Release History
 
 <details open>
-<summary><b>📝 v4.3.0 (current) — /create-transcript speech-to-text · 2026-07-23</b></summary>
+<summary><b>📝 v4.3.0 (current) - /create-transcript speech-to-text · 2026-07-23</b></summary>
 
-Transcribe audio or video into speaker-labelled markdown, subtitles (SRT/VTT), YouTube chapters, and plaintext with ElevenLabs Scribe v2 — the plugin's first ingest capability. Diarization separates each speaker, keyterm prompting fixes brand-name spelling, and every format re-renders from a single cached API call, so renaming a speaker or adding a format never re-transcribes. New `/create-transcript` skill; reuses your existing ElevenLabs key.
+Transcribe audio or video into speaker-labelled markdown, subtitles (SRT/VTT), YouTube chapters, and plaintext with ElevenLabs Scribe v2 - the plugin's first ingest capability. Diarization separates each speaker, keyterm prompting fixes brand-name spelling, and every format re-renders from a single cached API call, so renaming a speaker or adding a format never re-transcribes. New `/create-transcript` skill; reuses your existing ElevenLabs key.
 
 </details>
 
 <details>
-<summary><b>🏷️ v4.2.2 — Config dir rename `~/.banana/` → `~/.creators-studio/` · 2026-04-27</b></summary>
+<summary><b>🏷️ v4.2.2 - Config dir rename `~/.banana/` → `~/.creators-studio/` · 2026-04-27</b></summary>
 
 The user state directory finally matches the plugin name. **Auto-migrates safely**: copies `~/.banana/` to `~/.creators-studio/` on first run, preserving the old directory indefinitely so older plugins keep working and you have a fallback. API keys, custom voices, presets, cost ledger, and history all move automatically. Run `python3 skills/create-image/scripts/validate_setup.py --check-migration` to inspect state. Plus PixVerse V6 runtime backend (PR #6) if it's merged into the release zip.
 
 </details>
 
 <details>
-<summary><b>🎵 v4.2.1 — Vertex Retirement + Lyria 3 Upgrade · 2026-04-24</b></summary>
+<summary><b>🎵 v4.2.1 - Vertex Retirement + Lyria 3 Upgrade · 2026-04-24</b></summary>
 
-Sub-project B of the provider-agnostic roadmap. Deleted `_vertex_backend.py` (958 lines). VEO 3.1 (all three tiers) and Lyria family now route through Replicate. Lyria upgraded from Lyria 2 → Lyria 3 Clip as within-Lyria default (30% cheaper, new image-input capability). Lyria 2 still available for `negative_prompt` via `--lyria-version 2`. Lyria 3 Pro registered for full-song generation with structure tags, auto-selected when prompt contains `[Verse]`/`[Chorus]`/timestamp markers (gated by `--confirm-upgrade` to prevent 2x cost surprises). Bonus: Kling v3 pricing corrected — VEO Lite turns out to be ~4× cheaper than Kling at 1080p with audio, inverting the v3.8.0 cost narrative.
-
-</details>
-
-<details>
-<summary><b>🔌 v4.2.0 — Provider-Agnostic Architecture · 2026-04-23</b></summary>
-
-The plugin is now marketplace-neutral. Bring your own API key for Replicate today; the architecture is ready for Kie.ai, Hugging Face Inference Providers, fal.ai, or any future marketplace to ship as a **one-file addition**. New `scripts/backends/` abstraction, canonical task schema, model registry, and two-stage routing — all tested (74 tests) with zero behavior change for existing commands. Python floor lifted 3.6 → 3.12.
+Sub-project B of the provider-agnostic roadmap. Deleted `_vertex_backend.py` (958 lines). VEO 3.1 (all three tiers) and Lyria family now route through Replicate. Lyria upgraded from Lyria 2 → Lyria 3 Clip as within-Lyria default (30% cheaper, new image-input capability). Lyria 2 still available for `negative_prompt` via `--lyria-version 2`. Lyria 3 Pro registered for full-song generation with structure tags, auto-selected when prompt contains `[Verse]`/`[Chorus]`/timestamp markers (gated by `--confirm-upgrade` to prevent 2x cost surprises). Bonus: Kling v3 pricing corrected - VEO Lite turns out to be ~4× cheaper than Kling at 1080p with audio, inverting the v3.8.0 cost narrative.
 
 </details>
 
 <details>
-<summary><b>📜 v4.0.0 — Rebrand to Creators Studio · 2026-04-17</b></summary>
+<summary><b>🔌 v4.2.0 - Provider-Agnostic Architecture · 2026-04-23</b></summary>
 
-Full rebrand from `nano-banana-studio` to **Creators Studio** — *Imagine · Direct · Generate. Creative Engine for Claude Code.* The old name anchored the plugin to a single Google model at a moment when Kling, ElevenLabs Music, and Fabric had already become best-in-class for their respective surfaces; the new identity is model-agnostic so future swaps don't require a rebrand. Commands change to `/create-image` and `/create-video`. Your `~/.banana/` config, API keys, custom voices, and presets carry forward unchanged — zero config loss on upgrade.
+The plugin is now marketplace-neutral. Bring your own API key for Replicate today; the architecture is ready for Kie.ai, Hugging Face Inference Providers, fal.ai, or any future marketplace to ship as a **one-file addition**. New `scripts/backends/` abstraction, canonical task schema, model registry, and two-stage routing - all tested (74 tests) with zero behavior change for existing commands. Python floor lifted 3.6 → 3.12.
 
 </details>
 
 <details>
-<summary><b>📦 v3.8.4 — Replicate Cost Tracking + Strip-List Config · 2026-04-16</b></summary>
+<summary><b>📜 v4.0.0 - Rebrand to Creators Studio · 2026-04-17</b></summary>
+
+Full rebrand from `nano-banana-studio` to **Creators Studio** - *Imagine · Direct · Generate. Creative Engine for Claude Code.* The old name anchored the plugin to a single Google model at a moment when Kling, ElevenLabs Music, and Fabric had already become best-in-class for their respective surfaces; the new identity is model-agnostic so future swaps don't require a rebrand. Commands change to `/create-image` and `/create-video`. Your `~/.banana/` config, API keys, custom voices, and presets carry forward unchanged - zero config loss on upgrade.
+
+</details>
+
+<details>
+<summary><b>📦 v3.8.4 - Replicate Cost Tracking + Strip-List Config · 2026-04-16</b></summary>
 
 Replicate video costs now land in your cost ledger. Kling ($0.02/s), DreamActor ($0.05/s), and Fabric ($0.15/s) pricing is registered in `cost_tracker.py`, and every successful `/create-video generate` or `/create-video lipsync` run auto-logs. Also: extend the named-creator strip-list via `named_creator_triggers` in `~/.banana/config.json`, and wrapper phrases (*"in the style of"*, *"inspired by"*) are cleaned up after the creator name is removed.
 
 </details>
 
 <details>
-<summary><b>🎵 v3.8.3 — ElevenLabs Music as Default Provider · 2026-04-16</b></summary>
+<summary><b>🎵 v3.8.3 - ElevenLabs Music as Default Provider · 2026-04-16</b></summary>
 
 A 12-genre blind A/B bake-off found ElevenLabs Music decisively outperforms Lyria 2 across every genre tested. ElevenLabs is now the default `--music-source`; Lyria remains available via `--music-source lyria` for its unique `negative_prompt` feature.
 
 </details>
 
 <details>
-<summary><b>🎬 v3.8.2 — Character Consistency via start_image · 2026-04-16</b></summary>
+<summary><b>🎬 v3.8.2 - Character Consistency via start_image · 2026-04-16</b></summary>
 
-Kling's `start_image` feature serves as a character identity lock for multi-clip brand work: generate a reference image once, then pass it as `--first-frame` on every Kling call with a character-matching prompt — and the character persists across separate generations at full 1080p. DreamActor M2.0 deferred to v4.1.x for real-footage-to-avatar workflows.
+Kling's `start_image` feature serves as a character identity lock for multi-clip brand work: generate a reference image once, then pass it as `--first-frame` on every Kling call with a character-matching prompt - and the character persists across separate generations at full 1080p. DreamActor M2.0 deferred to v4.1.x for real-footage-to-avatar workflows.
 
 </details>
 
 <details>
-<summary><b>🎤 v3.8.1 — Fabric Lip-Sync + Defensive Hardening · 2026-04-15</b></summary>
+<summary><b>🎤 v3.8.1 - Fabric Lip-Sync + Defensive Hardening · 2026-04-15</b></summary>
 
 New `/create-video lipsync` command pairs any face image with any audio file (including custom-designed ElevenLabs voices from `/create-video audio narrate`) via VEED Fabric 1.0. Also includes Cloudflare User-Agent hardening on the image-gen Replicate path, `_vertex_backend smoke-test` subcommand, and the Seedance 2.0 retest verdict: **permanently rejected** (E005 filter triggers on every human subject tested).
 
 </details>
 
 <details>
-<summary><b>🎥 v3.8.0 — Kling v3 as Default Video Model · 2026-04-15</b></summary>
+<summary><b>🎥 v3.8.0 - Kling v3 as Default Video Model · 2026-04-15</b></summary>
 
 v3.8.0 switches the default video model from VEO 3.1 to Kling v3 Std (via Replicate) after a 15-shot-type head-to-head bake-off. Kling wins 8 of 15 playback-verified shot types (VEO 0), is 7.5× cheaper per 8s clip, natively supports 1:1 Instagram-square aspect ratio, and produces coherent 30-second narratives where VEO's extended workflow produces glitches. VEO remains available as an opt-in backup via `--provider veo`.
 
@@ -552,55 +552,55 @@ v3.8.0 switches the default video model from VEO 3.1 to Kling v3 Std (via Replic
 
 ### Audio & Video era (v3.x)
 
-**v3.7.4** — Audio polish bundle: real stereo narration mix, Instant Voice Cloning, auto-measured per-voice WPM, multi-call Lyria with FFmpeg crossfade, shared client-side creator stripping across Lyria + ElevenLabs Music.
+**v3.7.4** - Audio polish bundle: real stereo narration mix, Instant Voice Cloning, auto-measured per-voice WPM, multi-call Lyria with FFmpeg crossfade, shared client-side creator stripping across Lyria + ElevenLabs Music.
 
-**v3.7.3** — Prompt-engineering reference refreshed against Google's official Gemini 3.1 Flash Image guide. Leads with *"describe the scene, don't just list keywords"*.
+**v3.7.3** - Prompt-engineering reference refreshed against Google's official Gemini 3.1 Flash Image guide. Leads with *"describe the scene, don't just list keywords"*.
 
-**v3.7.2** — Google Lyria 2 made the (then-)default music source after 5-way bake-off (Lyria > ElevenLabs > MusicGen > MiniMax > Stable Audio). Script renamed `elevenlabs_audio.py` → `audio_pipeline.py`.
+**v3.7.2** - Google Lyria 2 made the (then-)default music source after 5-way bake-off (Lyria > ElevenLabs > MusicGen > MiniMax > Stable Audio). Script renamed `elevenlabs_audio.py` → `audio_pipeline.py`.
 
-**v3.7.1** — ElevenLabs Audio Replacement Pipeline + Custom Voice Design. One command replaces the entire audio bed on stitched VEO sequences. Design a voice from plain-English description, save under a semantic role name.
+**v3.7.1** - ElevenLabs Audio Replacement Pipeline + Custom Voice Design. One command replaces the entire audio bed on stitched VEO sequences. Design a voice from plain-English description, save under a semantic role name.
 
-**v3.6.3** — Review Gate Enforcement + Smarter Plans. Mandatory review gate before any video generation call, catching the expensive failure mode of generating a $12 clip against a silently-regenerated frame.
+**v3.6.3** - Review Gate Enforcement + Smarter Plans. Mandatory review gate before any video generation call, catching the expensive failure mode of generating a $12 clip against a silently-regenerated frame.
 
-**v3.6.2** — Sequence Production Polish from the first real shoot: review subcommand, `use_veo_interpolation` per-shot flag, partial storyboard regeneration via `--shots 1,3-5`.
+**v3.6.2** - Sequence Production Polish from the first real shoot: review subcommand, `use_veo_interpolation` per-shot flag, partial storyboard regeneration via `--shots 1,3-5`.
 
-**v3.6.1** — First+last frame interpolation + reference images on Vertex.
+**v3.6.1** - First+last frame interpolation + reference images on Vertex.
 
-**v3.6.0** — Vertex AI Backend. A new backend using bound-to-service-account API-key auth (no OAuth, no service account JSON, no `gcloud`) unlocks VEO 3.1 Lite at $0.05/sec, image-to-video via `--first-frame`, Scene Extension v2, and GA `-001` model IDs.
+**v3.6.0** - Vertex AI Backend. A new backend using bound-to-service-account API-key auth (no OAuth, no service account JSON, no `gcloud`) unlocks VEO 3.1 Lite at $0.05/sec, image-to-video via `--first-frame`, Scene Extension v2, and GA `-001` model IDs.
 
-**v3.5.0** — VEO 3.1 Model Variants & Draft Workflow. Lite/Fast/Standard tiers, `--quality-tier` flag, model routing infrastructure, corrected VEO pricing.
+**v3.5.0** - VEO 3.1 Model Variants & Draft Workflow. Lite/Fast/Standard tiers, `--quality-tier` flag, model routing infrastructure, corrected VEO pricing.
 
-**v3.4.x → v3.0.0** — Video skill launch: VEO 3.1 text-to-video, image-to-video, first/last frame, multi-shot sequences, extension + stitching toolkit, domain modes + audio prompting, cross-skill integration with image generation.
+**v3.4.x → v3.0.0** - Video skill launch: VEO 3.1 text-to-video, image-to-video, first/last frame, multi-shot sequences, extension + stitching toolkit, domain modes + audio prompting, cross-skill integration with image generation.
 
 ### Image expansion era (v2.x)
 
-**v2.7.0** — Multi-Modal Content Pipeline. Single idea → hero image + social pack + email header + format pack + video clip.
+**v2.7.0** - Multi-Modal Content Pipeline. Single idea → hero image + social pack + email header + format pack + video clip.
 
-**v2.6.0** — Analytics Dashboard (HTML with SVG charts).
+**v2.6.0** - Analytics Dashboard (HTML with SVG charts).
 
-**v2.5.0** — Deck Builder (.pptx with brand styling, 3 layouts).
+**v2.5.0** - Deck Builder (.pptx with brand styling, 3 layouts).
 
-**v2.4.0** — Smart A/B Testing with preference tracking.
+**v2.4.0** - Smart A/B Testing with preference tracking.
 
-**v2.3.0** — Session History with gallery export.
+**v2.3.0** - Session History with gallery export.
 
-**v2.2.0** — Multi-format output (PNG/WebP/JPEG at 4K/2K/1K/512).
+**v2.2.0** - Multi-format output (PNG/WebP/JPEG at 4K/2K/1K/512).
 
-**v2.0.0** — Visual Brand Book Generator (markdown + pptx + html).
+**v2.0.0** - Visual Brand Book Generator (markdown + pptx + html).
 
-**v1.9.0** — Reverse Prompt Engineering.
+**v1.9.0** - Reverse Prompt Engineering.
 
-**v1.8.0** — Asset Registry — persistent characters/products/objects.
+**v1.8.0** - Asset Registry - persistent characters/products/objects.
 
-**v1.7.0** — Social Media Generation (46 platforms) + Brand Guide Builder + 12 example presets.
+**v1.7.0** - Social Media Generation (46 platforms) + Brand Guide Builder + 12 example presets.
 
-**v1.6.0** — Slide Deck Pipeline.
+**v1.6.0** - Slide Deck Pipeline.
 
-**v1.5.0** — Presentation Mode + Brand Style Guides + logo exclusion rule.
+**v1.5.0** - Presentation Mode + Brand Style Guides + logo exclusion rule.
 
 ### Origin (v1.4.2)
 
-**v1.4.2** — Original fork: Replicate backend, 5-Input Creative Brief, PEEL strategy, Edit-First principle, Three Prompt Variations (Literal/Creative/Premium), Progressive Enhancement, expanded character consistency, multilingual support, resolution pixel tables. Forked from [AgriciDaniel/banana-claude](https://github.com/AgriciDaniel/banana-claude) at v1.4.1.
+**v1.4.2** - Original fork: Replicate backend, 5-Input Creative Brief, PEEL strategy, Edit-First principle, Three Prompt Variations (Literal/Creative/Premium), Progressive Enhancement, expanded character consistency, multilingual support, resolution pixel tables. Forked from [AgriciDaniel/banana-claude](https://github.com/AgriciDaniel/banana-claude) at v1.4.1.
 
 </details>
 
@@ -611,11 +611,11 @@ See [CHANGELOG.md](CHANGELOG.md) for the full release notes including technical 
 **Required for all workflows:**
 - [Claude Code](https://claude.ai/claude-code)
 - [Git](https://git-scm.com/)
-- [Node.js 18+](https://nodejs.org/) — for the MCP server
-- [Python 3.6+](https://www.python.org/) — system Python is fine; all plugin scripts use `urllib.request` with zero pip dependencies
-- Google AI API key — [free tier](https://aistudio.google.com/apikey), no credit card required
+- [Node.js 18+](https://nodejs.org/) - for the MCP server
+- [Python 3.6+](https://www.python.org/) - system Python is fine; all plugin scripts use `urllib.request` with zero pip dependencies
+- Google AI API key - [free tier](https://aistudio.google.com/apikey), no credit card required
 
-**Optional command-line tools — each unlocks specific features:**
+**Optional command-line tools - each unlocks specific features:**
 
 | Tool | Install (macOS) | Unlocks |
 |---|---|---|
@@ -625,7 +625,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the full release notes including technical 
 
 Run `/create-image status` to see which of these are installed on your machine.
 
-**Optional API credentials — each activates specific model providers:**
+**Optional API credentials - each activates specific model providers:**
 
 | Credential | Configure via | Activates |
 |---|---|---|
@@ -645,4 +645,4 @@ Then remove the MCP server entry from `~/.claude/settings.json`.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE).

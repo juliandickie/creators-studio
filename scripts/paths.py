@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Creators Studio — User config directory paths (v4.2.2+).
+"""Creators Studio - User config directory paths (v4.2.2+).
 
 Single source of truth for the canonical user state directory.
 
@@ -7,7 +7,7 @@ v4.2.2: the plugin's user state moved from ``~/.banana/`` (legacy, named
 after the original ``banana-claude`` fork) to ``~/.creators-studio/`` to
 match the v4.0.0 plugin rebrand. This module owns:
 
-- :func:`creators_studio_dir` — returns the canonical directory path,
+- :func:`creators_studio_dir` - returns the canonical directory path,
   triggering a copy-based migration from ``~/.banana/`` on first call
   if the new directory doesn't exist yet.
 - Convenience accessors (:func:`config_path`, :func:`costs_path`,
@@ -18,7 +18,7 @@ Migration safety properties:
 - **Copy, not move.** ``~/.banana/`` is never deleted. If the migration
   is partial or fails, the original is intact for manual recovery.
 - **Idempotent.** Calling :func:`creators_studio_dir` repeatedly is safe
-  — once ``~/.creators-studio/`` exists, the migration short-circuits.
+  - once ``~/.creators-studio/`` exists, the migration short-circuits.
 - **Symlink-preserving.** ``shutil.copytree(symlinks=True)`` keeps any
   symlinks in the user's old config dir intact.
 - **Fallback on copy failure.** If the copy raises (permissions, disk
@@ -27,7 +27,7 @@ Migration safety properties:
 
 Old plugin versions (v4.2.1 and earlier) hardcode ``~/.banana/``. Those
 versions continue to read the old (preserved) directory after migration.
-This is intentional — users running both versions side-by-side won't see
+This is intentional - users running both versions side-by-side won't see
 divergent state until they upgrade everywhere.
 
 Usage from a script:
@@ -103,7 +103,7 @@ def creators_studio_dir() -> Path:
                 "remove manually after verifying the new path works)",
                 old, new,
             )
-        except Exception as exc:  # broad catch is intentional — see below
+        except Exception as exc:  # broad catch is intentional - see below
             # Any exception during copy: log + fall back to old. We don't
             # want to break the user's tooling because of a permissions
             # quirk or a disk-space issue. They can always re-run later.
@@ -117,7 +117,7 @@ def creators_studio_dir() -> Path:
             return old
         return new
 
-    # Neither exists — first-ever install. Create the new dir.
+    # Neither exists - first-ever install. Create the new dir.
     new.mkdir(parents=True, exist_ok=True)
     return new
 
@@ -177,13 +177,13 @@ def migration_status() -> dict:
     """Inspect the current migration state. Used by validate_setup.py.
 
     Returns a dict with these keys:
-      - ``new_exists``: bool — does ~/.creators-studio/ exist?
-      - ``old_exists``: bool — does ~/.banana/ exist?
+      - ``new_exists``: bool - does ~/.creators-studio/ exist?
+      - ``old_exists``: bool - does ~/.banana/ exist?
       - ``state``: one of:
-          * ``"migrated"`` — both exist (new is canonical, old is legacy)
-          * ``"new_only"`` — only new exists (fresh v4.2.2+ install)
-          * ``"old_only"`` — only old exists (next call migrates)
-          * ``"none"`` — neither exists (first run never happened)
+          * ``"migrated"`` - both exist (new is canonical, old is legacy)
+          * ``"new_only"`` - only new exists (fresh v4.2.2+ install)
+          * ``"old_only"`` - only old exists (next call migrates)
+          * ``"none"`` - neither exists (first run never happened)
       - ``new_path``, ``old_path``: the two paths (always returned).
       - ``recommendation``: human-readable next-step suggestion.
     """

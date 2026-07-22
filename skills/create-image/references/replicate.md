@@ -46,7 +46,7 @@ Get a token at: https://replicate.com/account/api-tokens
 
 | Param | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `prompt` | string | Yes | — | Text description of the image |
+| `prompt` | string | Yes | - | Text description of the image |
 | `image_input` | array | No | `[]` | Reference images (up to 14), as URLs or base64 data URIs |
 | `aspect_ratio` | string | No | `match_input_image` | Aspect ratio (see below) |
 | `resolution` | string | No | `2K` | `512`, `1K`, `2K`, or `4K` |
@@ -61,7 +61,7 @@ Get a token at: https://replicate.com/account/api-tokens
 ## Output
 
 - **Type:** URL string pointing to the generated image
-- **Expiration:** URLs expire after ~24 hours — download immediately
+- **Expiration:** URLs expire after ~24 hours - download immediately
 - **Watermark:** SynthID invisible watermark included on all outputs
 
 ## CLI Usage

@@ -121,19 +121,19 @@ Exact output dimensions for each aspect ratio at each resolution tier:
 | Ratio | 512 | 1K | 2K | 4K |
 |-------|-----|----|----|-----|
 | 1:1 | 512×512 | 1024×1024 | 2048×2048 | 4096×4096 |
-| 16:9 | — | 1376×768 | 2752×1536 | 5504×3072 |
-| 9:16 | — | 768×1376 | 1536×2752 | 3072×5504 |
-| 4:3 | — | 1152×864 | 2304×1728 | 4608×3456 |
-| 3:4 | — | 864×1152 | 1728×2304 | 3456×4608 |
-| 3:2 | — | 1152×768 | 2304×1536 | 4608×3072 |
-| 2:3 | — | 768×1152 | 1536×2304 | 3072×4608 |
-| 4:5 | — | 928×1152 | 1856×2304 | 3712×4608 |
-| 5:4 | — | 1152×928 | 2304×1856 | 4608×3712 |
-| 21:9 | — | 1536×656 | 3072×1312 | 6144×2624 |
-| 4:1 | — | 2048×512 | 4096×1024 | — |
-| 8:1 | — | 2048×256 | 4096×512 | — |
+| 16:9 | - | 1376×768 | 2752×1536 | 5504×3072 |
+| 9:16 | - | 768×1376 | 1536×2752 | 3072×5504 |
+| 4:3 | - | 1152×864 | 2304×1728 | 4608×3456 |
+| 3:4 | - | 864×1152 | 1728×2304 | 3456×4608 |
+| 3:2 | - | 1152×768 | 2304×1536 | 4608×3072 |
+| 2:3 | - | 768×1152 | 1536×2304 | 3072×4608 |
+| 4:5 | - | 928×1152 | 1856×2304 | 3712×4608 |
+| 5:4 | - | 1152×928 | 2304×1856 | 4608×3712 |
+| 21:9 | - | 1536×656 | 3072×1312 | 6144×2624 |
+| 4:1 | - | 2048×512 | 4096×1024 | - |
+| 8:1 | - | 2048×256 | 4096×512 | - |
 
-"—" = not available at that resolution tier or ratio.
+" - " = not available at that resolution tier or ratio.
 
 ## Input Limits
 
@@ -146,7 +146,7 @@ Exact output dimensions for each aspect ratio at each resolution tier:
 | Supported image formats | JPEG, PNG, WebP, HEIC, HEIF | |
 | Max people (high-fidelity) | 5 | For reliable character consistency |
 | Max objects (high-fidelity) | 6 | For reliable object preservation |
-| Recommended prompt length | 100–300 words | Diminishing returns past ~300 words |
+| Recommended prompt length | 100-300 words | Diminishing returns past ~300 words |
 | Max input tokens | 131,072 | Full context window |
 
 ## API Configuration

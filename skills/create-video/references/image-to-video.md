@@ -85,7 +85,7 @@ Or use `/create-image generate` to create purpose-built end frames for each shot
 
 ## Tips
 
-- **Motion description matters** — "slow orbit" gives smooth motion, "dynamic handheld" gives energy
-- **Match lighting** — If the source image has warm lighting, describe warm lighting in the prompt
-- **Keep it simple** — One motion per clip. Don't combine zoom + pan + subject movement
-- **Audio enhances realism** — Always include SFX or ambient even for product animations
+- **Motion description matters** - "slow orbit" gives smooth motion, "dynamic handheld" gives energy
+- **Match lighting** - If the source image has warm lighting, describe warm lighting in the prompt
+- **Keep it simple** - One motion per clip. Don't combine zoom + pan + subject movement
+- **Audio enhances realism** - Always include SFX or ambient even for product animations

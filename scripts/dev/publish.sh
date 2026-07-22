@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/dev/publish.sh — open a PR for currently-modified files.
+# scripts/dev/publish.sh - open a PR for currently-modified files.
 #
 # WHY THIS SCRIPT EXISTS
 # ----------------------
@@ -16,7 +16,7 @@
 # This script automates all of that so you don't have to remember the
 # sequence. Particularly the "if you accidentally committed to main, roll
 # main back to origin/main while keeping the commit on the new branch"
-# trick (`git branch -f main origin/main`) — easy to forget, hard to debug.
+# trick (`git branch -f main origin/main`) - easy to forget, hard to debug.
 #
 # USAGE
 # -----
@@ -25,17 +25,17 @@
 #
 # The first argument is the commit title (also used as the PR title).
 # Conventional Commit prefixes (`docs:`, `feat:`, `fix:`, `chore:`,
-# `refactor:`) are recognized — the type drives the branch prefix
+# `refactor:`) are recognized - the type drives the branch prefix
 # (`docs/...`, `feat/...`, etc), and the rest becomes the slug.
 #
 # WHAT THIS SCRIPT WILL **NOT** DO
 # --------------------------------
 # - It will NOT bump versions, edit CHANGELOG, or touch CITATION.cff.
-#   Those are part of the version-release workflow — see
+#   Those are part of the version-release workflow - see
 #   `scripts/dev/release-zip.sh` for that flow.
-# - It will NOT use `git add -A` — only tracked files modified in your
+# - It will NOT use `git add -A` - only tracked files modified in your
 #   working tree are staged. Untracked files are left alone (per the
-#   CLAUDE.md commit-policy — avoids accidentally committing .env,
+#   CLAUDE.md commit-policy - avoids accidentally committing .env,
 #   credentials, screenshots, etc).
 # - It will NOT push or commit if there's nothing to commit.
 # - It will NOT amend prior commits (per the CLAUDE.md no-amend rule).
@@ -119,13 +119,13 @@ echo
 
 git checkout -b "$branch"
 
-# Stage only tracked files (no -A — never auto-include untracked)
+# Stage only tracked files (no -A - never auto-include untracked)
 git add -u
 
 if [[ -n "$body" ]]; then
-  git commit -m "$title" -m "$body" -m "Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+  git commit -m "$title" -m "$body" -m "Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 else
-  git commit -m "$title" -m "Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+  git commit -m "$title" -m "Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 fi
 
 # If we were on main when running this, the commit also landed on local main.

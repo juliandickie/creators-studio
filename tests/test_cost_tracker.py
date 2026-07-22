@@ -139,7 +139,7 @@ class TestCostLoggingSmoke(unittest.TestCase):
 
     def test_cli_log_accepts_new_flags(self):
         """Minimal check that the log subcommand accepts the v4.2.1 flags
-        without errors. Doesn't verify ledger write — just CLI surface."""
+        without errors. Doesn't verify ledger write - just CLI surface."""
         import subprocess
         import tempfile
         # Point HOME to a temp dir so we don't pollute real ~/.banana
@@ -168,7 +168,7 @@ class TestCostLoggingSmoke(unittest.TestCase):
 
 
 class TestSubscriptionBilling(unittest.TestCase):
-    """v4.3.0: ElevenLabs Scribe v2 is subscription-billed — logs 0.0 marginal
+    """v4.3.0: ElevenLabs Scribe v2 is subscription-billed - logs 0.0 marginal
     cost rather than a fabricated per-minute rate, and never triggers the
     unknown-model image-pricing fallback."""
 

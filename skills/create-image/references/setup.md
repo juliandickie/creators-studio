@@ -104,13 +104,13 @@ Creators Studio works out-of-the-box for most image/video generation with just a
 | **ImageMagick** | `brew install imagemagick` | `/create-image social` exact-dimension crop (without it, social outputs may not match platform upload pixel specs); green-screen transparency; most post-processing recipes in `references/post-processing.md` |
 | **ffmpeg** | `brew install ffmpeg` | `/create-video audio pipeline`, `/create-video stitch`, `/create-video lipsync` (audio handoff), video concat/trim/convert |
 | **cwebp (libwebp)** | `brew install webp` | Efficient WebP encoding path for `/create-image formats` when ImageMagick isn't present |
-| **imagemagick-full** (optional) | `brew install imagemagick-full` | *Keg-only.* Adds Liquid Rescale (content-aware resize), librsvg (high-quality SVG rendering), Ghostscript (PDF rendering), libraw (camera raws). Not currently used by any shipped feature — install only when a future release requires it. |
+| **imagemagick-full** (optional) | `brew install imagemagick-full` | *Keg-only.* Adds Liquid Rescale (content-aware resize), librsvg (high-quality SVG rendering), Ghostscript (PDF rendering), libraw (camera raws). Not currently used by any shipped feature - install only when a future release requires it. |
 
 ### When to prompt the user for install
 
-When a user invokes a command that needs an optional tool that isn't installed — e.g. `/create-image social` with platforms that require aggressive ratio shifts (TikTok 9:16, LinkedIn 4:1), and `which magick` returns empty — present the 3-option choice pattern documented in SKILL.md §Step 9.5:
+When a user invokes a command that needs an optional tool that isn't installed - e.g. `/create-image social` with platforms that require aggressive ratio shifts (TikTok 9:16, LinkedIn 4:1), and `which magick` returns empty - present the 3-option choice pattern documented in SKILL.md §Step 9.5:
 
-1. Install now — one-liner
+1. Install now - one-liner
 2. Proceed with degraded output
 3. Cancel
 
@@ -122,7 +122,7 @@ The `~/.creators-studio/config.json` file holds all API credentials. Missing cre
 
 | Credential | Activates |
 |---|---|
-| `google_ai_api_key` | **Required** — core Gemini image generation |
+| `google_ai_api_key` | **Required** - core Gemini image generation |
 | `replicate_api_token` | Kling v3 video, Fabric lipsync, Recraft vectorize, Gemini-via-Replicate fallback |
 | `elevenlabs_api_key` | `/create-video audio` pipeline, TTS narration, voice design/cloning |
 | `vertex_api_key` + `vertex_project_id` + `vertex_location` | VEO 3.1 video backup, Lyria 2 music |

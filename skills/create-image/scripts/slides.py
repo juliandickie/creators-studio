@@ -12,12 +12,12 @@ Usage:
     slides.py template --output path/to/template.md
 
 Prompts markdown format:
-    ## Slide 01 — Title Slide
+    ## Slide 01 - Title Slide
     ```
     A dark premium presentation slide background...
     ```
 
-    ## Slide 02 — Content Slide
+    ## Slide 02 - Content Slide
     ```
     A widescreen slide background with...
     ```
@@ -71,7 +71,7 @@ def parse_prompts_markdown(md_path):
     """Parse a slide prompts markdown file into a list of slide dicts.
 
     Expected format:
-        ## Slide 01 — Title Slide
+        ## Slide 01 - Title Slide
         ```
         prompt text here
         ```
@@ -87,7 +87,7 @@ def parse_prompts_markdown(md_path):
         content = f.read()
 
     slides = []
-    # Match ## Slide NN — Name followed by a code block
+    # Match ## Slide NN - Name followed by a code block
     pattern = r'##\s+Slide\s+(\S+)\s*[—–-]\s*(.+?)\n.*?```\n(.*?)```'
     matches = re.findall(pattern, content, re.DOTALL)
 
@@ -175,7 +175,7 @@ def cmd_generate(args):
     """Generate images from a prompts markdown file."""
     slides = parse_prompts_markdown(args.prompts)
     if not slides:
-        print(json.dumps({"error": True, "message": "No slides found in prompts file. Expected ## Slide NN — Name followed by ``` code blocks."}))
+        print(json.dumps({"error": True, "message": "No slides found in prompts file. Expected ## Slide NN - Name followed by ``` code blocks."}))
         sys.exit(1)
 
     api_key = _load_api_key(args.api_key)
@@ -247,7 +247,7 @@ def cmd_generate(args):
     print()
     print(f"Done! {succeeded}/{len(slides)} slides generated.")
     if failed:
-        print(f"  {failed} failed — check errors above.")
+        print(f"  {failed} failed - check errors above.")
     print(f"  Output: {output_dir}")
     print(f"  Estimated cost: ${total_cost:.2f}")
 
@@ -294,7 +294,7 @@ def cmd_estimate(args):
 
 def cmd_template(args):
     """Output a template prompts markdown file."""
-    template = """# Slide Prompts — [Project Name]
+    template = """# Slide Prompts - [Project Name]
 
 **Brand preset:** [preset-name]
 **Format:** 16:9, 4K
@@ -302,7 +302,7 @@ def cmd_template(args):
 
 ---
 
-## Slide 01 — Title Slide
+## Slide 01 - Title Slide
 ```
 A dark premium presentation slide background in pure black with generous
 clean negative space in the upper half and center. A subtle geometric
@@ -312,7 +312,7 @@ in the lower-right quadrant. Simple uncluttered lower-left corner.
 Premium keynote aesthetic.
 ```
 
-## Slide 02 — Section Divider
+## Slide 02 - Section Divider
 ```
 A widescreen slide background with a smooth gradient sweep from rich
 gold (#FFC000) at the top transitioning to deep amber and dark charcoal
@@ -321,7 +321,7 @@ surface. Large open areas of clean gradient. 16:9 format, 4K resolution.
 NO text, NO logos, NO labels. Premium corporate keynote background.
 ```
 
-## Slide 03 — Content Slide
+## Slide 03 - Content Slide
 ```
 A dark charcoal slide background with subtle silver geometric network
 pattern at 15% opacity concentrated in the upper-right corner. The

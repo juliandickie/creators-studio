@@ -32,14 +32,14 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/deckbuilder.py estimate --images ~/slides/
 |--------|-------------|
 | **fullbleed** | Image fills entire slide. Text overlaid with semi-transparent dark backdrop at bottom. Best for dramatic visual impact. |
 | **standard** | Image occupies top 60%, text area bottom 40% with brand background color. Best for content-heavy slides. |
-| **split** | 50/50 split — image on left, text content on right. Best for balanced information + visual slides. |
+| **split** | 50/50 split - image on left, text content on right. Best for balanced information + visual slides. |
 
 ## Slide Structure
 
 Every deck includes:
-1. **Title slide** — Brand background color + title + optional subtitle
-2. **Content slides** — One per image, arranged per layout mode
-3. **Closing slide** — Brand background + "Thank You" or brand tagline
+1. **Title slide** - Brand background color + title + optional subtitle
+2. **Content slides** - One per image, arranged per layout mode
+3. **Closing slide** - Brand background + "Thank You" or brand tagline
 
 ## Brand Preset Integration
 

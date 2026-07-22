@@ -2,25 +2,25 @@
 
 **Status:** Overall music default (via `family_defaults.music` in the registry as of v4.2.1). Won the v3.8.3 12-genre blind A/B bake-off vs Lyria 2 with a 12-0 sweep. Used when user invokes music generation without `--music-source lyria`.
 
-**Hosting providers:** ElevenLabs (`(direct)` sentinel slug). NOT routed through `ReplicateBackend` yet — `audio_pipeline.py` calls the ElevenLabs API directly via the existing helpers. Registered in the model registry so `family_defaults.music` has a target and the multi-model principle is upheld.
+**Hosting providers:** ElevenLabs (`(direct)` sentinel slug). NOT routed through `ReplicateBackend` yet - `audio_pipeline.py` calls the ElevenLabs API directly via the existing helpers. Registered in the model registry so `family_defaults.music` has a target and the multi-model principle is upheld.
 
 ## Capabilities
 
 - Vocals and/or instrumental (toggled via prompt)
 - Lyrics editing per-section or whole-song
 - Multilingual: English, Spanish, German, Japanese, and more
-- Duration 3–5 minutes (wider range than any Lyria variant)
-- **Music Finetunes** — fine-tune the model on your own tracks for brand consistency (Enterprise tier: IP-protected training)
+- Duration 3-5 minutes (wider range than any Lyria variant)
+- **Music Finetunes** - fine-tune the model on your own tracks for brand consistency (Enterprise tier: IP-protected training)
 - Curated Finetunes for global genres (Afro House, more)
-- **Variant generation**: the ElevenLabs web app generates 1–4 variants from a single prompt. API support unconfirmed as of v4.2.1 — flagged for investigation when ElevenLabs is refactored into a `ProviderBackend`.
+- **Variant generation**: the ElevenLabs web app generates 1-4 variants from a single prompt. API support unconfirmed as of v4.2.1 - flagged for investigation when ElevenLabs is refactored into a `ProviderBackend`.
 
 ## Canonical constraints
 
-- `duration_ms: {min: 3000, max: 300000}` — 3 seconds to 5 minutes
+- `duration_ms: {min: 3000, max: 300000}` - 3 seconds to 5 minutes
 
 ## Pricing
 
-`subscription` mode — billed against the user's ElevenLabs subscription, not per-call USD. `cost_tracker.py` logs usage with $0 per-call cost; dollar totals come from the ElevenLabs dashboard.
+`subscription` mode - billed against the user's ElevenLabs subscription, not per-call USD. `cost_tracker.py` logs usage with $0 per-call cost; dollar totals come from the ElevenLabs dashboard.
 
 ## When to use
 

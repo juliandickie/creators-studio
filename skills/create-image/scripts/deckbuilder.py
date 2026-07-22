@@ -60,7 +60,7 @@ SLIDE_HEIGHT = Inches(7.5)
 LAYOUTS = {
     "fullbleed": "Image fills entire slide, text overlaid with semi-transparent backdrop",
     "standard": "Image occupies top 60%, text area bottom 40% with brand background",
-    "split": "50/50 — image on left, text content on right",
+    "split": "50/50 - image on left, text content on right",
 }
 
 DEFAULT_LAYOUT = "standard"

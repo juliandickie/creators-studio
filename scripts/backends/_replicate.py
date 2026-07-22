@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Creators Studio — Replicate provider backend.
+"""Creators Studio - Replicate provider backend.
 
 Implements the ProviderBackend contract (scripts/backends/_base.py) for
 Replicate (api.replicate.com). Hosts model registry entries for Kling v3,
-Fabric 1.0, and Recraft Vectorize — every Replicate-hosted model the
+Fabric 1.0, and Recraft Vectorize - every Replicate-hosted model the
 plugin currently uses.
 
 Pure data-translation layer. No global state. Stdlib only (urllib.request,
@@ -19,11 +19,11 @@ See:
 Two API surfaces coexist in this module:
 
 1. **Legacy module-level helpers** (validate_kling_params,
-   build_kling_request_body, replicate_post, replicate_get, etc.) —
+   build_kling_request_body, replicate_post, replicate_get, etc.) -
    called directly by pre-v4.2.0 code paths. Preserved during the
    v4.2.0 transition.
 
-2. **ReplicateBackend class** (v4.2.0+) — implements the
+2. **ReplicateBackend class** (v4.2.0+) - implements the
    ProviderBackend ABC contract. New call sites use this class; it
    delegates to the legacy helpers internally.
 
@@ -81,7 +81,7 @@ REPLICATE_USER_AGENT = "creators-studio/4.2.0 (+https://github.com/juliandickie/
 # v3.8.0 ships with a deliberately lean roster: Kling v3 Std only. PrunaAI
 # P-Video was considered in spike 5 Phase 1 but the user declined to wire
 # it after reviewing the output. Other Replicate models (Kling Omni, Runway,
-# xAI Grok, ByteDance Seedance) are deferred — see ROADMAP priorities
+# xAI Grok, ByteDance Seedance) are deferred - see ROADMAP priorities
 # 10a (Seedance retest) and 10b (Omni retest if wall time improves).
 REPLICATE_MODELS = {
     "kwaivgi/kling-v3-video": {
@@ -99,7 +99,7 @@ REPLICATE_MODELS = {
         "price_usd_per_8s_clip_pro": 0.16,
         "price_usd_per_15s_clip_pro": 0.30,
     },
-    # v3.8.1: Fabric 1.0 — audio-driven talking head lip-sync specialist.
+    # v3.8.1: Fabric 1.0 - audio-driven talking head lip-sync specialist.
     # Closes the gap left by v3.8.0 (VEO chars can't speak external voices).
     # Pair with audio_pipeline.py narrate output for custom ElevenLabs voices.
     "veed/fabric-1.0": {
@@ -116,7 +116,7 @@ REPLICATE_MODELS = {
         # and update this field before release.
         "price_usd_per_call_estimate": 0.30,
     },
-    # v4.1.0: Recraft Vectorize — AI-based raster-to-SVG for logo/icon work.
+    # v4.1.0: Recraft Vectorize - AI-based raster-to-SVG for logo/icon work.
     # Closes the gap where Gemini-generated logos can't scale without
     # distortion. Output is editable SVG (Illustrator/Figma compatible).
     # See dev-docs/recraft-ai-recraft-vectorize-llms.md for the canonical
@@ -131,7 +131,7 @@ REPLICATE_MODELS = {
         "max_dimension_px": 4096,                  # 4096 px max per model card
         "price_usd_per_call": 0.01,                # $0.01/output image confirmed 2026-04-17
     },
-    # 2026-04-27: PixVerse V6 — flagship text-to-video competitor to Kling
+    # 2026-04-27: PixVerse V6 - flagship text-to-video competitor to Kling
     # and VEO. Distinguishing features: 4-tier resolution pricing
     # (360p/540p/720p/1080p), native multilingual text-in-video, multi-shot
     # via boolean toggle. Up to 15s output. See dev-docs/pixverse-pixverse-
@@ -174,13 +174,13 @@ MAX_MULTI_PROMPT_SHOTS = 6
 MIN_SHOT_DURATION_S = 1
 MAX_START_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB per the model card
 
-# Replicate OpenAPI Prediction.status enum — all 6 values.
+# Replicate OpenAPI Prediction.status enum - all 6 values.
 RUNNING_STATUSES = {"starting", "processing"}
 TERMINAL_SUCCESS_STATUSES = {"succeeded"}
 TERMINAL_FAILURE_STATUSES = {"failed", "canceled", "aborted"}
 
 # File extension to MIME type. Replicate accepts .jpg/.jpeg/.png for image
-# inputs per the Kling model card. Intentionally narrow — we don't want to
+# inputs per the Kling model card. Intentionally narrow - we don't want to
 # accept .webp because Kling's model card doesn't list it as supported.
 IMAGE_MIME_MAP = {
     ".png": "image/png",
@@ -196,7 +196,7 @@ IMAGE_MIME_MAP = {
 
 VALID_FABRIC_RESOLUTIONS = {"480p", "720p"}
 FABRIC_MAX_DURATION_S = 60
-MAX_FABRIC_IMAGE_BYTES = 10 * 1024 * 1024  # Conservative — Fabric doesn't publish
+MAX_FABRIC_IMAGE_BYTES = 10 * 1024 * 1024  # Conservative - Fabric doesn't publish
 MAX_FABRIC_AUDIO_BYTES = 50 * 1024 * 1024  # 60s at reasonable bitrates ≈ 1-5 MB
 
 # Audio extension to MIME type. Fabric model card lists: mp3, wav, m4a, aac.
@@ -231,11 +231,11 @@ RECRAFT_IMAGE_MIME_MAP = {
 # Sourced from dev-docs/pixverse-pixverse-v6-llms.md. PixVerse V6 is a
 # general-purpose text-to-video competitor to Kling and VEO with three
 # differentiating features:
-#   1. 4-tier resolution pricing (360p/540p/720p/1080p) — most granular
+#   1. 4-tier resolution pricing (360p/540p/720p/1080p) - most granular
 #      in the video roster.
 #   2. Native multilingual text-in-video (English, Chinese, others).
 #   3. Multi-shot via boolean toggle (`generate_multi_clip_switch`)
-#      with a single structured prompt — different shape than Kling's
+#      with a single structured prompt - different shape than Kling's
 #      `multi_prompt` JSON array.
 #
 # Field-name quirks vs canonical:
@@ -275,7 +275,7 @@ class ReplicateBackendError(RuntimeError):
 
 
 class ReplicateValidationError(ReplicateBackendError):
-    """Pre-flight validation failed — caller passed an invalid parameter.
+    """Pre-flight validation failed - caller passed an invalid parameter.
 
     Raised by validate_kling_params() and build_kling_request_body() when the
     input would be rejected by Replicate. Catching these locally prevents a
@@ -284,7 +284,7 @@ class ReplicateValidationError(ReplicateBackendError):
 
 
 class ReplicateAuthError(ReplicateBackendError):
-    """Auth failed — missing or invalid Replicate API token.
+    """Auth failed - missing or invalid Replicate API token.
 
     Points the user at setup_mcp.py --replicate-key in the error message so
     they can fix it without leaving the terminal.
@@ -316,7 +316,7 @@ def load_replicate_credentials(*, cli_token=None):
 
     if not token:
         # v4.2.2: use the canonical config dir (auto-migrates from ~/.banana/).
-        # Sibling module — scripts/ is on sys.path via callers' shims, or via
+        # Sibling module - scripts/ is on sys.path via callers' shims, or via
         # direct module invocation for the diagnose subcommand.
         from scripts.paths import config_path as _csd_config  # noqa: E402
         config_path = _csd_config()
@@ -572,7 +572,7 @@ def validate_fabric_params(*, image, audio, resolution="720p"):
       2. image file exists and has extension in {.jpg, .jpeg, .png}
       3. audio file exists and has extension in {.mp3, .wav, .m4a, .aac}
 
-    Fabric's input surface is dramatically simpler than Kling's — no prompt,
+    Fabric's input surface is dramatically simpler than Kling's - no prompt,
     no multi_prompt, no duration parameter (derived from audio length), no
     negative_prompt. The validator only has three things to check.
 
@@ -637,7 +637,7 @@ def build_kling_request_body(
     model card. `generate_audio` is always included because Kling treats
     omission as True (the model card default).
 
-    Does NOT call validate_kling_params() internally — callers should
+    Does NOT call validate_kling_params() internally - callers should
     validate separately so the error surface is predictable.
     """
     input_dict = {
@@ -655,7 +655,7 @@ def build_kling_request_body(
         input_dict["end_image"] = end_image
     if multi_prompt is not None:
         # Per the Kling model card: multi_prompt is a STRING containing a
-        # JSON array. We preserve it verbatim — do NOT re-parse and re-
+        # JSON array. We preserve it verbatim - do NOT re-parse and re-
         # serialize because that could reorder fields or drop whitespace
         # in ways that confuse downstream consumers.
         input_dict["multi_prompt"] = multi_prompt
@@ -668,14 +668,14 @@ def build_fabric_request_body(image, audio, resolution="720p"):
     Wraps the input parameters in the Replicate-required `{"input": {...}}`
     envelope. Returns a dict ready to be JSON-serialized and POSTed.
 
-    Unlike build_kling_request_body(), there are no optional fields — Fabric
+    Unlike build_kling_request_body(), there are no optional fields - Fabric
     only takes image + audio + resolution. Simpler surface = simpler builder.
 
     `image` and `audio` can be HTTPS URLs or data URIs (the caller handles
     the file-path-to-data-URI conversion via image_path_to_data_uri() /
     audio_path_to_data_uri() before calling this function).
 
-    Does NOT call validate_fabric_params() internally — callers should
+    Does NOT call validate_fabric_params() internally - callers should
     validate separately so the error surface is predictable.
     """
     return {
@@ -815,7 +815,7 @@ def build_pixverse_request_body(
     are emitted, to keep the request body minimal and match the examples
     from the PixVerse V6 model card.
 
-    Does NOT call validate_pixverse_params() internally — callers should
+    Does NOT call validate_pixverse_params() internally - callers should
     validate separately so the error surface is predictable.
     """
     input_dict: dict = {
@@ -833,7 +833,7 @@ def build_pixverse_request_body(
     # true when our plugin default is true ensures audio is on by default
     # for plugin users.
     input_dict["generate_audio_switch"] = bool(generate_audio)
-    # generate_multi_clip_switch: same — explicit emit.
+    # generate_multi_clip_switch: same - explicit emit.
     if generate_multi_clip:
         input_dict["generate_multi_clip_switch"] = True
     if image is not None:
@@ -921,7 +921,7 @@ def build_recraft_request_body(image):
     """Build the JSON dict to serialize for Recraft Vectorize predictions.
 
     Wraps the single input parameter in the Replicate-required `{"input": {...}}`
-    envelope. The simplest builder in this module — Recraft takes one argument.
+    envelope. The simplest builder in this module - Recraft takes one argument.
 
     `image` can be an HTTPS URL or a data URI (use
     recraft_image_path_to_data_uri() to convert local paths).
@@ -973,10 +973,10 @@ def parse_replicate_poll_response(response_dict):
     """Parse a Replicate prediction GET response into a state tuple.
 
     Returns one of:
-        ("running", None)            — still in progress, keep polling
-        ("done", output)             — succeeded; output is the URI string
+        ("running", None) - still in progress, keep polling
+        ("done", output) - succeeded; output is the URI string
                                        (or list for multi-output models)
-        ("failed", error_info)       — failed, canceled, or aborted
+        ("failed", error_info) - failed, canceled, or aborted
 
     The Replicate Prediction.status enum has 6 values per the OpenAPI schema:
       - starting, processing          → running
@@ -986,7 +986,7 @@ def parse_replicate_poll_response(response_dict):
     Note: `aborted` is easy to miss (spike client doesn't know it) and
     represents predictions terminated before predict() was called (queue
     eviction, deadline reached). It must be treated as terminal failure,
-    NOT as running — otherwise the poll loop spins forever.
+    NOT as running - otherwise the poll loop spins forever.
     """
     if not isinstance(response_dict, dict):
         raise ReplicateBackendError(
@@ -1001,7 +1001,7 @@ def parse_replicate_poll_response(response_dict):
     if status in TERMINAL_FAILURE_STATUSES:
         error_info = response_dict.get("error")
         return ("failed", error_info)
-    # Unknown status — defensive fallthrough. Treat as failure so we don't
+    # Unknown status - defensive fallthrough. Treat as failure so we don't
     # spin-poll forever on an enum value Replicate adds in the future.
     raise ReplicateBackendError(
         f"Unknown prediction status '{status}'. "
@@ -1015,7 +1015,7 @@ def replicate_post(url, body, *, token, timeout=60):
     """POST a JSON body to a Replicate endpoint and return the parsed JSON.
 
     Sends `Authorization: Bearer {token}` per the OpenAPI schema. Does NOT
-    send a `Prefer: wait` header — the spike's `wait=0` is out-of-spec per
+    send a `Prefer: wait` header - the spike's `wait=0` is out-of-spec per
     the regex `^wait(=([1-9]|[1-9][0-9]|60))?$`, and omitting the header
     gives us the correct async-first semantic for Kling's 3-6 min wall times.
 
@@ -1142,17 +1142,17 @@ def _cmd_diagnose(args):
             min_d = info.get("min_duration_s", "?")
             max_d = info.get("max_duration_s", "?")
             print(
-                f"    {slug:30s} — {display} ({min_d}-{max_d}s, {aspects})"
+                f"    {slug:30s} - {display} ({min_d}-{max_d}s, {aspects})"
             )
         elif family == "fabric":
             resolutions = ", ".join(info.get("resolutions", []))
             max_d = info.get("max_duration_s", "?")
             print(
-                f"    {slug:30s} — {display} (lipsync, ≤{max_d}s, {resolutions})"
+                f"    {slug:30s} - {display} (lipsync, ≤{max_d}s, {resolutions})"
             )
         else:
-            # Unknown family — show the slug + display name and nothing else.
-            print(f"    {slug:30s} — {display}")
+            # Unknown family - show the slug + display name and nothing else.
+            print(f"    {slug:30s} - {display}")
 
     print("\nAll checks passed. Replicate backend is reachable.")
     sys.exit(0)
@@ -1186,7 +1186,7 @@ def main():
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# ProviderBackend implementation (v4.2.0+ — adapts the legacy helpers above
+# ProviderBackend implementation (v4.2.0+ - adapts the legacy helpers above
 # into the canonical interface defined in scripts/backends/_base.py.)
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -1207,7 +1207,7 @@ from scripts.backends._base import (  # noqa: E402
 
 # Canonical task → provider-specific param translator tables.
 # Indexed by task; each entry maps canonical_param_name → provider_field_name.
-# These mappings stay LOCAL to this module — they never leak to orchestrator code.
+# These mappings stay LOCAL to this module - they never leak to orchestrator code.
 _TASK_PARAM_MAPS: dict[str, dict[str, str]] = {
     "text-to-video": {
         "prompt": "prompt",
@@ -1297,7 +1297,7 @@ def _replicate_state_to_canonical(provider_state: str) -> str:
         # TERMINAL_FAILURE_STATUSES is {"failed", "canceled", "aborted"}; canceled
         # is handled above, so this branch covers only failed + aborted.
         return "failed"
-    # Unknown provider state — treat as running so the caller's poll loop
+    # Unknown provider state - treat as running so the caller's poll loop
     # continues rather than spinning forever on a phantom failure.
     return "running"
 
@@ -1307,7 +1307,7 @@ class ReplicateBackend(ProviderBackend):
 
     Delegates to the legacy module-level helpers (validate_kling_params,
     build_kling_request_body, replicate_post, etc.) so the refactor is
-    mechanical — zero duplicated logic, zero behavior change.
+    mechanical - zero duplicated logic, zero behavior change.
     """
 
     name = "replicate"
@@ -1463,7 +1463,7 @@ class ReplicateBackend(ProviderBackend):
         except ReplicateAuthError as e:
             raise ProviderAuthError(str(e)) from e
         except ReplicateSubmitError as e:
-            # Distinguish auth failures (401/403) by message substring — the
+            # Distinguish auth failures (401/403) by message substring - the
             # legacy helper bundles them all as ReplicateSubmitError.
             msg = str(e)
             if "HTTP 401" in msg or "HTTP 403" in msg:

@@ -71,4 +71,4 @@ sudo apt install imagemagick
     manifest.json
 ```
 
-The `manifest.json` lists all outputs with paths, dimensions, and file sizes — useful for downstream tools like the content pipeline.
+The `manifest.json` lists all outputs with paths, dimensions, and file sizes - useful for downstream tools like the content pipeline.

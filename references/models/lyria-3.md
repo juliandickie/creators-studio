@@ -1,4 +1,4 @@
-# Google Lyria 3 — Clip variant (canonical model ID: `lyria-3`)
+# Google Lyria 3 - Clip variant (canonical model ID: `lyria-3`)
 
 **Status:** Default within Lyria family as of v4.2.1. Used when `--music-source lyria` is set and the prompt does NOT trigger auto-routing to Lyria 3 Pro (no song-structure tags) and no `--negative-prompt` is set.
 
@@ -20,7 +20,7 @@
 ## Supported canonical params
 
 - `prompt` (required)
-- `reference_images` (0–10 images; NEW vs Lyria 2)
+- `reference_images` (0-10 images; NEW vs Lyria 2)
 
 **NOT supported:** `negative_prompt`, `seed`
 
@@ -33,7 +33,7 @@
 ## Prompting tips
 
 - Be specific: genre, instruments, BPM, key, mood
-- Use `[Verse]`, `[Chorus]`, `[Bridge]` tags to suggest structure — but note that a 30s clip has limited room for structure, so Pro is better for multi-section songs
+- Use `[Verse]`, `[Chorus]`, `[Bridge]` tags to suggest structure - but note that a 30s clip has limited room for structure, so Pro is better for multi-section songs
 - Explicit "Instrumental only, no vocals" vetoes vocal generation
 
 ## Cost comparison
@@ -41,9 +41,9 @@
 | Variant | Cost | Duration | Best for |
 |---|---|---|---|
 | Lyria 2 | $0.06 | 30s | `negative_prompt` workflows |
-| **Lyria 3 Clip** | **$0.04** | **30s** | **Default — short instrumental music, reference-image workflows** |
+| **Lyria 3 Clip** | **$0.04** | **30s** | **Default - short instrumental music, reference-image workflows** |
 | Lyria 3 Pro | $0.08 | up to 3 min | Full songs with structure / lyrics |
-| ElevenLabs Music | subscription | 3s–5 min | Plugin default (won 12-0 bake-off); vocals + finetunes |
+| ElevenLabs Music | subscription | 3s - 5 min | Plugin default (won 12-0 bake-off); vocals + finetunes |
 
 ## Authoritative source
 

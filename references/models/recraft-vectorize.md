@@ -12,7 +12,7 @@ Raster (PNG / JPG / WebP) → SVG vectorization. Used by `/create-image vectoriz
 
 - Input size ≤ 5 MB
 - Input resolution ≤ 16 MP (16,777,216 pixels)
-- Input dimensions: 256–4096 px per side
+- Input dimensions: 256-4096 px per side
 - Accepts: PNG, JPG, WebP
 
 ## Pricing

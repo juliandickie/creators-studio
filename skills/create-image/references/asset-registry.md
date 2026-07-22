@@ -35,21 +35,21 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/assets.py show NAME
 
 When an asset is loaded:
 
-1. **Add reference images to the API call** — each image in `reference_images[]`
+1. **Add reference images to the API call** - each image in `reference_images[]`
    becomes an `inlineData` part in the Gemini request, before the text prompt.
    The model uses these for visual consistency.
 
-2. **Incorporate the description** — weave `description` into the prompt naturally:
+2. **Incorporate the description** - weave `description` into the prompt naturally:
    "the iTero Scanner (a handheld intraoral scanner with white and gray body...)"
 
-3. **Apply consistency notes** — append `consistency_notes` as a constraint:
+3. **Apply consistency notes** - append `consistency_notes` as a constraint:
    ```
    CRITICAL CONSISTENCY REQUIREMENTS:
    - [consistency_notes from asset]
    - Maintain EXACT appearance from reference images
    ```
 
-4. **Use default context** — if user doesn't specify a setting, use `default_context`
+4. **Use default context** - if user doesn't specify a setting, use `default_context`
    as the Location component of the 5-Component Formula.
 
 ## API Limits
@@ -98,9 +98,9 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/assets.py delete itero-scanner --confirm
 ## Storage
 
 Assets stored at `~/.creators-studio/assets/NAME.json`. Each file contains:
-- `name` — sanitized identifier
-- `type` — character, product, equipment, or environment
-- `description` — physical description for prompts
-- `reference_images` — array of absolute file paths
-- `default_context` — fallback setting/location
-- `consistency_notes` — what to always maintain
+- `name` - sanitized identifier
+- `type` - character, product, equipment, or environment
+- `description` - physical description for prompts
+- `reference_images` - array of absolute file paths
+- `default_context` - fallback setting/location
+- `consistency_notes` - what to always maintain

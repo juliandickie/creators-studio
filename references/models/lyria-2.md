@@ -1,16 +1,16 @@
 # Google Lyria 2 (canonical model ID: `lyria-2`)
 
-**Status:** Registered for `--music-source lyria --lyria-version 2` and for auto-selection when `--negative-prompt` is provided. NOT the default — Lyria 3 Clip is the within-Lyria default as of v4.2.1 (cheaper + newer).
+**Status:** Registered for `--music-source lyria --lyria-version 2` and for auto-selection when `--negative-prompt` is provided. NOT the default - Lyria 3 Clip is the within-Lyria default as of v4.2.1 (cheaper + newer).
 
 **Hosting providers:** Replicate (`google/lyria-2`). Vertex retired in v4.2.1.
 
 ## What makes it unique
 
-Lyria 2 is the only Lyria variant on Replicate that accepts `negative_prompt`. This was the v3.8.3 justification for keeping Lyria in the plugin after ElevenLabs Music won the 12-genre bake-off — `negative_prompt` is Lyria 2's differentiator vs ElevenLabs Music (which has no equivalent exclusion param).
+Lyria 2 is the only Lyria variant on Replicate that accepts `negative_prompt`. This was the v3.8.3 justification for keeping Lyria in the plugin after ElevenLabs Music won the 12-genre bake-off - `negative_prompt` is Lyria 2's differentiator vs ElevenLabs Music (which has no equivalent exclusion param).
 
 ## Canonical constraints
 
-- `duration_fixed_s: 30` — every Lyria 2 clip is exactly 30 seconds. Use `generate_music_lyria_extended` for longer tracks (chains N clips with FFmpeg crossfade).
+- `duration_fixed_s: 30` - every Lyria 2 clip is exactly 30 seconds. Use `generate_music_lyria_extended` for longer tracks (chains N clips with FFmpeg crossfade).
 
 ## Supported canonical params
 

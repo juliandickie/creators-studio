@@ -8,10 +8,10 @@ or `--formats all`. `json` is always written (it is the cache) even if omitted.
 
 | Format | File | Built from | Use |
 |---|---|---|---|
-| Markdown | `<name>.md` | speaker turns | Readable deliverable — header + `[timecode] Speaker` turns + continuous text. |
+| Markdown | `<name>.md` | speaker turns | Readable deliverable - header + `[timecode] Speaker` turns + continuous text. |
 | SRT | `<name>.srt` | word cues | Subtitles for editors, YouTube, Descript. `HH:MM:SS,mmm`. |
 | WebVTT | `<name>.vtt` | word cues | Web-native subtitles for HTML5 players. `HH:MM:SS.mmm`. |
-| Chapters | `<name>.chapters.txt` | pause boundaries | YouTube description — `M:SS Title` markers + per-chapter paragraphs. |
+| Chapters | `<name>.chapters.txt` | pause boundaries | YouTube description - `M:SS Title` markers + per-chapter paragraphs. |
 | Plain text | `<name>.txt` | the `text` field | Zero-markup paste target. |
 | JSON | `<name>.json` | (the cache) | Lossless archive; every other format regenerates from it. |
 
@@ -24,7 +24,7 @@ turns and subtitles serve different jobs:
   into a single labelled block. Audio events (`[laughs]`) render inline in the
   speaker's turn. A speaker change starts a new turn.
 - **Cue segmentation** (SRT, VTT) ignores speakers entirely and breaks on reading
-  limits — `DEFAULT_CUE_MAX_DUR` (7 s) and `DEFAULT_CUE_MAX_CHARS` (42 chars).
+  limits - `DEFAULT_CUE_MAX_DUR` (7 s) and `DEFAULT_CUE_MAX_CHARS` (42 chars).
   Subtitle timing is about reading speed, not conversation structure.
 
 ## Timecodes
@@ -37,11 +37,11 @@ turns and subtitles serve different jobs:
 | `srt` | `00:01:23,500` | SRT cues (comma millis). |
 | `vtt` | `00:01:23.500` | VTT cues (dot millis). |
 
-## Chapters — the split responsibility
+## Chapters - the split responsibility
 
 `render_chapters` only finds the boundaries and emits a **lead-snippet
 placeholder title** per chapter, always forcing the first marker to `0:00` (a
-YouTube requirement). It cannot title chapters meaningfully — that needs
+YouTube requirement). It cannot title chapters meaningfully - that needs
 understanding of the content. `SKILL.md` instructs Claude to rewrite the
 placeholder titles into real ones after the render. A continuous monologue with
 no pauses correctly yields a single `0:00` chapter.
@@ -58,4 +58,4 @@ both of which cost **no API call**:
   the JSON (`_speaker_names`).
 
 `render_markdown` and `group_turns` accept a `speaker_names` dict keyed by either
-`"0"` or `"speaker_0"` — both forms work.
+`"0"` or `"speaker_0"` - both forms work.

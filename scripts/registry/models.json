@@ -132,7 +132,7 @@
             "currency": "USD"
           },
           "availability": "GA",
-          "notes": "Highest-fidelity VEO. Only tier with 4K + video extension. Most expensive in the roster at $0.40/s with audio — use Kling v3 or VEO Lite for cost-sensitive workflows."
+          "notes": "Highest-fidelity VEO. Only tier with 4K + video extension. Most expensive in the roster at $0.40/s with audio - use Kling v3 or VEO Lite for cost-sensitive workflows."
         }
       }
     },
@@ -155,7 +155,7 @@
             "currency": "USD"
           },
           "availability": "GA",
-          "notes": "Cost is per second of output duration (driven by audio length), keyed by resolution. 480p is ~47% cheaper than 720p — verified 2026-04-27 against Replicate's official Fabric 1.0 model card. The v3.8.1 empirical figure (~$0.15/s) was 720p only; 480p was previously assumed equal. No prompt parameter. Mouth region only."
+          "notes": "Cost is per second of output duration (driven by audio length), keyed by resolution. 480p is ~47% cheaper than 720p - verified 2026-04-27 against Replicate's official Fabric 1.0 model card. The v3.8.1 empirical figure (~$0.15/s) was 720p only; 480p was previously assumed equal. No prompt parameter. Mouth region only."
         }
       }
     },
@@ -202,7 +202,7 @@
             "currency": "USD"
           },
           "availability": "GA",
-          "notes": "4-tier resolution (360p/540p/720p/1080p) — most granular pricing in the video roster. Up to 15s output. Multi-shot via generate_multi_clip_switch boolean (single structured prompt with 'Shot 1, ..., Shot 2, ...' format) — different shape from Kling v3's multi_prompt JSON array. Native multilingual text-in-video including Chinese. Transition mode requires image + last_frame_image (multi-shot NOT available in transition mode). aspect_ratio ignored when image is provided. Backend wiring (canonical-param translation in scripts/backends/_replicate.py) deferred — registry-only entry per multi-model principle (like elevenlabs-music). Source: dev-docs/pixverse-pixverse-v6-llms.md."
+          "notes": "4-tier resolution (360p/540p/720p/1080p) - most granular pricing in the video roster. Up to 15s output. Multi-shot via generate_multi_clip_switch boolean (single structured prompt with 'Shot 1, ..., Shot 2, ...' format) - different shape from Kling v3's multi_prompt JSON array. Native multilingual text-in-video including Chinese. Transition mode requires image + last_frame_image (multi-shot NOT available in transition mode). aspect_ratio ignored when image is provided. Backend wiring (canonical-param translation in scripts/backends/_replicate.py) deferred - registry-only entry per multi-model principle (like elevenlabs-music). Source: dev-docs/pixverse-pixverse-v6-llms.md."
         }
       }
     },
@@ -266,7 +266,7 @@
           "capabilities": ["negative_prompt", "seed"],
           "pricing": {"mode": "per_call", "rate": 0.06, "currency": "USD"},
           "availability": "GA",
-          "notes": "Kept registered despite Lyria 3 default — uniquely supports negative_prompt exclusion. Auto-selected when --negative-prompt is set."
+          "notes": "Kept registered despite Lyria 3 default - uniquely supports negative_prompt exclusion. Auto-selected when --negative-prompt is set."
         }
       }
     },
@@ -284,7 +284,7 @@
           "capabilities": ["reference_images", "vocals", "multilingual", "structure_tags"],
           "pricing": {"mode": "per_call", "rate": 0.04, "currency": "USD"},
           "availability": "GA",
-          "notes": "Default within Lyria family. 30s clip only — use lyria-3-pro for full songs. No negative_prompt."
+          "notes": "Default within Lyria family. 30s clip only - use lyria-3-pro for full songs. No negative_prompt."
         }
       }
     },
@@ -320,7 +320,7 @@
           "capabilities": ["vocals", "lyrics_editing", "multilingual", "music_finetunes", "subscription_billed"],
           "pricing": {"mode": "subscription", "rate": null, "currency": "USD"},
           "availability": "GA",
-          "notes": "Not yet refactored into ProviderBackend — audio_pipeline.py calls ElevenLabs directly. Registered so family_defaults.music is honest and the multi-model principle is upheld."
+          "notes": "Not yet refactored into ProviderBackend - audio_pipeline.py calls ElevenLabs directly. Registered so family_defaults.music is honest and the multi-model principle is upheld."
         }
       }
     },
@@ -342,7 +342,7 @@
           "capabilities": ["diarization", "audio_events", "word_timestamps", "keyterm_prompting", "entity_detection", "multichannel"],
           "pricing": {"mode": "subscription", "rate": null, "currency": "USD"},
           "availability": "GA",
-          "notes": "Called directly by skills/create-transcript/scripts/transcribe.py, not via ProviderBackend — same pattern as elevenlabs-music. rate is null because Scribe is subscription/credit billed per second of audio per the ElevenLabs pricing page; the plugin does not hardcode an unverified per-minute figure. Keyterms add a documented +20% surcharge and >100 keyterms force a 20s minimum billable duration."
+          "notes": "Called directly by skills/create-transcript/scripts/transcribe.py, not via ProviderBackend - same pattern as elevenlabs-music. rate is null because Scribe is subscription/credit billed per second of audio per the ElevenLabs pricing page; the plugin does not hardcode an unverified per-minute figure. Keyterms add a documented +20% surcharge and >100 keyterms force a 20s minimum billable duration."
         }
       }
     }

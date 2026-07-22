@@ -6,8 +6,8 @@
 
 ## Capabilities (in addition to all Kling v3 capabilities)
 
-- **Reference images** — multimodal conditioning via `reference_images` array
-- **Video editing** — takes an input video and applies natural-language edits (camera, style, subject swaps) while preserving motion and timing
+- **Reference images** - multimodal conditioning via `reference_images` array
+- **Video editing** - takes an input video and applies natural-language edits (camera, style, subject swaps) while preserving motion and timing
 - Everything Kling v3 does (text-to-video, image-to-video, multi-shot, native audio, negative prompts)
 
 ## When to use v3-omni vs v3
