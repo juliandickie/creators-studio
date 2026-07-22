@@ -7,9 +7,9 @@
 
 - **Repo:** https://github.com/juliandickie/creators-studio
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
-- **Current version:** 4.2.3
+- **Current version:** 4.3.0
 - **Local path:** `/Users/juliandickie/code/creators-studio-project/creators-studio/`
-- **Plugin layout:** `.claude-plugin/` + `skills/create-image/` (image) + `skills/create-video/` (video) + `agents/`
+- **Plugin layout:** `.claude-plugin/` + `skills/create-image/` (image) + `skills/create-video/` (video) + `skills/create-transcript/` (speech-to-text) + `agents/`
 
 ## Features Added Beyond Original banana-claude
 
@@ -867,6 +867,20 @@ VEO Lite is now ~4× **cheaper** than Kling at comparable settings. Doesn't chan
 6. Verified: presets parse, `abtester.py` compiles, `SKILL.md` 317 lines (< 500), no residual stale refs outside the `prompt-engineering.md` anti-pattern docs.
 
 **Session spend**: $0 (doc/code edits only).
+
+### Session 27 (2026-07-23) — v4.3.0 /create-transcript speech-to-text skill
+
+**Scope:** Added the plugin's first ingest capability — a third top-level skill for ElevenLabs Scribe v2 transcription. Triggered by a real job (transcribing three downloaded clips) that had to be done outside the plugin because no STT surface existed; the gap was logged in `docs/dev-notes/2026-07-23-no-speech-to-text-capability.md`.
+
+1. Brainstormed and wrote a design spec (`docs/superpowers/specs/2026-07-23-create-transcript-skill-design.md`), shipped as its own docs PR (#9).
+2. Built `formats.py` (pure renderers: markdown / SRT / VTT / chapters / plaintext) TDD-first against two real captured transcripts (single-speaker + two-speaker with `[laughs]` audio events).
+3. Built `transcribe.py`: auth reuse of the ElevenLabs key, `_http_post_multipart` (repeated `keyterms` fields), ffprobe/ffmpeg mono-16kHz prep (fail-loud on no audio stream), one Scribe v2 call, JSON cache, render dispatch, plus `rename` / `cost` / `status` subcommands and batch mode.
+4. Core principle: **one API call per file** — every format re-renders from the cached JSON, so speaker renames and added formats never re-transcribe or re-charge.
+5. Registered `scribe-v2` (new `transcription` family, `subscription` / `rate: null` — no fabricated price) in the registry and cost tracker.
+6. Three reference docs (`scribe-models`, `transcript-formats`, `keyterms`) + `SKILL.md` orchestrator.
+7. Verified live end-to-end: a real 50s transcription accepted the hand-built multipart body, keyterms demonstrably fixed brand spelling ("StoryBrand" / "U-Haul" vs the earlier keyterm-free "story brand"), and `rename` re-rendered from cache in 0.05s with no network. 34 new tests, 210 total, all offline. Removed the test entries this created from the real cost ledger.
+
+**Session spend:** one ~50s Scribe transcription (subscription-billed) for live verification.
 
 ## Expansion Roadmap
 

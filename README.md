@@ -12,7 +12,7 @@
 Let an AI that's been trained on the best practices for every model write the prompts for you, instead of spending hours teaching yourself to prompt-engineer a moving target.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-4.2.3-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.3.0-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <details>
@@ -304,6 +304,19 @@ Claude acts as Creative Director for every call — selecting domain modes, cons
 | `/create-video audio status` | **v3.7.1** check ElevenLabs API key + ffmpeg + custom voices |
 | `/create-video social <idea> --platforms <list>` | **Coming in v4.2.0** — platform-native video generation (spec catalogue shipped in v4.1.2 at `references/social-platforms.md`: 37 placements × 14 platforms with duration ranges) |
 
+### 📝 Transcript Commands
+
+| Command | Description |
+|---------|-------------|
+| `/create-transcript <file>` | **v4.3.0** Transcribe audio/video via ElevenLabs Scribe v2 with smart default formats |
+| `/create-transcript <file> --formats md,srt,vtt,json` | **v4.3.0** Choose outputs (`all` for every format; JSON cache always written) |
+| `/create-transcript <file> --keyterms "Medit,iTero,iDD"` | **v4.3.0** Bias vocabulary toward brand/product names (adds to the config standing list) |
+| `/create-transcript <file> --speakers "0=Julian,1=Dr Ahmad"` | **v4.3.0** Name diarized speakers up front |
+| `/create-transcript <folder> --batch` | **v4.3.0** Transcribe every audio/video file in a folder |
+| `/create-transcript rename --json X.json --speakers "0=Name,1=Name"` | **v4.3.0** Re-render formats with named speakers — no API call, no charge |
+| `/create-transcript cost <file or folder>` | **v4.3.0** Estimate audio-minutes before running |
+| `/create-transcript status` | **v4.3.0** Check ElevenLabs key + ffmpeg/ffprobe + config keyterms |
+
 ## How It Works
 
 Every generation follows the same Creative Director pipeline:
@@ -424,6 +437,15 @@ creators-studio/                       # Claude Code Plugin
 │       ├── audio-pipeline.md          # Full audio architecture
 │       ├── image-to-video.md          # Animate-a-still
 │       └── social-platforms.md        # v4.1.2: 37 video placements × 14 platforms with duration ranges
+├── skills/create-transcript/          # v4.3.0 Transcript skill (speech-to-text)
+│   ├── SKILL.md                       # Transcript Creative Director orchestrator
+│   ├── scripts/
+│   │   ├── transcribe.py              # Scribe v2 CLI: prep, upload, cache, render, rename, cost, status
+│   │   └── formats.py                 # Pure renderers: JSON → md/srt/vtt/chapters/txt
+│   └── references/
+│       ├── scribe-models.md           # Scribe v2 roster, endpoint, constraints, billing
+│       ├── transcript-formats.md      # The 5 formats, timecodes, turn vs cue grouping
+│       └── keyterms.md                # Keyterm prompting + recommended standing list
 ├── scripts/                           # v4.2.0+ shared provider abstraction (plugin-root)
 │   ├── backends/
 │   │   ├── _base.py                   # ProviderBackend ABC + canonical types
@@ -445,7 +467,7 @@ creators-studio/                       # Claude Code Plugin
 │       └── veo-3.1.md                 # (placeholder; content lands in v4.2.1)
 ├── tests/                             # v4.2.0+ stdlib unittest suite, zero pip deps
 │   ├── fixtures/                      # Frozen sample provider responses
-│   └── test_*.py                      # 74 tests across 6 modules
+│   └── test_*.py                      # 210 tests across 11 modules
 └── agents/
     ├── brief-constructor.md           # Image prompt subagent
     └── video-brief-constructor.md     # Video prompt subagent
@@ -455,8 +477,15 @@ creators-studio/                       # Claude Code Plugin
 
 ## Release History
 
+<details open>
+<summary><b>📝 v4.3.0 (current) — /create-transcript speech-to-text · 2026-07-23</b></summary>
+
+Transcribe audio or video into speaker-labelled markdown, subtitles (SRT/VTT), YouTube chapters, and plaintext with ElevenLabs Scribe v2 — the plugin's first ingest capability. Diarization separates each speaker, keyterm prompting fixes brand-name spelling, and every format re-renders from a single cached API call, so renaming a speaker or adding a format never re-transcribes. New `/create-transcript` skill; reuses your existing ElevenLabs key.
+
+</details>
+
 <details>
-<summary><b>🏷️ v4.2.2 (current) — Config dir rename `~/.banana/` → `~/.creators-studio/` · 2026-04-27</b></summary>
+<summary><b>🏷️ v4.2.2 — Config dir rename `~/.banana/` → `~/.creators-studio/` · 2026-04-27</b></summary>
 
 The user state directory finally matches the plugin name. **Auto-migrates safely**: copies `~/.banana/` to `~/.creators-studio/` on first run, preserving the old directory indefinitely so older plugins keep working and you have a fallback. API keys, custom voices, presets, cost ledger, and history all move automatically. Run `python3 skills/create-image/scripts/validate_setup.py --check-migration` to inspect state. Plus PixVerse V6 runtime backend (PR #6) if it's merged into the release zip.
 

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.0] - 2026-07-23
+
+### Added
+
+- **`/create-transcript` — speech-to-text via ElevenLabs Scribe v2.** The plugin's first ingest capability. Transcribes audio or video into speaker-labelled markdown, SRT, WebVTT, YouTube chapters, and plaintext. New third top-level skill (`skills/create-transcript/`) alongside `/create-image` and `/create-video`, reusing the existing ElevenLabs API key — no new credential.
+  - **One API call per file, ever.** The raw Scribe response is cached as `<name>.json`; every human format is a pure render of that cache (`formats.py`). The `rename` subcommand and any added format regenerate offline — never re-transcribe, never re-charge.
+  - **Diarization + audio events.** Up to 32 speakers separated automatically; `[laughs]` / `[applause]` tagged inline. `--speakers "0=Julian,1=Dr Ahmad"` names them at run time, or `rename` names them later from cache.
+  - **Keyterm prompting.** Bias transcription toward brand/product names via a three-tier merge (`--keyterms` > `transcription.keyterms` in config > shipped default). Client-side sanitisation enforces the documented Scribe rules (≤1000 terms, <50 chars, ≤5 words, no `<>{}[]\`); the +20% keyterm surcharge and the >100-keyterm 20s-minimum-billable are surfaced at run time.
+  - **Audio prep.** Inputs are demuxed to mono 16 kHz MP3 before upload (~20× smaller than a video container, lossless for Scribe which resamples to 16 kHz). A file with no audio stream fails loud rather than producing an empty transcript.
+  - **Batch a folder** with per-file PASS/FAIL reporting, plus `cost` (audio-minutes, no fabricated price) and `status` subcommands.
+  - Registered `scribe-v2` in the model registry (new `transcription` family, `subscription` / `rate: null` — the plugin does not hardcode an unverified per-minute price) and in `cost_tracker.py` (subscription mode logs 0.0 marginal cost).
+  - 34 new tests (210 total, all offline): pure renderers against two real captured transcripts (single-speaker + two-speaker with audio events), and the CLI with `urlopen` patched (auth order, keyterm merge/sanitise, multipart assembly, no-audio failure, render-from-cache makes no network call).
+
 ## [4.2.3] - 2026-06-02
 
 ### Fixed
@@ -69,6 +82,7 @@ If the migration produces an unexpected result, users can:
 - **Empirical bake-off** PixVerse V6 vs Kling v3 Std vs VEO 3.1 Standard.
 - **Wire PixVerse into `video_sequence.py`** as a quality-tier alternative — needs a different shape than Kling's `multi_prompt` JSON array (PixVerse uses a single structured prompt + boolean toggle).
 
+[4.3.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.3.0
 [4.2.3]: https://github.com/juliandickie/creators-studio/releases/tag/v4.2.3
 [4.2.2]: https://github.com/juliandickie/creators-studio/releases/tag/v4.2.2
 

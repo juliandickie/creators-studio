@@ -115,6 +115,15 @@ PRICING = {
     "elevenlabs/eleven_multilingual_sts_v2": {
         "per_1k_chars": 0.18,
     },
+    # ElevenLabs Scribe v2 speech-to-text (v4.3.0, /create-transcript). Billed
+    # per second of audio under an ElevenLabs subscription/credit plan — no
+    # reliable PAYG rate to hardcode, so this logs 0.0 marginal cost (see the
+    # subscription branch in _lookup_cost). `/create-transcript cost` reports
+    # audio-minutes for planning instead of an invented dollar figure. Keyterms
+    # add a documented +20% surcharge; >100 keyterms force a 20s min billable.
+    "scribe-v2": {
+        "subscription": True,
+    },
     # Vertex AI Lyria 2 (v3.7.2+). Fixed-length 32.768s instrumental music.
     # No longer the default music source as of v3.8.3 (ElevenLabs won the
     # 12-genre blind bake-off 12-0). Available via --music-source lyria.
@@ -257,6 +266,12 @@ def _lookup_cost(model, resolution, *, duration_s=None, audio_enabled=None, batc
     if not model_pricing:
         print(f"Warning: Unknown model '{model}', using 3.1 Flash pricing", file=sys.stderr)
         model_pricing = PRICING["gemini-3.1-flash-image-preview"]
+
+    # v4.3.0: subscription-billed models (ElevenLabs Scribe v2 STT). No marginal
+    # per-call PAYG rate exists, so log 0.0 rather than fabricate a price. The
+    # /create-transcript cost subcommand reports audio-minutes for planning.
+    if model_pricing.get("subscription"):
+        return 0.0
 
     # v4.2.1: per_second_by_resolution — VEO Lite. Rate varies by pixel resolution.
     # Caller MUST pass duration_s (seconds as float) and resolution (e.g. "720p").

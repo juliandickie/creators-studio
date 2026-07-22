@@ -3,7 +3,8 @@
   "family_defaults": {
     "image": "nano-banana-2",
     "video": "kling-v3",
-    "music": "elevenlabs-music"
+    "music": "elevenlabs-music",
+    "transcription": "scribe-v2"
   },
   "models": {
     "kling-v3": {
@@ -320,6 +321,28 @@
           "pricing": {"mode": "subscription", "rate": null, "currency": "USD"},
           "availability": "GA",
           "notes": "Not yet refactored into ProviderBackend — audio_pipeline.py calls ElevenLabs directly. Registered so family_defaults.music is honest and the multi-model principle is upheld."
+        }
+      }
+    },
+    "scribe-v2": {
+      "display_name": "ElevenLabs Scribe v2",
+      "family": "transcription",
+      "tasks": ["speech-to-text"],
+      "doc": "skills/create-transcript/references/scribe-models.md",
+      "canonical_constraints": {
+        "max_file_bytes": 3221225472,
+        "max_duration_s": 36000,
+        "languages": "90+",
+        "max_keyterms": 1000,
+        "keyterm_max_chars": 50
+      },
+      "providers": {
+        "elevenlabs": {
+          "slug": "(direct)",
+          "capabilities": ["diarization", "audio_events", "word_timestamps", "keyterm_prompting", "entity_detection", "multichannel"],
+          "pricing": {"mode": "subscription", "rate": null, "currency": "USD"},
+          "availability": "GA",
+          "notes": "Called directly by skills/create-transcript/scripts/transcribe.py, not via ProviderBackend — same pattern as elevenlabs-music. rate is null because Scribe is subscription/credit billed per second of audio per the ElevenLabs pricing page; the plugin does not hardcode an unverified per-minute figure. Keyterms add a documented +20% surcharge and >100 keyterms force a 20s minimum billable duration."
         }
       }
     }
