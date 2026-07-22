@@ -1,4 +1,4 @@
-"""Tests for scripts/paths.py — the v4.2.2 ~/.banana/ → ~/.creators-studio/
+"""Tests for scripts/paths.py - the v4.2.2 ~/.banana/ → ~/.creators-studio/
 config-directory migration helper.
 
 Uses a temporary directory + monkeypatched ``Path.home()`` so the real

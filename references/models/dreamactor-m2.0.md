@@ -19,7 +19,7 @@ Motion transfer / character animation. Input: one image + a driving video. Outpu
 
 ## When to use
 
-- **For real-footage-to-avatar workflows** — mapping a generated character onto filmed human motion.
+- **For real-footage-to-avatar workflows** - mapping a generated character onto filmed human motion.
 
 **Don't use DreamActor for cross-clip character consistency in text-to-video.** Kling v3 with `start_image` + matched prompts does this at higher resolution (1072×1928 vs 694×1242) and 2.5× lower cost ($0.02/s vs $0.05/s). Session 19 spike (2026-04-16) confirmed this.
 

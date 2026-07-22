@@ -6,7 +6,7 @@ produce glitches, inconsistent actors, and audio seam discontinuities at
 extended durations (user verdict per spike 5 Phase 2C, 2026-04-15:
 "horrible, do not use"). This script is preserved for backward compat
 and for users who explicitly want to use VEO extension despite the spike
-findings — but running it now requires the --acknowledge-veo-limitations
+findings - but running it now requires the --acknowledge-veo-limitations
 flag to prevent accidental use.
 
 For extended Kling workflows, use video_sequence.py with the existing
@@ -268,7 +268,7 @@ def main():
             "passes the previous clip as --video-input, preserves audio "
             "continuity, forced to 720p. Requires Vertex AI backend "
             "(auto-routed). 'keyframe' uses the legacy last-frame "
-            "extraction path — works at any resolution but loses audio "
+            "extraction path - works at any resolution but loses audio "
             "continuity at the seam."
         ),
     )
@@ -301,7 +301,7 @@ def main():
             "'horrible, do not use'.\n\n"
             "RECOMMENDED: Use video_sequence.py with the plan → storyboard "
             "→ generate → stitch pipeline. Each shot is an independent "
-            "Kling v3 Std API call, stitched by FFmpeg — the pipeline "
+            "Kling v3 Std API call, stitched by FFmpeg - the pipeline "
             "already works for extended workflows via Kling (default in "
             "v3.8.0+).\n\n"
             "IF YOU STILL WANT VEO EXTEND: re-run this command with "

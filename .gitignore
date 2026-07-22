@@ -16,6 +16,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# oh-my-claudecode telemetry (per-repo state, not source)
+.omc/
+
 # Secrets
 .env
 *.key
@@ -26,7 +29,7 @@ Thumbs.db
 
 # (Previously excluded /scripts/ from the pre-v4.0.0 nano-banana era. As of
 # v4.2.0, plugin-root scripts/ holds the shared provider abstraction code
-# — not build artifacts — and is checked in. If a future build step needs
+# - not build artifacts - and is checked in. If a future build step needs
 # a temp output dir, use /build/ or /dist/, not /scripts/.)
 
 # Firebase

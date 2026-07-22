@@ -1,4 +1,4 @@
-"""Creators Studio — Canonical param validation and image normalization.
+"""Creators Studio - Canonical param validation and image normalization.
 
 Sits between the orchestrator and backend: validates canonical_params
 against a model's canonical_constraints BEFORE any HTTP call, and
@@ -45,10 +45,10 @@ def normalize_image_to_data_uri(img: Path | str | bytes) -> str:
     """Convert any CanonicalImage form to a data URI.
 
     Accepts:
-      - Path — read bytes, sniff MIME, encode
-      - bytes — sniff MIME, encode
-      - str starting with 'data:' — pass through
-      - str starting with 'http://' or 'https://' — RAISES (different function)
+      - Path - read bytes, sniff MIME, encode
+      - bytes - sniff MIME, encode
+      - str starting with 'data:' - pass through
+      - str starting with 'http://' or 'https://' - RAISES (different function)
     """
     if isinstance(img, Path):
         data = img.read_bytes()
@@ -77,7 +77,7 @@ def normalize_image_to_url(img: Path | str | bytes) -> str:
 
     Pass-through for HTTP URLs. Data URIs pass through too (most backends
     accept them where they accept URLs). Path/bytes would require an
-    uploader, which this function doesn't do — it raises to signal the
+    uploader, which this function doesn't do - it raises to signal the
     backend should use the data-URI path instead.
     """
     if isinstance(img, str) and img.startswith(("http://", "https://", "data:")):
@@ -98,13 +98,13 @@ def validate_canonical_params(
     """Validate params against constraints. Raises CanonicalValidationError.
 
     Constraint keys recognized:
-      duration_s          — {min, max, integer?}
-      aspect_ratio        — list of allowed strings
-      resolutions         — list of allowed strings, checked against 'resolution' param
-      prompt_max_chars    — int, checked against 'prompt' param
-      max_input_bytes     — int, checked against source_image byte length
-      max_input_pixels    — int, NOT validated here (requires PIL — deferred)
-      input_dim_range     — {min_px, max_px}, NOT validated here (requires PIL — deferred)
+      duration_s - {min, max, integer?}
+      aspect_ratio - list of allowed strings
+      resolutions - list of allowed strings, checked against 'resolution' param
+      prompt_max_chars - int, checked against 'prompt' param
+      max_input_bytes - int, checked against source_image byte length
+      max_input_pixels - int, NOT validated here (requires PIL - deferred)
+      input_dim_range - {min_px, max_px}, NOT validated here (requires PIL - deferred)
 
     Unknown constraint keys are silently ignored (forward-compatible).
     Missing params are skipped (the constraint doesn't apply).
@@ -113,7 +113,7 @@ def validate_canonical_params(
     if (c := constraints.get("duration_s")) is not None and "duration_s" in params:
         v = params["duration_s"]
         if "enum" in c:
-            # Enum shape: {enum: [4, 6, 8]} — only listed values allowed.
+            # Enum shape: {enum: [4, 6, 8]} - only listed values allowed.
             if v not in c["enum"]:
                 raise CanonicalValidationError(
                     f"duration_s={v} not in allowed values {c['enum']}"
@@ -159,7 +159,7 @@ def validate_canonical_params(
             case bytes():
                 size = len(img)
             case _:
-                return  # URL/data-URI — skip byte-size check
+                return  # URL/data-URI - skip byte-size check
         if size > c:
             raise CanonicalValidationError(
                 f"source_image size {size} exceeds maximum {c}"

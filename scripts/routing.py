@@ -1,4 +1,4 @@
-"""Creators Studio — Model + provider routing resolution.
+"""Creators Studio - Model + provider routing resolution.
 
 Given the registry, user flags, and user config, resolve which model and
 which provider to use. Two independent resolutions: model first, then
@@ -73,7 +73,7 @@ def resolve_provider(
         if isinstance(info, dict) and info.get("api_key")
     }
 
-    # 1. Explicit flag wins — but only if provider hosts the model.
+    # 1. Explicit flag wins - but only if provider hosts the model.
     if explicit_provider is not None:
         if explicit_provider not in hosts:
             raise RoutingError(

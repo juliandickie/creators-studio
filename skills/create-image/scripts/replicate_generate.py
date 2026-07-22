@@ -31,7 +31,7 @@ POLL_TIMEOUT = 300  # seconds
 
 # v3.8.1: User-Agent for Replicate API. Cloudflare's edge rules reject
 # the default Python-urllib/3.x user agent on some endpoints (HTTP 403
-# error 1010 — observed on /v1/account during v3.8.0 work on the video
+# error 1010 - observed on /v1/account during v3.8.0 work on the video
 # side). The image-gen path currently works only because /v1/models/.../
 # predictions has more lenient Cloudflare rules, but this is defensive
 # hardening in case those rules tighten in the future. Deliberately

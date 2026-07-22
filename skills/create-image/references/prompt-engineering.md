@@ -13,7 +13,7 @@
 > almost always produce a better, more coherent image than a list of
 > disconnected words.
 >
-> — Google, official Gemini 3.1 Flash Image prompting guide
+> - Google, official Gemini 3.1 Flash Image prompting guide
 
 This single principle supersedes the older Stable-Diffusion-era
 "tag list + quality modifiers" pattern. Everything below flows from it:
@@ -23,12 +23,12 @@ This single principle supersedes the older Stable-Diffusion-era
   ("shot from below to convey authority") beats decorating with quality words.
 - **Iterate > one-shot.** Use conversational editing to refine; don't try to
   stuff every constraint into a single turn.
-- **Semantic, not negative.** Gemini has no negative-prompt parameter —
+- **Semantic, not negative.** Gemini has no negative-prompt parameter -
   describe what you want, not what you don't.
 
 See "Prompt Patterns That Don't Help" below for the Gemini-3.1-era correction
 to the previous "banned keywords + prestigious anchors" rule (both parts of
-that rule are now obsolete — spike 6, 2026-04-15).
+that rule are now obsolete - spike 6, 2026-04-15).
 
 ## The 5-Component Prompt Formula
 
@@ -89,12 +89,12 @@ creating gentle Rembrandt lighting on the face with deep warm shadows.
 Documentary-portrait register, reminiscent of Dorothea Lange's
 Depression-era fieldwork."
 
-**Bad:** "photorealistic, 8K, masterpiece" — keyword stuffing, not a
+**Bad:** "photorealistic, 8K, masterpiece" - keyword stuffing, not a
 description. Harmless on Gemini 3.1 (they don't degrade output) but useless.
 Cut them.
 
 **Also bad:** "Vanity Fair magazine cover style," "National Geographic cover
-story." Naming a *publication format* triggers a documented failure mode —
+story." Naming a *publication format* triggers a documented failure mode -
 Gemini 3.1 renders the output as a literal magazine cover, complete with
 masthead typography, headline text, and gibberish cover-line overlays. See
 "Prompt Patterns That Don't Help" below.
@@ -122,7 +122,7 @@ masthead typography, headline text, and gibberish cover-line overlays. See
 **Skin/texture:** freckles visible, pores at macro distance, catch light in eyes, subsurface scattering
 
 ### Editorial/Fashion Mode
-**Visual register (describe directly, do NOT name magazines — see "Prompt Patterns That Don't Help"):**
+**Visual register (describe directly, do NOT name magazines - see "Prompt Patterns That Don't Help"):**
   high-contrast studio editorial, natural-light documentary fashion, muted
   minimalist lifestyle register, bold colour-block fashion, gritty street-style
   reportage, ethereal diffused beauty, stark monochrome architectural fashion
@@ -383,7 +383,7 @@ On Replicate, use the `google_search: true` parameter for `google/nano-banana-2`
 
 ## Prompt Patterns That Don't Help (Gemini 3.1 Flash Image)
 
-<!-- verified: 2026-04-15 via spike 6 — 9 test images, 3 conditions × 3 samples -->
+<!-- verified: 2026-04-15 via spike 6-9 test images, 3 conditions × 3 samples -->
 
 The guidance in this section supersedes the v3.6.x "banned keywords + use
 prestigious anchors instead" rule. Spike 6 (2026-04-15) empirically tested
@@ -396,8 +396,8 @@ both parts of the old rule on `gemini-3.1-flash-image-preview` and found:
 - **The "prestigious anchors" actively fail.** The prompt `"Annie Leibovitz
   editorial portrait, Vanity Fair magazine cover style, dramatic studio
   lighting"` caused Gemini 3.1 to render all 3 samples as literal magazine
-  covers — with masthead typography (`"VAVANITY FAIR"`), headline text
-  overlays, gibberish cover lines, and magazine-layout framing — rather than
+  covers - with masthead typography (`"VAVANITY FAIR"`), headline text
+  overlays, gibberish cover lines, and magazine-layout framing - rather than
   as the intended standalone portrait.
 
 The right guidance is Google's official principle: **describe the scene,
@@ -407,14 +407,14 @@ don't just list keywords.**
 
 These don't degrade Gemini 3.1 output, but they don't improve it either.
 They're Stable-Diffusion-era muscle memory. If the user's source prompt has
-them, trim them — they just waste tokens and model attention.
+them, trim them - they just waste tokens and model attention.
 
-- "4K" / "8K" / "ultra HD" / "high resolution" — use the `imageSize` API parameter
+- "4K" / "8K" / "ultra HD" / "high resolution" - use the `imageSize` API parameter
 - "masterpiece" / "best quality" / "award winning"
 - "highly detailed" / "ultra detailed"
 - "hyperrealistic" / "ultra realistic"
 - "trending on artstation"
-- "photorealistic" — describe the camera and film stock directly instead
+- "photorealistic" - describe the camera and film stock directly instead
 
 ### Patterns that ACTIVELY FAIL (avoid)
 
@@ -424,7 +424,7 @@ spread"`, `"Wallpaper* editorial"`, `"Architectural Digest interior"`,
 `"Bon Appetit cover aesthetic"` all trigger the same failure: Gemini 3.1
 renders the output as a literal magazine cover with masthead, headline text,
 and cover-line gibberish. The model's text-rendering strength works against
-you here — it's *good enough* at rendering "Vanity Fair" that when you name
+you here - it's *good enough* at rendering "Vanity Fair" that when you name
 it, you get Vanity Fair (layout + typography), not a portrait.
 
 **Use instead:** describe the visual register *directly*.
@@ -438,7 +438,7 @@ it, you get Vanity Fair (layout + typography), not a portrait.
 | "Bon Appetit cover aesthetic" | "commercial food photography, overhead flat-lay on a linen backdrop, warm window light, steam and condensation details" |
 
 **2. Combining a named photographer with a named publication.** `"Annie
-Leibovitz, Vanity Fair cover"` is the worst case in spike 6 — both signals
+Leibovitz, Vanity Fair cover"` is the worst case in spike 6 - both signals
 compound. A soft photographer reference (`"reminiscent of Dorothea Lange's
 documentary fieldwork"`) is OK when it biases composition and light. A hard
 photographer-plus-publication reference biases *layout and typography* and
@@ -470,7 +470,7 @@ prompting guide. Use them as starting points and adapt the bracketed variables.
 > a [mood] atmosphere. Captured with a [camera/lens details], emphasizing
 > [key textures and details]. The image should be in a [aspect ratio] format.`
 
-Works because every bracket forces a concrete decision — no vague
+Works because every bracket forces a concrete decision - no vague
 "photorealistic" on its own, no bare "masterpiece."
 
 ### Stylised illustration / sticker
@@ -480,7 +480,7 @@ Works because every bracket forces a concrete decision — no vague
 > The background must be white.`
 
 "The background must be white" is the recommended way to get a stamp-ready
-asset on Gemini 3.1 — it's literal and reliable.
+asset on Gemini 3.1 - it's literal and reliable.
 
 ### Accurate text in image
 
@@ -510,7 +510,7 @@ tag. The principle is always "describe, don't label."
 > empty [color] canvas, creating significant negative space. Soft, subtle
 > lighting. [Aspect ratio].`
 
-The most reliable way to get a layout-driven image — explicit placement +
+The most reliable way to get a layout-driven image - explicit placement +
 explicit negative space + no decorative clutter.
 
 ### Sequential art / comic panel
@@ -542,7 +542,7 @@ From the same official guide, applied to every template above:
    prioritise conflicting requirements.
 3. **Iterate and refine.** Use conversational turns rather than a single
    mega-prompt. Each turn preserves successful elements.
-4. **Use step-by-step instructions** when you need layout control — e.g.
+4. **Use step-by-step instructions** when you need layout control - e.g.
    `"First, create the background... Then, add the subject in the
    foreground... Finally, add the rim light from camera-left."`
 5. **Semantic negative prompts.** Not "no cars" but "an empty, deserted
@@ -573,9 +573,9 @@ For critical constraints, ALL CAPS emphasis improves adherence:
 
 | Use case | Target length | Notes |
 |---|---|---|
-| Quick draft / concept | 20–60 words (1–2 sentences) | Good for ideation |
-| Standard generation | 100–200 words (3–5 sentences) | Production default |
-| Complex professional | 200–300 words | Full 5-component treatment |
+| Quick draft / concept | 20-60 words (1-2 sentences) | Good for ideation |
+| Standard generation | 100-200 words (3-5 sentences) | Production default |
+| Complex professional | 200-300 words | Full 5-component treatment |
 | Maximum specification | Up to 2,600 tokens | JSON/Markdown structured format supported |
 
 Nano Banana 2 accepts up to 131,072 input tokens. Do not artificially truncate
@@ -607,13 +607,13 @@ to Gemini's natural language format:
 | `--chaos 50` | Describe variety: "unexpected, surreal composition" |
 | `--no trees` | Positive framing: "open clearing with no vegetation" |
 | `(word:1.5)` weight | Descriptive emphasis: "prominently featuring [word]" |
-| `8K, masterpiece, ultra-detailed` | Cut them — they're useless tokens on Gemini 3.1 (see "Prompt Patterns That Don't Help"). Do NOT replace with magazine/publication names either — that's a separate failure mode. Describe the visual register directly. |
+| `8K, masterpiece, ultra-detailed` | Cut them - they're useless tokens on Gemini 3.1 (see "Prompt Patterns That Don't Help"). Do NOT replace with magazine/publication names either - that's a separate failure mode. Describe the visual register directly. |
 | Comma-separated tags | Expand into descriptive narrative paragraphs |
 | `shot on Hasselblad` | Keep -- camera specs work well in Gemini |
 
 ## Common Prompt Mistakes
 
-1. **Keyword stuffing** -- stacking generic quality terms ("8K, masterpiece, best quality, ultra-realistic") wastes tokens on Gemini 3.1 without improving output. Rewrite as narrative prose. Do NOT replace with magazine/publication names — that's a separate failure mode (see "Prompt Patterns That Don't Help")
+1. **Keyword stuffing** -- stacking generic quality terms ("8K, masterpiece, best quality, ultra-realistic") wastes tokens on Gemini 3.1 without improving output. Rewrite as narrative prose. Do NOT replace with magazine/publication names - that's a separate failure mode (see "Prompt Patterns That Don't Help")
 2. **Tag lists** -- Gemini wants prose, not "red car, sunset, mountain, cinematic"
 3. **Missing lighting** -- The single biggest quality differentiator
 4. **No composition direction** -- Results in generic centered framing
@@ -682,7 +682,7 @@ field, warm color grading.
 
 ### Product / Commercial Photography
 
-**Pattern:** `[Product with brand/detail] + [dynamic elements] + [surface/setting] + "commercial photography for advertising campaign" + [lighting] + [direct visual-register description — NOT a magazine name]`
+**Pattern:** `[Product with brand/detail] + [dynamic elements] + [surface/setting] + "commercial photography for advertising campaign" + [lighting] + [direct visual-register description - NOT a magazine name]`
 
 **Example (Beverage):**
 ```
@@ -769,7 +769,7 @@ vertical dividing line separates chaos from clarity.
 
 ### Logo / Branding
 
-**Pattern:** `[Product/bottle/item] + "with [brand element] prominently displayed" + [dynamic visual elements] + "commercial photography" + [lighting style] + [direct visual-register description — NOT a magazine name]`
+**Pattern:** `[Product/bottle/item] + "with [brand element] prominently displayed" + [dynamic visual elements] + "commercial photography" + [lighting style] + [direct visual-register description - NOT a magazine name]`
 
 **Example:**
 ```

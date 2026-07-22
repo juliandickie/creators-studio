@@ -34,7 +34,7 @@ from pathlib import Path
 # terminal to inspect their own output.
 OUTPUT_BASE = Path.home() / "Documents" / "creators_sequences"
 # Kept as a fallback pointer for the legacy location that existed in v3.4.x
-# through v3.6.1 — referenced in docs so users of old plans can find them.
+# through v3.6.1 - referenced in docs so users of old plans can find them.
 LEGACY_OUTPUT_BASE = Path.home() / "Documents" / "creators_generated"
 COST_STORYBOARD_FRAME = 0.078   # per 2K frame
 AVG_SHOT_DURATION = 7           # seconds, for shot-count estimation
@@ -56,7 +56,7 @@ DEFAULT_SEQUENCE_RESOLUTION = "1080p"
 #
 # v3.8.0: All auto-selected tiers route to Kling v3 Std. Kling's flat
 # $0.16/8s (pro mode 1080p) is cheap enough to serve BOTH draft and
-# premium tiers — no point in a separate draft tier when the premium
+# premium tiers - no point in a separate draft tier when the premium
 # tier is already ~3x cheaper than VEO Lite. VEO is the only alternative
 # and ships as the `veo-backup` tier requiring explicit user opt-in.
 #
@@ -71,7 +71,7 @@ QUALITY_TIER_MODELS = {
     "fast": "kwaivgi/kling-v3-video",         # same model, same price
     "standard": "kwaivgi/kling-v3-video",     # default tier
     "premium": "kwaivgi/kling-v3-video",      # Kling IS the premium
-    # Backward-compat aliases — point to Kling, NOT VEO, per v3.8.0 default
+    # Backward-compat aliases - point to Kling, NOT VEO, per v3.8.0 default
     "lite": "kwaivgi/kling-v3-video",
     "legacy": "kwaivgi/kling-v3-video",
     # Opt-in VEO backup. Requires explicit --quality-tier veo-backup and
@@ -99,7 +99,7 @@ _VEO_PER_SECOND = {
     "veo-3.0-generate-001": 0.15,
 }
 _KLING_PER_SECOND = {
-    # Kling v3 Std at pro mode (1080p) — our default. $0.16/8s = $0.02/s.
+    # Kling v3 Std at pro mode (1080p) - our default. $0.16/8s = $0.02/s.
     # Slightly higher effective rate at 3-6 s (fixed per-call overhead) but
     # the difference is rounding-noise for the plugin's budget math.
     "kwaivgi/kling-v3-video": 0.02,
@@ -113,16 +113,16 @@ SHOT_TYPES = (
 # v3.6.3: shot-type semantic defaults. When cmd_plan creates a shot
 # skeleton, it looks up the type in this table and pre-fills duration,
 # camera hint, and use_veo_interpolation if the fields aren't explicitly
-# set. Claude can still override any of these downstream — the defaults
+# set. Claude can still override any of these downstream - the defaults
 # exist so that a bare `plan --script "..."` produces sensible output
 # without Claude having to remember cinematography conventions for
 # every shot type.
 #
 # Rationale per field:
-#   duration — cinematographer rule of thumb for how long each shot
+#   duration - cinematographer rule of thumb for how long each shot
 #              type reads on screen before the viewer loses interest
-#   camera_hint — starting-point camera move; Claude refines it
-#   use_veo_interpolation — True for shots that cut away to unrelated
+#   camera_hint - starting-point camera move; Claude refines it
+#   use_veo_interpolation - True for shots that cut away to unrelated
 #              material, where pinning an end frame over-constrains
 #              the motion (validated by the coffee shop demo Shot 1)
 SHOT_TYPE_DEFAULTS = {
@@ -399,11 +399,11 @@ def _check_review_freshness(plan, storyboard_dir):
     """Compare the current disk state against the embedded review manifest.
 
     Returns a dict:
-        {"status": "ok"}                  — review is fresh, proceed
-        {"status": "missing"}             — no REVIEW-SHEET.md at all
-        {"status": "unparseable"}         — review exists but manifest can't be read
+        {"status": "ok"} - review is fresh, proceed
+        {"status": "missing"} - no REVIEW-SHEET.md at all
+        {"status": "unparseable"} - review exists but manifest can't be read
         {"status": "stale",
-         "drifted_shots": [1, 3]}         — frame hashes differ for these shots
+         "drifted_shots": [1, 3]} - frame hashes differ for these shots
 
     Intended for cmd_generate's gate check. Callers translate the
     returned status into either a progress event (ok) or an _error_exit
@@ -472,7 +472,7 @@ def _sanitize_project_name(name):
 
     Used by _default_output() to build per-project subdirs. Strips
     anything that isn't [a-zA-Z0-9._-] and lowercases the rest so
-    plans with display names like "Golden Bean Cafe — 30s" become
+    plans with display names like "Golden Bean Cafe - 30s" become
     "golden-bean-cafe-30s" on disk.
     """
     import re
@@ -561,7 +561,7 @@ def cmd_plan(args):
 
     shot_count = max(MIN_SHOTS, target // AVG_SHOT_DURATION)
     # If the user supplied shot types, the shot count is determined by
-    # that list — their intent wins over the target-duration heuristic.
+    # that list - their intent wins over the target-duration heuristic.
     if shot_type_list:
         shot_count = len(shot_type_list)
 
@@ -581,7 +581,7 @@ def cmd_plan(args):
         # clamped to the 4..MAX_SHOT_DURATION envelope.
         drift = target - sum(scaled[:-1])
         scaled[-1] = max(4, min(MAX_SHOT_DURATION, drift))
-        # If clamping mangled the total, accept the drift — it's a draft
+        # If clamping mangled the total, accept the drift - it's a draft
         # pass; the user can adjust durations by hand in the plan.json.
         durations = scaled
     else:
@@ -626,7 +626,7 @@ def cmd_plan(args):
             # lets VEO pick its own ending. Useful for shots that cut away
             # to unrelated material (e.g. establishing → cut to interior)
             # where pinning a specific end frame over-constrains the motion.
-            # v3.6.3: default is now picked from the shot-type table —
+            # v3.6.3: default is now picked from the shot-type table -
             # establishing/transition/cutaway/broll all default True
             # because those shot types by definition don't have fixed
             # endings. content/medium/closeup/product default False.
@@ -868,7 +868,7 @@ def _build_review_sheet(plan, storyboard_dir, *, override_model=None, plan_path=
 
     Layout per shot (markdown):
 
-        ## Shot N — <type> (Xs)
+        ## Shot N - <type> (Xs)
         **Mode:** first-and-last-frame | first-frame-only (use_veo_interpolation=true)
         **Model:** veo-... **Resolution:** 1080p **Cost:** $X.XX
         **Frames:**
@@ -896,7 +896,7 @@ def _build_review_sheet(plan, storyboard_dir, *, override_model=None, plan_path=
     missing_frames = []
 
     lines = []
-    lines.append(f"# {plan.get('script', 'Sequence')} — REVIEW SHEET")
+    lines.append(f"# {plan.get('script', 'Sequence')} - REVIEW SHEET")
     lines.append("")
     lines.append(
         f"_Generated by `video_sequence.py review` on "
@@ -966,7 +966,7 @@ def _build_review_sheet(plan, storyboard_dir, *, override_model=None, plan_path=
         status_badge = "✅" if ready_shot else "⚠️"
 
         lines.append(
-            f"## Shot {num} — {shot_type} ({duration}s) {status_badge}"
+            f"## Shot {num} - {shot_type} ({duration}s) {status_badge}"
         )
         lines.append("")
         lines.append(
@@ -992,7 +992,7 @@ def _build_review_sheet(plan, storyboard_dir, *, override_model=None, plan_path=
             else:
                 lines.append(f"_⚠️ end frame missing at_ `{end_md_path}`")
         else:
-            lines.append("_(no end frame — VEO interpolates ending)_")
+            lines.append("_(no end frame - VEO interpolates ending)_")
         lines.append("")
 
         # Prompt
@@ -1004,7 +1004,7 @@ def _build_review_sheet(plan, storyboard_dir, *, override_model=None, plan_path=
                 lines.append(f"> {pline}" if pline else ">")
             lines.append("")
         else:
-            lines.append("**VEO prompt:** _⚠️ empty — shot will be skipped at generate time_")
+            lines.append("**VEO prompt:** _⚠️ empty - shot will be skipped at generate time_")
             lines.append("")
 
         # Storyboard prompts (optional, shown for the approval gate)
@@ -1065,7 +1065,7 @@ def _build_review_sheet(plan, storyboard_dir, *, override_model=None, plan_path=
     # v3.6.3: machine-readable manifest block for the generate gate.
     # cmd_generate reads this to detect frame drift since the review was
     # written. Wrapped in HTML comments so it doesn't render in markdown
-    # previews. Do not edit by hand — regenerate via `video_sequence.py
+    # previews. Do not edit by hand - regenerate via `video_sequence.py
     # review` if you change the storyboard.
     manifest = _build_review_manifest(plan, storyboard_dir, plan_path or "")
     lines.append(REVIEW_SHEET_MANIFEST_START)
@@ -1087,7 +1087,7 @@ def cmd_review(args):
     the `storyboard` and `generate` stages of the pipeline.
 
     v3.6.2 ships the review sheet as a stand-alone subcommand. It
-    doesn't block `generate` yet — a `--skip-review` / mandatory-gate
+    doesn't block `generate` yet - a `--skip-review` / mandatory-gate
     integration is v3.6.3 scope. For now, running `review` writes the
     file and leaves enforcement to human discipline.
     """
@@ -1165,7 +1165,7 @@ def cmd_generate(args):
                 f"  python3 video_sequence.py review --plan {plan_path} "
                 f"--storyboard {storyboard_dir}\n"
                 "Then re-run generate. Pass --skip-review to bypass this "
-                "check (for CI or automation only — it disables the safety "
+                "check (for CI or automation only - it disables the safety "
                 "net that catches frame drift)."
             )
         if status == "unparseable":
@@ -1179,7 +1179,7 @@ def cmd_generate(args):
         if status == "stale":
             drifted = freshness.get("drifted_shots", [])
             _error_exit(
-                f"REVIEW-SHEET.md is stale — shot(s) "
+                f"REVIEW-SHEET.md is stale - shot(s) "
                 f"{', '.join(str(n) for n in drifted)} have frame hashes "
                 f"that differ from the recorded review. Someone regenerated "
                 f"one or more storyboard frames after the review was written. "
@@ -1441,7 +1441,7 @@ def main():
         help=(
             "Override model for all shots. v3.8.0+: draft/fast/standard/"
             "premium/lite/legacy all point to Kling v3 Std (flat $0.16/8s). "
-            "veo-backup routes to VEO 3.1 Lite — opt-in only, see spike 5 findings."
+            "veo-backup routes to VEO 3.1 Lite - opt-in only, see spike 5 findings."
         ),
     )
 
@@ -1464,7 +1464,7 @@ def main():
             "Kling's quality is cheap enough that a separate draft tier no "
             "longer makes sense. veo-backup is the opt-in VEO 3.1 Lite path "
             "for workflows that specifically want VEO output reviewed against "
-            "Kling — requires vertex_api_key in ~/.banana/config.json and "
+            "Kling - requires vertex_api_key in ~/.banana/config.json and "
             "you should review the spike 5 findings at "
             "spikes/v3.8.0-provider-bakeoff/writeup/v3.8.0-bakeoff-findings.md "
             "before committing to VEO for production work. "
@@ -1479,7 +1479,7 @@ def main():
             "exists in the storyboard dir AND its embedded frame "
             "hashes match the current storyboard. --skip-review is "
             "intended for CI and automation paths that know what "
-            "they're doing — it disables the safety net that catches "
+            "they're doing - it disables the safety net that catches "
             "frame drift. Prefer running `video_sequence.py review` "
             "first for interactive use."
         ),

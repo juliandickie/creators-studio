@@ -1,4 +1,4 @@
-"""Creators Studio — Model registry loader and query API.
+"""Creators Studio - Model registry loader and query API.
 
 Loads scripts/registry/models.json and exposes a typed query API. The
 registry is the single source of truth for canonical model IDs, hosting

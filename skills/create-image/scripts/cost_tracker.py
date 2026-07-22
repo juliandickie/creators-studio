@@ -116,7 +116,7 @@ PRICING = {
         "per_1k_chars": 0.18,
     },
     # ElevenLabs Scribe v2 speech-to-text (v4.3.0, /create-transcript). Billed
-    # per second of audio under an ElevenLabs subscription/credit plan — no
+    # per second of audio under an ElevenLabs subscription/credit plan - no
     # reliable PAYG rate to hardcode, so this logs 0.0 marginal cost (see the
     # subscription branch in _lookup_cost). `/create-transcript cost` reports
     # audio-minutes for planning instead of an invented dollar figure. Keyterms
@@ -139,7 +139,7 @@ PRICING = {
     #   Fabric:     replicate.com/predictions dashboard (session 19, 2026-04-16)
     #
     # v4.2.1: CORRECTED Kling pricing. v4.2.0 seeded per_second=$0.02 from an
-    # outdated source — real rates are 2-dimensional (resolution × audio) per
+    # outdated source - real rates are 2-dimensional (resolution × audio) per
     # dev-docs/kwaivgi-kling-v3-video-llms.md. Canonical model IDs are used
     # here (kling-v3, kling-v3-omni); the video_generate.py caller maps the
     # Replicate slug (kwaivgi/kling-v3-video) to these keys via partial-match.
@@ -177,7 +177,7 @@ PRICING = {
     "veed/fabric-1.0": {
         "per_second_by_resolution": {"480p": 0.08, "720p": 0.15},
     },
-    # v4.2.1: VEO 3.1 tiers — Lite is resolution-keyed, Fast/Standard are
+    # v4.2.1: VEO 3.1 tiers - Lite is resolution-keyed, Fast/Standard are
     # audio-keyed. These entries are canonical (non-preview, non-001) IDs.
     # The old preview/-001 entries above still use the per_second mode for
     # backward compat with older cost-log entries; new callers should use
@@ -249,11 +249,11 @@ def _lookup_cost(model, resolution, *, duration_s=None, audio_enabled=None, batc
 
     v4.2.1: new keyword-only args `duration_s` (float, seconds) and
     `audio_enabled` (bool) power three new pricing modes:
-      * per_second_by_resolution         — VEO 3.1 Lite
-      * per_second_by_audio              — VEO 3.1 Fast + Standard
-      * per_second_by_resolution_and_audio — Kling v3 + v3 Omni
+      * per_second_by_resolution - VEO 3.1 Lite
+      * per_second_by_audio - VEO 3.1 Fast + Standard
+      * per_second_by_resolution_and_audio - Kling v3 + v3 Omni
 
-    Existing callers (batch-only) keep working — the new kwargs default to
+    Existing callers (batch-only) keep working - the new kwargs default to
     None and only matter for the new pricing modes.
     """
     model_pricing = PRICING.get(model)
@@ -273,7 +273,7 @@ def _lookup_cost(model, resolution, *, duration_s=None, audio_enabled=None, batc
     if model_pricing.get("subscription"):
         return 0.0
 
-    # v4.2.1: per_second_by_resolution — VEO Lite. Rate varies by pixel resolution.
+    # v4.2.1: per_second_by_resolution - VEO Lite. Rate varies by pixel resolution.
     # Caller MUST pass duration_s (seconds as float) and resolution (e.g. "720p").
     if "per_second_by_resolution" in model_pricing:
         rates = model_pricing["per_second_by_resolution"]
@@ -291,7 +291,7 @@ def _lookup_cost(model, resolution, *, duration_s=None, audio_enabled=None, batc
             cost *= BATCH_DISCOUNT
         return cost
 
-    # v4.2.1: per_second_by_audio — VEO Fast + Standard. Rate varies by audio flag.
+    # v4.2.1: per_second_by_audio - VEO Fast + Standard. Rate varies by audio flag.
     # Caller MUST pass duration_s and audio_enabled (bool).
     if "per_second_by_audio" in model_pricing:
         rates = model_pricing["per_second_by_audio"]
@@ -314,7 +314,7 @@ def _lookup_cost(model, resolution, *, duration_s=None, audio_enabled=None, batc
             cost *= BATCH_DISCOUNT
         return cost
 
-    # v4.2.1: per_second_by_resolution_and_audio — Kling v3 + v3 Omni.
+    # v4.2.1: per_second_by_resolution_and_audio - Kling v3 + v3 Omni.
     # Rate is 2-dimensional (resolution outer, audio inner).
     if "per_second_by_resolution_and_audio" in model_pricing:
         rates = model_pricing["per_second_by_resolution_and_audio"]
@@ -399,7 +399,7 @@ def cmd_log(args):
     cost = _lookup_cost(args.model, args.resolution, **_args_to_cost_kwargs(args))
     if cost is None:
         # v4.2.1: new pricing modes return None on missing required kwargs
-        # (duration_s, audio_enabled). Don't crash — log with cost=0 and
+        # (duration_s, audio_enabled). Don't crash - log with cost=0 and
         # surface a warning so users notice their caller is missing flags.
         print(f"Warning: cost could not be computed for {args.model} @ {args.resolution}; logged as 0.0", file=sys.stderr)
         cost = 0.0

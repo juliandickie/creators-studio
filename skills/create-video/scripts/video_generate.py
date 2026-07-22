@@ -26,7 +26,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Replicate backend helper. As of v4.2.0 this lives at plugin-root
-# scripts/backends/_replicate.py — same module, new location as part of
+# scripts/backends/_replicate.py - same module, new location as part of
 # the provider-agnostic architecture. The module still exposes all legacy
 # helpers (validate_kling_params, build_kling_request_body, etc.) so this
 # call site continues to work unchanged; it also exposes the new
@@ -36,7 +36,7 @@ from pathlib import Path
 # Replicate using `google/veo-3.1-*` slugs (see Task 6 registry entries).
 # The --backend vertex-ai flag is still accepted for one release but emits
 # a DeprecationWarning and auto-routes to Replicate.
-import subprocess  # noqa: E402 — used by cost-log shell-out
+import subprocess  # noqa: E402 - used by cost-log shell-out
 _plugin_root = str(Path(__file__).resolve().parent.parent.parent.parent)
 if _plugin_root not in sys.path:
     sys.path.insert(0, _plugin_root)
@@ -73,10 +73,10 @@ VALID_MODELS = {
     "google/veo-3.1-fast",            # VEO 3.1 Fast (Replicate)
     "google/veo-3.1-lite",            # VEO 3.1 Lite (Replicate)
     "pixverse/pixverse-v6",           # PixVerse V6 (multi-shot toggle, native text-in-video, 4-tier res)
-    # Legacy Gemini-API preview IDs — still callable on the direct Gemini API.
+    # Legacy Gemini-API preview IDs - still callable on the direct Gemini API.
     "veo-3.1-generate-preview",       # Standard (preview API)
     "veo-3.1-fast-generate-preview",  # Fast (preview API)
-    # Legacy Vertex GA IDs — auto-translated to Replicate slugs on entry.
+    # Legacy Vertex GA IDs - auto-translated to Replicate slugs on entry.
     # Retained here so `--model veo-3.1-fast-generate-001` passes the
     # VALID_MODELS gate during the deprecation window.
     "veo-3.1-generate-001",           # Auto-translated → google/veo-3.1
@@ -142,7 +142,7 @@ DOWNLOAD_RETENTION_HOURS = 48
 # Model-aware parameter constraints. All VEO 3.1 tiers share the same
 # {4, 6, 8} duration set. v3.5.0 documented a 5-60 second range for Lite
 # based on unverified docs; real-API testing during v3.6.0 proved this
-# wrong — the API explicitly rejects 5-second Lite requests with
+# wrong - the API explicitly rejects 5-second Lite requests with
 # "Unsupported output video duration 5 seconds, supported durations are
 # [8,4,6] for feature text_to_video".
 STANDARD_DURATIONS = {4, 6, 8}
@@ -161,13 +161,13 @@ VALID_DURATIONS_BY_MODEL = {
 STANDARD_RATIOS = {"16:9", "9:16"}
 VALID_RATIOS_BY_MODEL = {
     # VEO 3.1 tiers all use STANDARD_RATIOS (the empty-dict default).
-    # Kling v3 Std supports 1:1 per the Kling model card — the only
+    # Kling v3 Std supports 1:1 per the Kling model card - the only
     # plugin-registered model that does. v3.5.0 documented 1:1 for VEO
     # Lite but that claim was wrong; Vertex AI explicitly rejects it.
     "kwaivgi/kling-v3-video": {"16:9", "9:16", "1:1"},
     # PixVerse V6 supports 16:9 and 9:16. The model-card examples never
     # show 1:1 or 4:3, so we don't claim them. (Pixverse silently ignores
-    # aspect_ratio when image is provided — handled by validator.)
+    # aspect_ratio when image is provided - handled by validator.)
     "pixverse/pixverse-v6": {"16:9", "9:16"},
 }
 
@@ -382,7 +382,7 @@ def _submit_gemini_api(prompt, model, duration, ratio, resolution, api_key,
     `bytesBase64Encoded` (Vertex convention). This is the v3.4.x-compatible
     code path that preserves working text-to-video on Standard/Fast preview
     IDs. As of 2026-04-10 this path does NOT serve image-to-video, Lite, or
-    GA -001 IDs — callers should route those through Vertex via _select_backend().
+    GA -001 IDs - callers should route those through Vertex via _select_backend().
     """
     url = f"{API_BASE}/{model}:predictLongRunning?key={api_key}"
 
@@ -481,7 +481,7 @@ def _submit_replicate(prompt, model, duration, ratio, resolution,
             seed=seed, video_input=video_input,
         )
 
-    # Kling path (preserved from v3.8.0) — uses the legacy Kling-specific
+    # Kling path (preserved from v3.8.0) - uses the legacy Kling-specific
     # helpers (validate_kling_params / build_kling_request_body).
     if ref_images:
         _error_exit(
@@ -577,7 +577,7 @@ def _submit_replicate(prompt, model, duration, ratio, resolution,
         "backend": BACKEND_REPLICATE,
         "prediction_id": prediction_id,
     })
-    # Return the poll URL — _poll_replicate needs the full URL, not just
+    # Return the poll URL - _poll_replicate needs the full URL, not just
     # the prediction ID.
     return poll_url
 
@@ -736,7 +736,7 @@ def _poll_replicate(poll_url, replicate_creds, interval, max_wait):
     (extracted from the submit response's urls.get field).
 
     Returns a tuple (status, payload):
-      ("done", output_url_string)  — caller should download from the URL
+      ("done", output_url_string) - caller should download from the URL
 
     Raises via _error_exit() for failed / canceled / aborted / timeout.
     The Replicate Prediction.status enum has 6 values; parse_replicate_poll_
@@ -798,7 +798,7 @@ def _poll_operation(*, backend, operation_name, api_key, replicate_creds,
         - For Replicate: a tuple ("done", output_url_string)
 
     For Replicate, operation_name is actually the poll URL (full HTTPS URL)
-    returned by _submit_replicate — not a prediction ID.
+    returned by _submit_replicate - not a prediction ID.
     """
     if backend == BACKEND_REPLICATE:
         return _poll_replicate(operation_name, replicate_creds, interval, max_wait)
@@ -943,7 +943,7 @@ def _normalize_provider(provider, model_slug):
         )
         # If user passed --provider veo without --model, default to Fast tier
         # (mid-tier balance per spike 5 findings). If they passed the Kling
-        # default, override it — the intent of --provider veo is clearly VEO.
+        # default, override it - the intent of --provider veo is clearly VEO.
         if not model_slug or model_slug == "kwaivgi/kling-v3-video":
             model_slug = "google/veo-3.1-fast"
         return "replicate", model_slug
@@ -989,7 +989,7 @@ def main():
     parser.add_argument("--tier", default=None,
                         choices=["lite", "fast", "standard"],
                         help="VEO tier (used with --provider veo). 'lite' is cheapest "
-                             "and recommended per spike 5 — Fast and Standard tier "
+                             "and recommended per spike 5 - Fast and Standard tier "
                              "premiums were imperceptible at 1fps sampling. "
                              "(default: lite when --provider veo)")
     parser.add_argument("--first-frame", default=None, help="Path to first frame image")
@@ -1026,11 +1026,11 @@ def main():
     # crash on unrecognized-argument; they're unused and emit a deprecation
     # warning when the user provides them.
     parser.add_argument("--vertex-api-key", default=None,
-                        help="DEPRECATED in v4.2.1 — Vertex AI retired. Flag is ignored.")
+                        help="DEPRECATED in v4.2.1 - Vertex AI retired. Flag is ignored.")
     parser.add_argument("--vertex-project", default=None,
-                        help="DEPRECATED in v4.2.1 — Vertex AI retired. Flag is ignored.")
+                        help="DEPRECATED in v4.2.1 - Vertex AI retired. Flag is ignored.")
     parser.add_argument("--vertex-location", default=None,
-                        help="DEPRECATED in v4.2.1 — Vertex AI retired. Flag is ignored.")
+                        help="DEPRECATED in v4.2.1 - Vertex AI retired. Flag is ignored.")
     parser.add_argument("--replicate-key", default=None,
                         help="Replicate API token (for Kling v3 Std + VEO 3.1 family). "
                              "Loads from REPLICATE_API_TOKEN env or ~/.banana/config.json "
@@ -1054,7 +1054,7 @@ def main():
     args.provider, args.model = _normalize_provider(args.provider, args.model)
 
     # v3.8.0: Resolve --provider to a concrete --model if --model wasn't
-    # explicitly set. Explicit --model always wins — this lets power users
+    # explicitly set. Explicit --model always wins - this lets power users
     # override the provider mapping without fighting argparse defaults.
     if args.model is None:
         if args.provider in ("auto", "kling"):
@@ -1241,7 +1241,7 @@ def main():
     # which returns a URI the plugin downloads (we already have the bytes
     # locally after _save_video, but users who keep manifests around might
     # try to re-fetch the URI later). Vertex returns video bytes inline
-    # in the poll response — no URI, no expiry.
+    # in the poll response - no URI, no expiry.
     if backend == BACKEND_GEMINI_API:
         result["download_expires_at"] = (
             datetime.now(timezone.utc) + timedelta(hours=DOWNLOAD_RETENTION_HOURS)
@@ -1262,7 +1262,7 @@ def main():
     # dispatches on which fields the model's pricing mode needs; unused fields
     # are silently ignored. This removes the old Kling-vs-legacy branch split
     # that was fragile (would miss a future non-Kling 2D-audio model) AND that
-    # previously had a NameError bug — `model` without `args.` prefix — which
+    # previously had a NameError bug - `model` without `args.` prefix - which
     # the outer try/except swallowed so every Kling cost log silently failed.
     # TODO(v4.2.x): thread a --no-audio CLI flag through to generate_audio=False.
     # Currently Kling always uses generate_audio=True (see build_kling_request_body

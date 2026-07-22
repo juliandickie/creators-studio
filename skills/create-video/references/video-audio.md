@@ -5,7 +5,7 @@
 
 ## Overview
 
-VEO 3.1 generates synchronized audio natively. Every video prompt should include at least one audio element. Audio is generated alongside the video — no separate audio synthesis step needed.
+VEO 3.1 generates synchronized audio natively. Every video prompt should include at least one audio element. Audio is generated alongside the video - no separate audio synthesis step needed.
 
 ## Audio Types
 
@@ -51,12 +51,12 @@ Describe the background soundscape naturally in the setting.
 ```
 Quiet hum of the oven, distant birdsong through an open window
 City traffic below, muffled through double-pane glass
-Forest at dawn — crickets fading, first birds calling
+Forest at dawn - crickets fading, first birds calling
 Busy restaurant murmur, clinking glasses, jazz piano in the background
 ```
 
 **Tips:**
-- Ambient sets emotional tone — match to visual mood
+- Ambient sets emotional tone - match to visual mood
 - Layer: near sounds + distant sounds for depth
 - Silence is valid: "Near-silence, only the faint hum of fluorescent lights"
 
@@ -94,20 +94,20 @@ Minimal ambient synth pads, ethereal and spacious
 For multi-shot sequences, maintain audio consistency:
 - **Same ambient base** across shots in the same location
 - **Music bed** described identically in each shot (or omitted and added in post)
-- **Dialogue** limited to the specific shot — don't carry conversations across cuts
+- **Dialogue** limited to the specific shot - don't carry conversations across cuts
 - **Transition SFX** (whoosh, impact) only in transition shots
 
 ## Limitations
 
 - English dialogue only for reliable quality
 - Long dialogue (10+ words) may be truncated or garbled
-- Music quality varies — for important pieces, replace the audio with the v3.7.1 ElevenLabs pipeline (see below)
-- Audio cannot be independently controlled after generation (it's baked into the MP4) — but it CAN be replaced wholesale via the v3.7.1 audio swap workflow
+- Music quality varies - for important pieces, replace the audio with the v3.7.1 ElevenLabs pipeline (see below)
+- Audio cannot be independently controlled after generation (it's baked into the MP4) - but it CAN be replaced wholesale via the v3.7.1 audio swap workflow
 - If audio quality is critical, use the v3.7.1 audio replacement pipeline (`scripts/elevenlabs_audio.py pipeline`) which strips VEO's baked audio and substitutes a continuous TTS + Eleven Music + ducked mix track
 
 ---
 
-## Discoveries from real production (v3.7.1+ — strategic reset session)
+## Discoveries from real production (v3.7.1+ - strategic reset session)
 
 The following findings came from spikes 1-3 of the strategic reset session
 (2026-04-14). Each is empirically verified and reproducible. The session also
@@ -148,7 +148,7 @@ Reference WPM values (see F8 for measurement context):
 Each separately-generated VEO clip produces its own music intro/outro
 envelope independently. When clips are FFmpeg-concatenated, the music has
 audible seams every clip-duration. **This is the real "multi-clip drift"
-problem** — not voice drift, but musical envelope drift across separately-
+problem** - not voice drift, but musical envelope drift across separately-
 generated clips. The v3.7.1 pipeline solves this by replacing the entire
 audio bed with continuous TTS + music + ducked mix.
 
@@ -174,7 +174,7 @@ against a whitelist. Test undocumented tags before relying on them in production
 <!-- verified: 2026-04-14 -->
 Prompts containing names like "Annie Leibovitz" or "BBC Earth" return HTTP
 400 with `bad_prompt` error code and a `prompt_suggestion` field showing a
-sanitized version. **This is music-API-specific** — image generation prompts
+sanitized version. **This is music-API-specific** - image generation prompts
 welcome creator names, music does not. **For v3.7.x music prompt-construction:
 strip named-creator references before sending. Use generic descriptors only.**
 
@@ -214,7 +214,7 @@ aloud as text. Pairs especially well with serious documentary register.
 ### F11. Selective capitalization in eleven_v3 produces audible emphasis
 <!-- verified: 2026-04-14 -->
 "COLD" in `"The river runs COLD here..."` was delivered with distinct
-emphasis vs the lowercase version. Use sparingly — 1-2 capitalized words
+emphasis vs the lowercase version. Use sparingly - 1-2 capitalized words
 per sentence at most.
 
 ### F12. Ellipses in eleven_v3 produce contemplative pauses
@@ -234,12 +234,12 @@ fastest generation (4.6s vs Lyria's 26s), competitive sample rate (44.1 kHz),
 and the cleanest diffusion architecture, but was rated *worst* by the
 listening test. Conversely, MusicGen (the 2-year-old open-source baseline)
 beat the much newer MiniMax Music 1.5 because MusicGen was trained on
-instrumental music while MiniMax was trained on songs with vocals — **domain
+instrumental music while MiniMax was trained on songs with vocals - **domain
 of training matters more than recency or spec sheets**.
 
 **Generalizable principles:**
 1. Audio gen model quality is NOT predictable from sample rate, bit rate, or
-   model architecture — only subjective listening tests are valid evaluation.
+   model architecture - only subjective listening tests are valid evaluation.
 2. Training data domain (instrumental vs vocal-song) matters more than model
    recency. A 2024 instrumental-trained model beats a 2025 song-trained model
    on instrumental tasks.

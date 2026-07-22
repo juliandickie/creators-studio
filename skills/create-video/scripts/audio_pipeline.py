@@ -4,7 +4,7 @@
 Generates continuous TTS narration (ElevenLabs) + background music (Lyria 2 default,
 ElevenLabs Music alternative), mixes them with FFmpeg side-chain ducking, and
 audio-swaps the result into a target video. This is the v3.7.1+v3.7.2 architecture
-validated empirically in spikes 3 and 4 of the strategic reset session — see
+validated empirically in spikes 3 and 4 of the strategic reset session - see
 ROADMAP.md and references/audio-pipeline.md for context.
 
 History:
@@ -12,7 +12,7 @@ History:
 - v3.7.2 (2026-04-14): renamed to audio_pipeline.py, Lyria 2 added as default music source
                        after winning the 5-way bake-off in spike 4 (Lyria > ElevenLabs >
                        MusicGen > MiniMax > Stable Audio per user listening verdict)
-- v3.7.4 (2026-04-15): audio polish bundle — real stereo mix (pan=stereo|c0=c0|c1=c0 +
+- v3.7.4 (2026-04-15): audio polish bundle - real stereo mix (pan=stereo|c0=c0|c1=c0 +
                        explicit -ac 2), pre-flight named-creator stripping shared by
                        Lyria and ElevenLabs Music, multi-call Lyria with FFmpeg acrossfade
                        for music longer than 32.768s, ElevenLabs Instant Voice Cloning
@@ -46,7 +46,7 @@ Usage:
     audio_pipeline.py voice-measure --role ROLE          (measure WPM for an existing voice)
     audio_pipeline.py voice-list
 
-The pipeline subcommand is the canonical end-to-end command — it takes a silent or
+The pipeline subcommand is the canonical end-to-end command - it takes a silent or
 audio-bearing video, a narration script, and a music prompt, then runs all five
 stages and writes a final MP4 with the new audio swapped in. The TTS and music API
 calls run in parallel (concurrent.futures.ThreadPoolExecutor) to roughly halve the
@@ -75,7 +75,7 @@ Custom voice schema (v3.7.1+):
       ...
     }
 
-Stdlib only — uses urllib.request for HTTP, concurrent.futures for parallelism,
+Stdlib only - uses urllib.request for HTTP, concurrent.futures for parallelism,
 subprocess for FFmpeg invocation. Zero pip dependencies, matching the plugin's
 existing fallback-script pattern.
 """
@@ -146,7 +146,7 @@ def detect_lyrics_intent(prompt: str) -> bool:
     Clip vs Lyria 3 Pro.
 
     Explicit 'instrumental only' / 'no vocals' / 'no lyrics' markers ALWAYS
-    return False, even in the presence of structure tags — user intent to
+    return False, even in the presence of structure tags - user intent to
     exclude vocals wins.
     """
     lower = prompt.lower()
@@ -176,14 +176,14 @@ def resolve_lyria_version(
     """Pick canonical Lyria model ID based on flags + prompt.
 
     Precedence:
-      1. explicit_version ('2', '3', '3-pro') — always wins, no gate.
-      2. has_negative_prompt — auto-route to lyria-2 (the only Lyria that
+      1. explicit_version ('2', '3', '3-pro') - always wins, no gate.
+      2. has_negative_prompt - auto-route to lyria-2 (the only Lyria that
          accepts negative_prompt).
-      3. detect_lyrics_intent(prompt) AND NOT confirm_upgrade — raise
+      3. detect_lyrics_intent(prompt) AND NOT confirm_upgrade - raise
          LyriaUpgradeGateError to prevent silent 2x cost upgrade.
-      4. detect_lyrics_intent(prompt) AND confirm_upgrade — route to
+      4. detect_lyrics_intent(prompt) AND confirm_upgrade - route to
          lyria-3-pro.
-      5. Default — route to lyria-3 (Clip, cheapest).
+      5. Default - route to lyria-3 (Clip, cheapest).
     """
     if explicit_version is not None:
         if explicit_version not in _LYRIA_VERSION_MAP:
@@ -199,7 +199,7 @@ def resolve_lyria_version(
     if detect_lyrics_intent(prompt):
         if not confirm_upgrade:
             raise LyriaUpgradeGateError(
-                "Detected song structure in prompt — full-song generation "
+                "Detected song structure in prompt - full-song generation "
                 "requires Lyria 3 Pro ($0.08/file vs Lyria 3 Clip $0.04/file).\n"
                 "  - Pass --confirm-upgrade to proceed with Lyria 3 Pro.\n"
                 "  - Pass --lyria-version 3 to force the cheaper Lyria 3 Clip.\n"
@@ -222,7 +222,7 @@ DEFAULT_OUTPUT_DIR = Path.home() / "Documents" / "creators_audio"
 
 ELEVENLABS_API = "https://api.elevenlabs.io"
 
-# TTS defaults — eleven_v3 with Natural stability mode (honors audio tags)
+# TTS defaults - eleven_v3 with Natural stability mode (honors audio tags)
 DEFAULT_TTS_MODEL = "eleven_v3"
 DEFAULT_VOICE_SETTINGS = {
     "stability": 0.5,           # Natural mode (between Creative and Robust)
@@ -236,25 +236,25 @@ DEFAULT_VOICE_SETTINGS = {
 # (Lyria > ElevenLabs > MusicGen > MiniMax > Stable Audio per user listening verdict).
 # ElevenLabs Music is retained as the alternative for users who prefer its character
 # or want subscription-billed cost (per-call pricing varies by Lyria variant).
-DEFAULT_MUSIC_SOURCE = "elevenlabs"  # "elevenlabs" | "lyria" — v3.8.3: flipped after 12-genre blind bake-off (ElevenLabs 12-0 sweep)
+DEFAULT_MUSIC_SOURCE = "elevenlabs"  # "elevenlabs" | "lyria" - v3.8.3: flipped after 12-genre blind bake-off (ElevenLabs 12-0 sweep)
 # v4.2.1: Lyria variants 2 and 3-Clip deliver ~30 s MP3 clips via Replicate;
 # Lyria 3-Pro generates up to ~180 s natively. ElevenLabs accepts 3000-300000 ms.
 DEFAULT_MUSIC_LENGTH_MS = 32000
 
-# ElevenLabs Music defaults — music_v1
+# ElevenLabs Music defaults - music_v1
 DEFAULT_ELEVEN_MUSIC_MODEL = "music_v1"
 
-# Voice Design defaults — eleven_ttv_v3 (v3-native)
+# Voice Design defaults - eleven_ttv_v3 (v3-native)
 DEFAULT_TTV_MODEL = "eleven_ttv_v3"
 DEFAULT_GUIDANCE_SCALE = 5
 
-# FFmpeg sidechain compression parameters — empirically tuned in spike 3.
+# FFmpeg sidechain compression parameters - empirically tuned in spike 3.
 #
 # v3.7.4: the narration branch now uses `pan=stereo|c0=c0|c1=c0` to explicitly
 # duplicate the mono ElevenLabs TTS source onto both left and right channels
 # BEFORE apad and sidechaincompress. v3.7.1's `aformat=channel_layouts=stereo`
 # alone declared the stream metadata as stereo but did not actually upmix the
-# signal — the result was stereo-in-container with a silent right channel,
+# signal - the result was stereo-in-container with a silent right channel,
 # audible as "speaker-left-only" narration on headphones. The pan filter is
 # the canonical ffmpeg way to force a real mono-to-stereo duplication.
 # The mix output is also explicitly encoded as 2-channel stereo (`-ac 2` in
@@ -430,7 +430,7 @@ def generate_narration(text: str, voice_id: str, api_key: str, model_id: str = D
                        voice_settings: dict | None = None, output_path: Path | None = None) -> dict:
     """Call ElevenLabs TTS for a continuous narration. Returns a result dict.
 
-    Default model is eleven_v3 with Natural stability — honors audio tags,
+    Default model is eleven_v3 with Natural stability - honors audio tags,
     selective capitalization, and ellipses for pacing control.
     """
     settings = voice_settings or DEFAULT_VOICE_SETTINGS
@@ -473,15 +473,15 @@ def generate_narration(text: str, voice_id: str, api_key: str, model_id: str = D
 #
 # v4.2.1+ supports two music provider families:
 #
-#   - Lyria via Replicate (source="lyria") — three variants auto-selected
+#   - Lyria via Replicate (source="lyria") - three variants auto-selected
 #     by resolve_lyria_version() based on prompt intent + flags:
 #       * Lyria 3 Clip (default)  $0.04/call  30 s (fixed)
-#       * Lyria 2                 $0.06/call  30 s (fixed)  — negative_prompt
-#       * Lyria 3 Pro             $0.08/call  up to 180 s  — full-song lyrics
+#       * Lyria 2                 $0.06/call  30 s (fixed) - negative_prompt
+#       * Lyria 3 Pro             $0.08/call  up to 180 s - full-song lyrics
 #     Config: providers.replicate.api_key (or REPLICATE_API_TOKEN env var).
 #     v3.8.3 retained Lyria as the NON-default after the 12-genre bake-off.
 #
-#   - ElevenLabs Music (source="elevenlabs") — DEFAULT as of v3.8.3
+#   - ElevenLabs Music (source="elevenlabs") - DEFAULT as of v3.8.3
 #       * Subscription-billed (effectively free on Creator tier within quota)
 #       * Configurable duration 3000-300000 ms
 #       * No negative prompt support
@@ -511,7 +511,7 @@ def generate_music(prompt: str, api_key: str | None = None, source: str = DEFAUL
     """Generate background music via the configured provider.
 
     Dispatches to source-specific implementations:
-      - source="lyria":      Google Lyria via Replicate (v4.2.1+ — variant
+      - source="lyria":      Google Lyria via Replicate (v4.2.1+ - variant
                              resolved by resolve_lyria_version: Lyria 2 /
                              Lyria 3 Clip / Lyria 3 Pro).
       - source="elevenlabs": ElevenLabs Music v1 (subscription-billed).
@@ -522,7 +522,7 @@ def generate_music(prompt: str, api_key: str | None = None, source: str = DEFAUL
     the 3000-300000 ms range.
 
     keep_wav and mp3_bitrate apply to Lyria only. v4.2.1: Replicate delivers
-    MP3 directly — keep_wav=True triggers a local lossy WAV transcode.
+    MP3 directly - keep_wav=True triggers a local lossy WAV transcode.
     ElevenLabs delivers MP3 directly with no lossless source available.
 
     The api_key parameter is provider-dependent: Lyria uses Replicate's API
@@ -598,17 +598,17 @@ def generate_music_lyria(prompt: str, negative_prompt: str | None = None,
       4. Default → lyria-3 (Clip).
 
     Output format: Replicate returns MP3 directly. Unlike the retired Vertex
-    path, the lossless WAV master is not exposed — keep_wav=True triggers a
+    path, the lossless WAV master is not exposed - keep_wav=True triggers a
     local WAV transcode from the downloaded MP3 (lossy source, but keeps
     downstream edit tools happy). Pass keep_wav=False to skip the extra file.
 
     **kwargs swallow legacy arguments (e.g., 'project', 'location') for
-    backward compat during the v4.2.1 transition. They are ignored —
+    backward compat during the v4.2.1 transition. They are ignored -
     Replicate doesn't need Vertex project/location.
 
     Cost: see table above; logged via cost_tracker.py on success.
 
-    Empirically validated in spike 4 of the strategic reset session — Lyria 2
+    Empirically validated in spike 4 of the strategic reset session - Lyria 2
     won the 5-way bake-off against ElevenLabs, Stable Audio 2.5, MiniMax 1.5,
     and Meta MusicGen. v3.8.3 flipped the default to ElevenLabs after a
     12-genre bake-off (ElevenLabs 12-0 sweep), but Lyria remains the choice
@@ -655,7 +655,7 @@ def generate_music_lyria(prompt: str, negative_prompt: str | None = None,
         )
     slug = model.providers["replicate"]["slug"]
 
-    # Build canonical params — the ReplicateBackend filters out ones the
+    # Build canonical params - the ReplicateBackend filters out ones the
     # specific Lyria variant doesn't support (Lyria 3 / 3 Pro drop
     # negative_prompt + seed; Lyria 2 drops reference_images).
     canonical_params: dict = {"prompt": prompt}
@@ -722,7 +722,7 @@ def generate_music_lyria(prompt: str, negative_prompt: str | None = None,
 
     # Optional WAV transcode. Replicate delivers MP3; we generate a WAV copy
     # locally for downstream tools that prefer lossless intermediates. The
-    # transcode is best-effort — if ffmpeg isn't available, we continue with
+    # transcode is best-effort - if ffmpeg isn't available, we continue with
     # MP3-only output.
     wav_path: Path | None = None
     if keep_wav and mp3_path.exists():
@@ -743,11 +743,11 @@ def generate_music_lyria(prompt: str, negative_prompt: str | None = None,
                 wav_path = None
         except SystemExit:
             # _check_ffmpeg calls _error_exit on missing ffmpeg. We catch to
-            # keep the WAV step optional — MP3 is already written.
+            # keep the WAV step optional - MP3 is already written.
             wav_path = None
 
     # Cost tracking: per_call pricing (mode registered in registry).
-    # Log cost best-effort — never block the successful generation.
+    # Log cost best-effort - never block the successful generation.
     try:
         _log_cost_replicate(model_id, mp3_path)
     except Exception:
@@ -775,7 +775,7 @@ def _log_cost_replicate(model_id: str, output_path: Path) -> None:
     """Best-effort cost-tracker logging for a successful Lyria Replicate call.
 
     Shells out to cost_tracker.py log with --resolution N/A (per_call pricing
-    mode ignores resolution). Non-fatal on any error — never block on logging.
+    mode ignores resolution). Non-fatal on any error - never block on logging.
     """
     try:
         script = Path(__file__).resolve().parent.parent.parent.parent / \
@@ -789,7 +789,7 @@ def _log_cost_replicate(model_id: str, output_path: Path) -> None:
             capture_output=True, timeout=5,
         )
     except Exception:
-        pass  # intentionally swallowed — cost logging never blocks output
+        pass  # intentionally swallowed - cost logging never blocks output
 
 
 def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
@@ -808,7 +808,7 @@ def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
       - lyria-3-pro: single Replicate call with a duration hint baked into
         the prompt. Native upper bound is ~180 s per the registry entry;
         requests beyond that are rejected. $0.08/call regardless of length
-        within that window — most cost-predictable path.
+        within that window - most cost-predictable path.
       - lyria-3 (Clip) / lyria-2: chain N=ceil((target-crossfade)/(clip_len
         -crossfade)) 30s clips with FFmpeg acrossfade=d=2:c1=tri:c2=tri,
         trim to exact target. Cost: N × per-call-price.
@@ -818,7 +818,7 @@ def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
     Note on variety: each Lyria call produces a slightly different rendering
     from the same prompt. For short extensions (N=2-3) the clips usually
     cohere musically. For longer requests (N>5) you may hear tempo or key
-    drift between segments — add more constraints to the prompt
+    drift between segments - add more constraints to the prompt
     ("constant 90 BPM, C minor") to improve continuity, or switch to
     lyria-3-pro for a single continuous generation.
 
@@ -872,7 +872,7 @@ def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
             prompt=duration_hint_prompt,
             negative_prompt=negative_prompt,
             lyria_version="3-pro",
-            confirm_upgrade=True,  # bypass gate — already resolved
+            confirm_upgrade=True,  # bypass gate - already resolved
             output_path=output_path,
             keep_wav=keep_wav,
             mp3_bitrate=mp3_bitrate,
@@ -914,7 +914,7 @@ def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
     output_path = Path(output_path)
 
     # Generate N clips to a staging directory. Replicate delivers MP3 only, so
-    # the intermediates are MP3 — FFmpeg's acrossfade handles MP3 inputs
+    # the intermediates are MP3 - FFmpeg's acrossfade handles MP3 inputs
     # transparently. The final concat is transcoded to MP3 at the caller's
     # requested bitrate.
     staging = output_path.parent / f".lyria_ext_{os.getpid()}_{int(time.time())}"
@@ -1018,7 +1018,7 @@ def generate_music_lyria_extended(prompt: str, target_duration_sec: float,
         mp3_size = output_path.stat().st_size
         wav_size = final_wav_persisted.stat().st_size if final_wav_persisted else None
 
-        # Per-call pricing from the registry — matches _log_cost_replicate.
+        # Per-call pricing from the registry - matches _log_cost_replicate.
         per_call_usd = {
             "lyria-2":     0.06,
             "lyria-3":     0.04,
@@ -1067,9 +1067,9 @@ def generate_music_elevenlabs(prompt: str, api_key: str,
     Important: prompts must NOT name copyrighted creators or brands (e.g.
     "Annie Leibovitz", "BBC Earth"). The API blocks these with HTTP 400 and
     a `prompt_suggestion` in the response. v3.7.4 strips known triggers
-    client-side before sending — pass allow_creators=True to disable the
+    client-side before sending - pass allow_creators=True to disable the
     strip if you want to test whether the upstream filter has changed for a
-    specific term. Empirical finding from spike 3 v1 —
+    specific term. Empirical finding from spike 3 v1 -
     see references/audio-pipeline.md.
 
     This is the v3.7.1 implementation. v3.7.2 retains it as the alternative
@@ -1138,14 +1138,14 @@ def _get_elevenlabs_key() -> str:
 #   - ElevenLabs returns HTTP 400 with a structured `bad_prompt` error and a
 #     `prompt_suggestion` in `detail.data.prompt_suggestion`. Actionable.
 #   - Lyria returns HTTP 400 with a generic content-policy message. Less
-#     actionable — the user has to guess which token triggered the filter.
+#     actionable - the user has to guess which token triggered the filter.
 #
 # Rather than surface the upstream error every time, v3.7.4 strips known
 # trigger terms client-side and emits a warning in the result dict. Users
 # can pass --allow-creators to bypass the strip (useful if they want to
 # test whether the upstream filter has been relaxed for a specific term).
 #
-# The list is intentionally small and maintainable — it covers the terms
+# The list is intentionally small and maintainable - it covers the terms
 # empirically known to trigger the filter from spikes 3 and 6, plus a
 # short list of high-profile additions. It's NOT an attempt at an
 # exhaustive TOS database. If a user hits an unlisted trigger they still
@@ -1216,7 +1216,7 @@ def _load_custom_triggers() -> list[str] | None:
     return None
 
 
-# Phrases that wrap creator names — when the creator is stripped, these
+# Phrases that wrap creator names - when the creator is stripped, these
 # become dangling fragments ("in the style of , warm strings"). We detect
 # and clean them after the main strip pass.
 _DANGLING_PHRASES = [
@@ -1432,7 +1432,7 @@ def pipeline(video_path: Path, narration_text: str, music_prompt: str,
     """Full v3.7.1+ audio replacement: TTS + music in parallel, mix, swap.
 
     Returns a structured result with paths and timing for each stage. The TTS
-    and music API calls run concurrently via ThreadPoolExecutor — they are
+    and music API calls run concurrently via ThreadPoolExecutor - they are
     independent so parallelization roughly halves the user-perceived latency.
 
     v3.7.2: music_source can be "lyria" or "elevenlabs" (v3.8.3 default).
@@ -1449,7 +1449,7 @@ def pipeline(video_path: Path, narration_text: str, music_prompt: str,
     # Compute target music length from video duration if not specified.
     # NOTE: Lyria 2 / Lyria 3 Clip deliver 30 s per call (chained if longer);
     # Lyria 3 Pro generates up to ~180 s natively. We still compute music
-    # length for the mix stage — it uses the actual generated music duration
+    # length for the mix stage - it uses the actual generated music duration
     # (probed from disk) as the apad target regardless of the request value.
     if music_length_ms is None:
         video_duration = _probe_duration(video_path)
@@ -1660,7 +1660,7 @@ def promote_voice(generated_voice_id: str, name: str, role: str, api_key: str,
     _atomic_write_config(config)
 
     # v3.7.4: auto-measure WPM so the line-length calibration is ready
-    # from the first real TTS call. Non-fatal if measurement fails — the
+    # from the first real TTS call. Non-fatal if measurement fails - the
     # voice is already persisted; measurement can be re-run via voice-measure.
     measured_wpm = None
     try:
@@ -1700,7 +1700,7 @@ def list_voices() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Voice Cloning (Instant Voice Cloning — IVC) — v3.7.4
+# Voice Cloning (Instant Voice Cloning - IVC) - v3.7.4
 #
 # IVC creates a custom voice from 30+ seconds of recorded audio. The user
 # uploads one or more audio files describing a target speaker; ElevenLabs
@@ -1724,7 +1724,7 @@ def list_voices() -> dict:
 # Creator+ plan, and a multi-step fine-tuning workflow. Deferred to v3.7.5+.
 #
 # CRITICAL TOS: the user must have permission to clone the target voice.
-# The plugin does not verify consent — that's the user's responsibility.
+# The plugin does not verify consent - that's the user's responsibility.
 # ---------------------------------------------------------------------------
 
 
@@ -1733,11 +1733,11 @@ def _http_post_multipart(url: str, fields: dict[str, str], files: list[tuple[str
     """POST multipart/form-data with one or more file parts. Returns parsed JSON.
 
     `fields` is a flat dict of text form fields (name → value).
-    `files` is a list of (form_field_name, filename, bytes) tuples — multiple
+    `files` is a list of (form_field_name, filename, bytes) tuples - multiple
     parts can share the same form_field_name (e.g. "files") to upload several
     audio samples in one request, which is how ElevenLabs IVC expects them.
 
-    Uses only stdlib — constructs the multipart body by hand with a random
+    Uses only stdlib - constructs the multipart body by hand with a random
     boundary. No external dependencies.
     """
     import uuid
@@ -1813,7 +1813,7 @@ def clone_voice(audio_paths: list[Path], name: str, role: str, api_key: str,
     immediately after cloning so the caller can use the voice with correct
     line-length calibration from the first real TTS call.
 
-    The response may contain requires_verification=True — if so, the user
+    The response may contain requires_verification=True - if so, the user
     must complete a voice-captcha in the ElevenLabs dashboard before the
     voice is usable. The function still persists the metadata in that case
     (so the user doesn't lose track of the voice_id) but includes a warning.
@@ -1831,7 +1831,7 @@ def clone_voice(audio_paths: list[Path], name: str, role: str, api_key: str,
         total_bytes += len(data)
 
     # Sanity-check minimum duration via ffprobe on the first file as a
-    # lightweight guard. 30 seconds is ElevenLabs's documented minimum —
+    # lightweight guard. 30 seconds is ElevenLabs's documented minimum -
     # not enforced client-side, but warn if the total looks suspicious.
     total_duration = 0.0
     for p in audio_paths:
@@ -1840,7 +1840,7 @@ def clone_voice(audio_paths: list[Path], name: str, role: str, api_key: str,
         except Exception:
             pass
     if total_duration and total_duration < 25.0:
-        # Warn-and-continue rather than block — ElevenLabs will give the
+        # Warn-and-continue rather than block - ElevenLabs will give the
         # authoritative rejection if the total is too short.
         print(json.dumps({
             "warning": "total_audio_duration_below_ivc_minimum",
@@ -1936,7 +1936,7 @@ def clone_voice(audio_paths: list[Path], name: str, role: str, api_key: str,
 
 
 # ---------------------------------------------------------------------------
-# Auto-measured per-voice WPM — v3.7.4
+# Auto-measured per-voice WPM - v3.7.4
 #
 # The line-length calibration rule (F8 in video-audio.md) needs a per-voice
 # words-per-minute figure: target_words = duration_sec × (voice_wpm / 60).
@@ -2060,7 +2060,7 @@ def status() -> dict:
 
     config = _load_config()
 
-    # Lyria via Replicate (v4.2.1+ — retired the Vertex path).
+    # Lyria via Replicate (v4.2.1+ - retired the Vertex path).
     # Uses providers.replicate.api_key in the v4.2.0 config schema, or the
     # legacy flat replicate_api_token key. Resolution delegated to
     # ReplicateBackend so this stays in sync with the actual auth path.
@@ -2083,7 +2083,7 @@ def status() -> dict:
         "note": "Lyria now uses Replicate (v4.2.1+). Vertex path retired.",
     })
 
-    # ElevenLabs — narration TTS + alternative music source
+    # ElevenLabs - narration TTS + alternative music source
     has_key = bool(config.get("elevenlabs_api_key")) or bool(os.environ.get("ELEVENLABS_API_KEY"))
     result["checks"].append({"name": "elevenlabs_api_key", "ok": has_key})
 
@@ -2152,7 +2152,7 @@ def main() -> None:
                               "Lyria via Replicate: 3 variants ($0.04-$0.08/call, 30-180 s). "
                               "ElevenLabs: subscription-billed, 3000-300000 ms, no negative_prompt.")
     p_music.add_argument("--negative-prompt", default=None,
-                         help="What to avoid (Lyria 2 only — auto-routes to Lyria 2 when set; "
+                         help="What to avoid (Lyria 2 only - auto-routes to Lyria 2 when set; "
                               "other Lyria variants + ElevenLabs ignore this)")
     p_music.add_argument("--lyria-version", choices=["2", "3", "3-pro"], default=None,
                          help="Force a specific Lyria variant: "
@@ -2171,7 +2171,7 @@ def main() -> None:
                               "180000 ms (3 Pro). Longer targets on 2/3 Clip are chained with "
                               "FFmpeg acrossfade. ElevenLabs: 3000-300000 ms in one call.")
     p_music.add_argument("--with-vocals", action="store_true",
-                         help="Allow vocals (ElevenLabs only — Lyria instrumental/vocal toggle "
+                         help="Allow vocals (ElevenLabs only - Lyria instrumental/vocal toggle "
                               "is model-variant-specific; see --lyria-version help)")
     p_music.add_argument("--no-wav", action="store_true",
                          help="(Lyria only) Skip the local WAV transcode. By default a .wav copy "
@@ -2187,7 +2187,7 @@ def main() -> None:
                          help="(v3.7.4) Bypass client-side named-creator stripping. "
                               "By default, prompts mentioning known copyrighted creators/publications "
                               "(Annie Leibovitz, Vanity Fair, BBC Earth, Hans Zimmer, etc.) are stripped "
-                              "before sending — both Lyria and Eleven Music reject them server-side. "
+                              "before sending - both Lyria and Eleven Music reject them server-side. "
                               "Pass this flag to disable the strip and test whether the upstream filter "
                               "has relaxed for a specific term.")
 
@@ -2210,11 +2210,11 @@ def main() -> None:
     p_pipe.add_argument("--video", required=True, help="Source video file (audio will be replaced)")
     p_pipe.add_argument("--text", required=True, help="Narration text (with audio tags, ellipses, CAPS as desired)")
     p_pipe.add_argument("--music-prompt", required=True,
-                        help="Music description (no named creators/brands — both Lyria and ElevenLabs reject these)")
+                        help="Music description (no named creators/brands - both Lyria and ElevenLabs reject these)")
     p_pipe.add_argument("--music-source", choices=["lyria", "elevenlabs"], default=DEFAULT_MUSIC_SOURCE,
                         help=f"Music provider (default: {DEFAULT_MUSIC_SOURCE}). See music subcommand for details.")
     p_pipe.add_argument("--music-negative-prompt", default=None,
-                        help="What to avoid in music (Lyria 2 only — auto-routes to Lyria 2 when set)")
+                        help="What to avoid in music (Lyria 2 only - auto-routes to Lyria 2 when set)")
     p_pipe.add_argument("--lyria-version", choices=["2", "3", "3-pro"], default=None,
                         help="Force a specific Lyria variant (see `music` subcommand --help for details).")
     p_pipe.add_argument("--confirm-upgrade", action="store_true", default=False,
@@ -2256,7 +2256,7 @@ def main() -> None:
     p_vp.add_argument("--notes", help="Free-form context (pacing, A/B history, etc.)")
     p_vp.add_argument("--api-key")
 
-    # voice-clone (v3.7.4 — ElevenLabs Instant Voice Cloning)
+    # voice-clone (v3.7.4 - ElevenLabs Instant Voice Cloning)
     p_vc = sub.add_parser("voice-clone",
                           help="(v3.7.4) Clone a voice from 30+ seconds of audio sample(s). "
                                "Saves to custom_voices.{role} with source_type=cloned.")
@@ -2279,7 +2279,7 @@ def main() -> None:
                       help="Skip the automatic WPM measurement after cloning")
     p_vc.add_argument("--api-key")
 
-    # voice-measure (v3.7.4 — retroactive WPM measurement)
+    # voice-measure (v3.7.4 - retroactive WPM measurement)
     p_vm = sub.add_parser("voice-measure",
                           help="(v3.7.4) Measure words-per-minute for an existing custom voice "
                                "and persist to custom_voices.{role}.wpm. Used by the line-length "

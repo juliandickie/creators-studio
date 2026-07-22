@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# scripts/dev/release-zip.sh — build a distribution zip and create a GitHub Release.
+# scripts/dev/release-zip.sh - build a distribution zip and create a GitHub Release.
 #
 # WHY THIS SCRIPT EXISTS
 # ----------------------
 # The plugin's primary install path is the native `/plugin marketplace add`
-# flow, which fetches the catalog live from GitHub — no zip needed for that
+# flow, which fetches the catalog live from GitHub - no zip needed for that
 # audience. But for users who prefer to download a pinned snapshot (offline
 # installs, corporate environments without git access, demoing a specific
 # version), the project also publishes a `.zip` artifact attached to each
@@ -32,7 +32,7 @@
 #   scripts/dev/release-zip.sh 4.2.2
 #   scripts/dev/release-zip.sh 4.2.2 "Custom release notes here"
 #
-# The version argument is BARE (no leading 'v') — the script adds it where
+# The version argument is BARE (no leading 'v') - the script adds it where
 # needed. This matches plugin.json's `"version": "4.2.2"` form.
 
 set -euo pipefail
@@ -58,7 +58,7 @@ fi
 version="$1"
 notes="${2:-See CHANGELOG.md for details}"
 
-# Validate version is a sane semver (e.g. 4.2.2 or 4.2.2.1 — no leading v)
+# Validate version is a sane semver (e.g. 4.2.2 or 4.2.2.1 - no leading v)
 if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
   echo "ERROR: version must be a bare semver like 4.2.2 (no leading 'v', no suffix)" >&2
   exit 1
@@ -138,19 +138,19 @@ echo
 # ---------- build zip ----------
 
 # Exclude list (synced with CLAUDE.md "GitHub Release + Distribution Zips"):
-#   - .git/                — repo metadata
-#   - .DS_Store, __pycache__, *.pyc — OS / Python detritus
-#   - .github/             — CI config not needed by users
-#   - screenshots/         — 11+ MB of WebP source images
-#   - PROGRESS.md          — dev-history noise
-#   - ROADMAP.md           — internal planning doc
-#   - CODEOWNERS, CODE_OF_CONDUCT.md, SECURITY.md, CITATION.cff — repo meta
-#   - .gitattributes, .gitignore — git metadata
-#   - .claude/             — local Claude Code settings
-#   - spikes/              — exploratory work, confusing for end-users
-#   - tests/               — dev-only, users don't need them
-#   - dev-docs/            — third-party reference dumps (large)
-#   - scripts/dev/         — these very release scripts; users don't need them
+#   - .git/ - repo metadata
+#   - .DS_Store, __pycache__, *.pyc - OS / Python detritus
+#   - .github/ - CI config not needed by users
+#   - screenshots/ - 11+ MB of WebP source images
+#   - PROGRESS.md - dev-history noise
+#   - ROADMAP.md - internal planning doc
+#   - CODEOWNERS, CODE_OF_CONDUCT.md, SECURITY.md, CITATION.cff - repo meta
+#   - .gitattributes, .gitignore - git metadata
+#   - .claude/ - local Claude Code settings
+#   - spikes/ - exploratory work, confusing for end-users
+#   - tests/ - dev-only, users don't need them
+#   - dev-docs/ - third-party reference dumps (large)
+#   - scripts/dev/ - these very release scripts; users don't need them
 zip_target="../${zipname}"
 if [[ -f "$zip_target" ]]; then
   echo "Removing stale ${zip_target}"

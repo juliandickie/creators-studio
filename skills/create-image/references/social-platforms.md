@@ -2,7 +2,7 @@
 
 Reference for generating platform-optimized images from a single prompt. This covers **87 image placements across 16 platforms** at SOP max-quality upload dimensions.
 
-> **Scope restored and expanded in v4.1.2.** v4.1.1 over-narrowed to 6 platforms; v4.1.2 brings back Pinterest, Threads, Snapchat, Google Ads, Spotify plus adds Telegram, Signal, WhatsApp, ManyChat, and BlueSky for broadcast + messaging coverage. Authoritative source for all specs: [`dev-docs/SOP Graphic Sizes - Social Media Image and Video Specifications Guide.md`](../../../../dev-docs/SOP%20Graphic%20Sizes%20-%20Social%20Media%20Image%20and%20Video%20Specifications%20Guide.md) (January 2026 update). BlueSky specs are best-guess since not in SOP — flagged for verification.
+> **Scope restored and expanded in v4.1.2.** v4.1.1 over-narrowed to 6 platforms; v4.1.2 brings back Pinterest, Threads, Snapchat, Google Ads, Spotify plus adds Telegram, Signal, WhatsApp, ManyChat, and BlueSky for broadcast + messaging coverage. Authoritative source for all specs: [`dev-docs/SOP Graphic Sizes - Social Media Image and Video Specifications Guide.md`](../../../../dev-docs/SOP%20Graphic%20Sizes%20-%20Social%20Media%20Image%20and%20Video%20Specifications%20Guide.md) (January 2026 update). BlueSky specs are best-guess since not in SOP - flagged for verification.
 
 > **Companion doc for video**: [`../../create-video/references/social-platforms.md`](../../create-video/references/social-platforms.md) covers video-side specs for the same 16 platforms (37 video placements with duration ranges), ready for v4.2.0's forthcoming `/create-video social` command.
 
@@ -31,7 +31,7 @@ Most social placements are finished assets that need text. Claude's prompt engin
 
 ## Generation Strategy
 
-1. **Generate at the nearest Gemini-supported aspect ratio at 4K**. The `ratio` column below — 14 ratios supported by Nano Banana 2: `1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9, 1:4, 4:1, 1:8, 8:1`.
+1. **Generate at the nearest Gemini-supported aspect ratio at 4K**. The `ratio` column below - 14 ratios supported by Nano Banana 2: `1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9, 1:4, 4:1, 1:8, 8:1`.
 2. **Inspect → resize → crop** via `resize_for_platform()`. Source dims checked, scaled to match target ratio, cropped to exact spec.
 3. **Tool fallback chain**: ImageMagick (preferred) → sips (same-ratio cases) → structured missing-tool warning.
 
@@ -103,7 +103,7 @@ Most social placements are finished assets that need text. Claude's prompt engin
 | `x-video-ad-frame` | Video Ad Still | 1920×1080 | 16:9 | Video ad thumbnail / still frame. |
 | `x-amplify-preroll` | Amplify Pre-roll Frame | 1200×1200 | 1:1 | Amplify Pre-roll video ad still. |
 
-## TikTok (2 placements — static images; TikTok is video-first)
+## TikTok (2 placements - static images; TikTok is video-first)
 
 | Key | Name | Pixels | Ratio | Notes |
 |---|---|---|---|---|
@@ -190,14 +190,14 @@ Most social placements are finished assets that need text. Claude's prompt engin
 | `wa-ctwa-square` | Click-to-WhatsApp Ad | 1080×1080 | 1:1 | Managed through Facebook Ads Manager. |
 | `wa-ctwa-story` | CTWA Story Ad | 1080×1920 | 9:16 | Vertical CTWA Story placement. |
 
-## ManyChat (2 placements — native blocks)
+## ManyChat (2 placements - native blocks)
 
 | Key | Name | Pixels | Ratio | Notes |
 |---|---|---|---|---|
 | `mc-gallery-card` | Gallery/Card Image | 909×476 | 16:9 | Messenger gallery spec. True 1.91:1; 16:9 gen + ~3% trim. Max 8MB. |
 | `mc-image-block` | Image Block | 1080×1080 | 1:1 | 1:1 appears larger in chat. |
 
-## BlueSky (4 placements) — specs unverified against official docs
+## BlueSky (4 placements) - specs unverified against official docs
 
 | Key | Name | Pixels | Ratio | Notes |
 |---|---|---|---|---|
@@ -267,12 +267,12 @@ Most social placements are finished assets that need text. Claude's prompt engin
 /create-image social "dark premium gradient background" --platforms ig-story --mode image-only
 ```
 
-Platforms sharing the same generation ratio are grouped automatically — if Instagram feed (4:5) and Facebook portrait (4:5) both need 4:5, only one Gemini API call is made and cropped to both specs.
+Platforms sharing the same generation ratio are grouped automatically - if Instagram feed (4:5) and Facebook portrait (4:5) both need 4:5, only one Gemini API call is made and cropped to both specs.
 
 ## See also
 
-- [`dev-docs/SOP Graphic Sizes...md`](../../../../dev-docs/SOP%20Graphic%20Sizes%20-%20Social%20Media%20Image%20and%20Video%20Specifications%20Guide.md) — authoritative source for specs (January 2026)
-- [`dev-docs/google-nano-banana-2-llms.md`](../../../../dev-docs/google-nano-banana-2-llms.md) — Nano Banana 2 supported aspect ratios (the 14 ratios)
-- [`../../create-video/references/social-platforms.md`](../../create-video/references/social-platforms.md) — **video** specs for the same 16 platforms (37 placements with duration ranges)
-- [`../scripts/social.py`](../scripts/social.py) — CLI runner
-- [`../scripts/social.py::resize_for_platform`](../scripts/social.py) — v4.1.0 exact-dimension enforcer
+- [`dev-docs/SOP Graphic Sizes...md`](../../../../dev-docs/SOP%20Graphic%20Sizes%20-%20Social%20Media%20Image%20and%20Video%20Specifications%20Guide.md) - authoritative source for specs (January 2026)
+- [`dev-docs/google-nano-banana-2-llms.md`](../../../../dev-docs/google-nano-banana-2-llms.md) - Nano Banana 2 supported aspect ratios (the 14 ratios)
+- [`../../create-video/references/social-platforms.md`](../../create-video/references/social-platforms.md) - **video** specs for the same 16 platforms (37 placements with duration ranges)
+- [`../scripts/social.py`](../scripts/social.py) - CLI runner
+- [`../scripts/social.py::resize_for_platform`](../scripts/social.py) - v4.1.0 exact-dimension enforcer

@@ -9,10 +9,10 @@
 
 Write as natural narrative prose -- NEVER as keyword lists. Each video prompt should include all 5 parts.
 
-**Target length: 100–200 words.** Shorter prompts underspecify the scene
+**Target length: 100-200 words.** Shorter prompts underspecify the scene
 and produce generic results. Longer prompts (>300 words) tend to
 contradict themselves as the model tries to satisfy conflicting details.
-**150 words is the sweet spot** — enough to cover all 5 framework parts
+**150 words is the sweet spot** - enough to cover all 5 framework parts
 without overloading. The VEO 3.1 API hard limit is 1,024 tokens (~4,096
 characters); `video_generate.py` warns at ~950 tokens and errors at
 ~1,125.
@@ -43,12 +43,12 @@ Shot type and movement. Use professional cinematography language.
 | Focal length | Effect | Use case |
 |---|---|---|
 | 16mm | Expands space, exaggerates depth | Establishing, environments, dramatic interiors |
-| 24–35mm | Natural perspective, close to human vision | Standard coverage, documentary, medium shots |
+| 24-35mm | Natural perspective, close to human vision | Standard coverage, documentary, medium shots |
 | 50mm | Slight compression, flattering proportions | Portrait, conversation, product closeups |
 | 85mm | Heavy background compression, creamy bokeh | Portrait beauty, isolating subject from environment |
 | 100mm+ macro | Extreme close-up with very shallow DOF | Product details, textures, pour shots |
 
-Lenses control depth perception, not distance — specify them
+Lenses control depth perception, not distance - specify them
 explicitly, e.g. `"85mm f/1.4, shallow depth of field"`.
 
 ### Part 2 -- SUBJECT
@@ -91,9 +91,9 @@ Film style, lighting, color grade, AND audio elements. Audio is unique to video.
 
 **Dialogue timing (one breath per clip):**
 
-- **4 s clip:** 3–5 words max (e.g., `A woman says, "I'm ready."`)
-- **6 s clip:** 6–10 words (e.g., `He whispers, "Let's go before they see us."`)
-- **8 s clip:** 10–15 words — one full breath of natural speech
+- **4 s clip:** 3-5 words max (e.g., `A woman says, "I'm ready."`)
+- **6 s clip:** 6-10 words (e.g., `He whispers, "Let's go before they see us."`)
+- **8 s clip:** 10-15 words - one full breath of natural speech
 
 Too much dialogue causes unnaturally rapid speech; too little leaves
 VEO filling the silence with gibberish murmuring in clips that contain
@@ -104,7 +104,7 @@ a visible speaker. Never leave a visible speaker silent.
 VEO 3.1 accepts a timestamp syntax that directs a micro-sequence within
 a single 4/6/8-second generation. A 30-second sequence that would
 otherwise need 4 separate VEO calls can sometimes be packed into 2
-calls with 4 sub-shots each — a ~50% cost reduction.
+calls with 4 sub-shots each - a ~50% cost reduction.
 
 ```
 [00:00-00:02] Medium shot from behind a young explorer pushing aside a jungle vine.
@@ -115,11 +115,11 @@ calls with 4 sub-shots each — a ~50% cost reduction.
 
 **Caveats:**
 
-- Works within the 4/6/8-second hard ceiling — cannot extend clip length.
+- Works within the 4/6/8-second hard ceiling - cannot extend clip length.
 - Each sub-shot must make sense as a micro-cut (establishing → reaction → detail → wide).
 - Audio cues can be placed at specific timestamps for SFX alignment.
 - Total sub-shot duration must not exceed the clip duration.
-- 2–3 sub-shots per clip is the quality sweet spot; tight 4-sub-shot
+- 2-3 sub-shots per clip is the quality sweet spot; tight 4-sub-shot
   cuts can look rushed.
 
 ## Negative Prompts
@@ -194,7 +194,7 @@ These degrade output quality. Use prestigious context anchors instead.
 **Do not rely on VEO for readable text.** Signs, shirts, posters,
 storefronts, and UI elements render as plausible-looking gibberish.
 The existing "clean negative space for logos" rule from the image skill
-applies double for video — describe the area as "blank" or "out of
+applies double for video - describe the area as "blank" or "out of
 frame" and composite text in post-production using a video editor.
 
 ## Safety Rephrase for Video
@@ -213,9 +213,9 @@ If safety-blocked, rephrase using abstraction, artistic framing, or metaphor. Ma
 This section collects prompt engineering insights discovered while producing actual video sequences. Each tip is labeled with its evidence level so you know which to trust and which still need testing.
 
 **Evidence levels:**
-- ✅ **Demonstrated** — observed in real generation output, bug or improvement reproducible
-- 🔬 **Unverified** — reasonable guess from general knowledge or one-shot observation, not yet eval-tested
-- 📊 **Measured** — backed by a formal eval run with multiple samples
+- ✅ **Demonstrated** - observed in real generation output, bug or improvement reproducible
+- 🔬 **Unverified** - reasonable guess from general knowledge or one-shot observation, not yet eval-tested
+- 📊 **Measured** - backed by a formal eval run with multiple samples
 
 ### Scene bible anchors: lock language across prompts
 
@@ -230,7 +230,7 @@ they describe the same thing in different words.
 
 **Example from the coffee shop sequence:**
 
-Every shot that showed the finished coffee included the phrase `"cream-colored ceramic cup with thick curved handle"` — verbatim. The result was cup continuity across Shots 3 and 4 that would not have been possible with paraphrased descriptions like "ceramic mug" in one prompt and "coffee cup" in another.
+Every shot that showed the finished coffee included the phrase `"cream-colored ceramic cup with thick curved handle"` - verbatim. The result was cup continuity across Shots 3 and 4 that would not have been possible with paraphrased descriptions like "ceramic mug" in one prompt and "coffee cup" in another.
 
 **Recommended scene bible format** (copy-paste at the top of each shot prompt in a sequence):
 
@@ -247,7 +247,7 @@ Then the shot-specific prompt below uses those exact phrases.
 
 ### Off-frame composition beats forcing all elements visible
 
-✅ **Demonstrated** (coffee shop Shot 3 — three-hands bug and fix)
+✅ **Demonstrated** (coffee shop Shot 3 - three-hands bug and fix)
 
 When a shot logically involves multiple hands or characters but the framing is tight, **explicitly permit elements to be out of frame** rather than demanding everything be visible. The model will invent extra limbs or actors to satisfy impossible framings.
 
@@ -257,13 +257,13 @@ Asking for a tight macro close-up of latte art being poured produced a frame wit
 
 **The fix:**
 
-Rewrote the prompt to explicitly say: `"EXACTLY ONE VISIBLE HAND — the right hand holding the cup handle. The pitcher pouring milk is in frame but the hand holding it is off-frame above the top edge of the shot."` This gave the model permission to crop the pour hand out, and the resulting frame was anatomically correct.
+Rewrote the prompt to explicitly say: `"EXACTLY ONE VISIBLE HAND - the right hand holding the cup handle. The pitcher pouring milk is in frame but the hand holding it is off-frame above the top edge of the shot."` This gave the model permission to crop the pour hand out, and the resulting frame was anatomically correct.
 
 **General principle:** If a shot description implies more visible elements than will fit in the framing, name which ones should be off-frame. Don't leave it ambiguous.
 
 ### Explicit percentage framing for camera moves
 
-✅ **Demonstrated** (coffee shop Shot 1 — two attempts at the end frame)
+✅ **Demonstrated** (coffee shop Shot 1 - two attempts at the end frame)
 
 Models interpret spatial language very conservatively. Vague instructions like "closer" or "zoomed in" produce minimal changes from the reference. Specific percentage claims produce dramatic changes.
 
@@ -281,7 +281,7 @@ Text-only generation with the prompt `"The heavy wooden double door DOMINATES TH
 
 ✅ **Demonstrated** (coffee shop Shots 1, 3, 4)
 
-When you pass an image as a reference alongside a text prompt, the model anchors heavily on the existing geometry and makes minimal changes — excellent for continuity, bad for dramatic camera moves. Use the right mode for the right job:
+When you pass an image as a reference alongside a text prompt, the model anchors heavily on the existing geometry and makes minimal changes - excellent for continuity, bad for dramatic camera moves. Use the right mode for the right job:
 
 | Use image-reference generation when... | Use text-only generation when... |
 |---|---|
@@ -295,11 +295,11 @@ When you pass an image as a reference alongside a text prompt, the model anchors
 
 ### ALL CAPS for anatomical and count constraints
 
-🔬 **Unverified** — based on general knowledge of how LLMs interpret emphasis; not eval-tested in this plugin
+🔬 **Unverified** - based on general knowledge of how LLMs interpret emphasis; not eval-tested in this plugin
 
 When specifying constraints that must not be violated (number of hands, number of people, prohibited elements), ALL CAPS phrasing appears more likely to be respected than lowercase equivalents. Examples:
 
-- "EXACTLY ONE VISIBLE HAND — NO additional hands or arms"
+- "EXACTLY ONE VISIBLE HAND - NO additional hands or arms"
 - "ONE PERSON in the frame, no background extras"
 - "NO text visible anywhere in the image"
 
@@ -317,7 +317,7 @@ Every shot in the coffee shop sequence used `"Shot on a RED V-Raptor with a 35mm
 
 **What didn't work in earlier experiments:**
 
-Generic phrases like "cinematic" or "shallow depth of field" produced wildly varying interpretations — sometimes hyper-stylized, sometimes flat, sometimes wrong aspect ratios for the requested lens.
+Generic phrases like "cinematic" or "shallow depth of field" produced wildly varying interpretations - sometimes hyper-stylized, sometimes flat, sometimes wrong aspect ratios for the requested lens.
 
 **Recommended anchor vocabulary:**
 
@@ -334,10 +334,10 @@ Generic phrases like "cinematic" or "shallow depth of field" produced wildly var
 
 VEO 3.1 generates audio natively, but not all audio types are handled the same way. Separate these in your prompts:
 
-- **Ambient** — background atmosphere (cafe murmur, birdsong, wind). VEO handles this reliably. Put it in your prompt as plain description: `"Ambient: quiet cafe murmur, soft customer conversation in the distance."`
-- **SFX (Sound Effects)** — specific action-matched sounds (door closing, cup settling, milk pouring). VEO handles this reliably. Prefix with "SFX:" to signal the distinction: `"SFX: metallic tamping sound, firm click of portafilter locking into place."`
-- **Dialogue** — characters speaking on camera. VEO generates this with lip-sync but with strict limits: 8-second max per clip, English only for reliable results, short phrases work best (3-8 words). Put the line in quotation marks: `'A woman says, "Welcome to our cafe," as she places the latte on the counter.'`
-- **Narration/Voiceover** — **NOT** a VEO prompt element. Narration is added in post-production over the finished video. Don't include narration text in VEO prompts. Instead, decide narration strategy at the sequence level and add the audio track via FFmpeg after stitching.
+- **Ambient** - background atmosphere (cafe murmur, birdsong, wind). VEO handles this reliably. Put it in your prompt as plain description: `"Ambient: quiet cafe murmur, soft customer conversation in the distance."`
+- **SFX (Sound Effects)** - specific action-matched sounds (door closing, cup settling, milk pouring). VEO handles this reliably. Prefix with "SFX:" to signal the distinction: `"SFX: metallic tamping sound, firm click of portafilter locking into place."`
+- **Dialogue** - characters speaking on camera. VEO generates this with lip-sync but with strict limits: 8-second max per clip, English only for reliable results, short phrases work best (3-8 words). Put the line in quotation marks: `'A woman says, "Welcome to our cafe," as she places the latte on the counter.'`
+- **Narration/Voiceover** - **NOT** a VEO prompt element. Narration is added in post-production over the finished video. Don't include narration text in VEO prompts. Instead, decide narration strategy at the sequence level and add the audio track via FFmpeg after stitching.
 
 ### Architectural tip: not every shot needs an end frame
 
@@ -356,11 +356,11 @@ When a shot cuts directly to an unrelated next shot (e.g., exterior → interior
 
 | Shot type | End frame needed? |
 |---|---|
-| Establishing shot that cuts to different scene | ❌ No — let VEO interpolate |
-| Within-scene shot where next shot continues the action | ✅ Yes — anchor the cut point |
-| Product reveal that cuts to finished product on table | ❌ No — the cut already breaks continuity |
-| Close-up that cuts to wider shot of the same subject | ✅ Yes — the subject must be in the same state |
-| Cinematic transition/fade shot | ❌ No — let VEO control the ending |
+| Establishing shot that cuts to different scene | ❌ No - let VEO interpolate |
+| Within-scene shot where next shot continues the action | ✅ Yes - anchor the cut point |
+| Product reveal that cuts to finished product on table | ❌ No - the cut already breaks continuity |
+| Close-up that cuts to wider shot of the same subject | ✅ Yes - the subject must be in the same state |
+| Cinematic transition/fade shot | ❌ No - let VEO control the ending |
 
 **How to invoke:** In `video_generate.py`, pass `--first-frame PATH` without `--last-frame`. VEO interpolates its own end frame from the motion description in the prompt.
 
@@ -370,18 +370,18 @@ When a shot cuts directly to an unrelated next shot (e.g., exterior → interior
 
 Best practice for multi-shot sequence storyboards:
 
-1. **First frame of each shot** — generate with text-only prompt (full control over composition, dramatic framing)
-2. **End frame of same shot** — generate with image-reference prompt using the first frame as the reference (automatic style and geometry matching)
-3. **First frame of a shot that continues from a previous shot** — generate with image-reference prompt using the previous shot's end frame (cross-shot prop/character continuity)
+1. **First frame of each shot** - generate with text-only prompt (full control over composition, dramatic framing)
+2. **End frame of same shot** - generate with image-reference prompt using the first frame as the reference (automatic style and geometry matching)
+3. **First frame of a shot that continues from a previous shot** - generate with image-reference prompt using the previous shot's end frame (cross-shot prop/character continuity)
 
 **Example from coffee shop:**
 
 - Shot 3 start: text-only generation (full control over the cup composition, pitcher angle, hand position)
 - Shot 3 end: image-reference from Shot 3 start (same cup, same hand, rosetta now completed, pitcher off-frame)
-- Shot 4 start: image-reference from **Shot 3 end** (same cup persists across the cut — crucial handoff)
+- Shot 4 start: image-reference from **Shot 3 end** (same cup persists across the cut - crucial handoff)
 - Shot 4 end: image-reference from Shot 4 start (same cup on same table, camera pulled back)
 
-The image-reference chaining across the Shot 3 → Shot 4 cut is the critical move — it guarantees the cup looks identical on both sides of an editorial cut, which is the hardest thing to achieve with text-only prompting.
+The image-reference chaining across the Shot 3 → Shot 4 cut is the critical move - it guarantees the cup looks identical on both sides of an editorial cut, which is the hardest thing to achieve with text-only prompting.
 
 ---
 

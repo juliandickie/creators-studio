@@ -9,13 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`/create-transcript` — speech-to-text via ElevenLabs Scribe v2.** The plugin's first ingest capability. Transcribes audio or video into speaker-labelled markdown, SRT, WebVTT, YouTube chapters, and plaintext. New third top-level skill (`skills/create-transcript/`) alongside `/create-image` and `/create-video`, reusing the existing ElevenLabs API key — no new credential.
-  - **One API call per file, ever.** The raw Scribe response is cached as `<name>.json`; every human format is a pure render of that cache (`formats.py`). The `rename` subcommand and any added format regenerate offline — never re-transcribe, never re-charge.
+- **`/create-transcript` - speech-to-text via ElevenLabs Scribe v2.** The plugin's first ingest capability. Transcribes audio or video into speaker-labelled markdown, SRT, WebVTT, YouTube chapters, and plaintext. New third top-level skill (`skills/create-transcript/`) alongside `/create-image` and `/create-video`, reusing the existing ElevenLabs API key - no new credential.
+  - **One API call per file, ever.** The raw Scribe response is cached as `<name>.json`; every human format is a pure render of that cache (`formats.py`). The `rename` subcommand and any added format regenerate offline - never re-transcribe, never re-charge.
   - **Diarization + audio events.** Up to 32 speakers separated automatically; `[laughs]` / `[applause]` tagged inline. `--speakers "0=Julian,1=Dr Ahmad"` names them at run time, or `rename` names them later from cache.
   - **Keyterm prompting.** Bias transcription toward brand/product names via a three-tier merge (`--keyterms` > `transcription.keyterms` in config > shipped default). Client-side sanitisation enforces the documented Scribe rules (≤1000 terms, <50 chars, ≤5 words, no `<>{}[]\`); the +20% keyterm surcharge and the >100-keyterm 20s-minimum-billable are surfaced at run time.
   - **Audio prep.** Inputs are demuxed to mono 16 kHz MP3 before upload (~20× smaller than a video container, lossless for Scribe which resamples to 16 kHz). A file with no audio stream fails loud rather than producing an empty transcript.
   - **Batch a folder** with per-file PASS/FAIL reporting, plus `cost` (audio-minutes, no fabricated price) and `status` subcommands.
-  - Registered `scribe-v2` in the model registry (new `transcription` family, `subscription` / `rate: null` — the plugin does not hardcode an unverified per-minute price) and in `cost_tracker.py` (subscription mode logs 0.0 marginal cost).
+  - Registered `scribe-v2` in the model registry (new `transcription` family, `subscription` / `rate: null` - the plugin does not hardcode an unverified per-minute price) and in `cost_tracker.py` (subscription mode logs 0.0 marginal cost).
   - 34 new tests (210 total, all offline): pure renderers against two real captured transcripts (single-speaker + two-speaker with audio events), and the CLI with `urlopen` patched (auth order, keyterm merge/sanitise, multipart assembly, no-audio failure, render-from-cache makes no network call).
 
 ## [4.2.3] - 2026-06-02
@@ -31,16 +31,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Headline
 
-**User config directory renamed: `~/.banana/` → `~/.creators-studio/`** with **zero-data-loss auto-migration**. The directory name now matches the v4.0.0 plugin rebrand. This was queued in v4.2.1's "Deferred" list and is the final visible artifact of the old `banana-claude` fork name. The migration is COPY (not move) — the old `~/.banana/` directory is preserved indefinitely so users have a fallback and v4.2.1-or-earlier installs on the same machine continue to read it. Plus PixVerse V6 runtime backend (PR #6) is included in this release if merged before the release zip is built.
+**User config directory renamed: `~/.banana/` → `~/.creators-studio/`** with **zero-data-loss auto-migration**. The directory name now matches the v4.0.0 plugin rebrand. This was queued in v4.2.1's "Deferred" list and is the final visible artifact of the old `banana-claude` fork name. The migration is COPY (not move) - the old `~/.banana/` directory is preserved indefinitely so users have a fallback and v4.2.1-or-earlier installs on the same machine continue to read it. Plus PixVerse V6 runtime backend (PR #6) is included in this release if merged before the release zip is built.
 
 ### Added
 
-- **`scripts/paths.py`** — single source of truth for the user state directory. Exposes:
-  - `creators_studio_dir()` — returns `~/.creators-studio/`. On first call after upgrading from v4.2.1-or-earlier, copies `~/.banana/` to the new path via `shutil.copytree(old, new, symlinks=True)`. Idempotent: subsequent calls return the cached new path.
+- **`scripts/paths.py`** - single source of truth for the user state directory. Exposes:
+  - `creators_studio_dir()` - returns `~/.creators-studio/`. On first call after upgrading from v4.2.1-or-earlier, copies `~/.banana/` to the new path via `shutil.copytree(old, new, symlinks=True)`. Idempotent: subsequent calls return the cached new path.
   - 8 convenience accessors: `config_path()`, `costs_path()`, `presets_dir()`, `history_dir()`, `assets_dir()`, `ab_preferences_path()`, `ab_history_dir()`, `analytics_path()`. All trigger the migration check on first call.
-  - `migration_status()` — introspects current state; returns one of `migrated` / `new_only` / `old_only` / `none` plus a human-readable recommendation. Used by the new `--check-migration` subcommand.
-- **`tests/test_paths.py`** — 17 stdlib `unittest` tests covering all four state-graph corners (neither / old-only / new-only / both), symlink preservation through the copy, idempotency under repeated calls, convenience-accessor round-trips, and the copy-failure fallback path (mocked `PermissionError` from `shutil.copytree` → falls back to `~/.banana/` and logs the error).
-- **`validate_setup.py --check-migration`** — new subcommand that prints the current migration state plus a recommendation. Useful for users who want to verify the migration worked before deleting `~/.banana/` manually.
+  - `migration_status()` - introspects current state; returns one of `migrated` / `new_only` / `old_only` / `none` plus a human-readable recommendation. Used by the new `--check-migration` subcommand.
+- **`tests/test_paths.py`** - 17 stdlib `unittest` tests covering all four state-graph corners (neither / old-only / new-only / both), symlink preservation through the copy, idempotency under repeated calls, convenience-accessor round-trips, and the copy-failure fallback path (mocked `PermissionError` from `shutil.copytree` → falls back to `~/.banana/` and logs the error).
+- **`validate_setup.py --check-migration`** - new subcommand that prints the current migration state plus a recommendation. Useful for users who want to verify the migration worked before deleting `~/.banana/` manually.
 
 ### Changed
 
@@ -56,12 +56,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`~/.banana/` directory is NEVER auto-deleted.** The plugin only ever copies from it. Users who confirm the new path works can manually `rm -rf ~/.banana/` to clean up. The legacy directory is preserved indefinitely so:
   1. Older plugin versions on the same machine continue to read it (no behavior change for v4.2.1-or-earlier installs).
   2. Users have a manual-recovery fallback if anything in the new directory gets corrupted.
-- **`@ycse/nanobanana-mcp` package name** is unchanged — third-party upstream dependency the plugin doesn't own.
+- **`@ycse/nanobanana-mcp` package name** is unchanged - third-party upstream dependency the plugin doesn't own.
 - **The v4.2.0 config schema** (`providers.<name>.api_key` etc.) is unchanged. Only the directory NAME moved; file contents are byte-identical after migration.
 
 ### Migration safety properties
 
-- **Copy, not move.** `shutil.copytree(old, new, symlinks=True)` — symlinks are preserved.
+- **Copy, not move.** `shutil.copytree(old, new, symlinks=True)` - symlinks are preserved.
 - **Idempotent.** If `~/.creators-studio/` already exists, the migration short-circuits.
 - **Fallback on failure.** If the copy raises (permissions, disk full, etc.), the helper logs the error and returns `~/.banana/` so the user still has access to their state. They can re-run any plugin command after resolving the issue.
 - **Atomic at the file-system level.** macOS / Linux `copytree` builds the new tree completely before the function returns. A killed process mid-copy leaves a partial new directory; the next run sees `~/.banana/` still exists, retries the copy, and overwrites the partial new directory. (Future hardening could add a `.migration_in_progress` lockfile, but it's not currently necessary because the partial-tree case is benign.)
@@ -70,17 +70,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 If the migration produces an unexpected result, users can:
 1. Run `python3 skills/create-image/scripts/validate_setup.py --check-migration` to inspect the current state.
-2. Compare the two directories: `diff -r ~/.banana/ ~/.creators-studio/` — should differ only on `.DS_Store` (macOS metadata) and any new writes that happened after the migration.
-3. Reset to old: `rm -rf ~/.creators-studio/` — the next plugin command will re-trigger the migration from `~/.banana/`.
-4. Manually copy: `cp -R ~/.banana/ ~/.creators-studio/` — equivalent to what the script does.
+2. Compare the two directories: `diff -r ~/.banana/ ~/.creators-studio/` - should differ only on `.DS_Store` (macOS metadata) and any new writes that happened after the migration.
+3. Reset to old: `rm -rf ~/.creators-studio/` - the next plugin command will re-trigger the migration from `~/.banana/`.
+4. Manually copy: `cp -R ~/.banana/ ~/.creators-studio/` - equivalent to what the script does.
 5. Reach out via GitHub Issues with the output of `--check-migration` if recovery isn't obvious.
 
 ### Deferred (explicit follow-ups)
 
-- **CLI flag `--audio-enabled / --no-audio`** for `/create-video generate --model pixverse-v6` — currently audio defaults to true. (PixVerse V6 runtime PR #6 deferred this for follow-up.)
-- **CLI flag `--multi-shot`** for PixVerse multi-shot generation — defaults to false today.
+- **CLI flag `--audio-enabled / --no-audio`** for `/create-video generate --model pixverse-v6` - currently audio defaults to true. (PixVerse V6 runtime PR #6 deferred this for follow-up.)
+- **CLI flag `--multi-shot`** for PixVerse multi-shot generation - defaults to false today.
 - **Empirical bake-off** PixVerse V6 vs Kling v3 Std vs VEO 3.1 Standard.
-- **Wire PixVerse into `video_sequence.py`** as a quality-tier alternative — needs a different shape than Kling's `multi_prompt` JSON array (PixVerse uses a single structured prompt + boolean toggle).
+- **Wire PixVerse into `video_sequence.py`** as a quality-tier alternative - needs a different shape than Kling's `multi_prompt` JSON array (PixVerse uses a single structured prompt + boolean toggle).
 
 [4.3.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.3.0
 [4.2.3]: https://github.com/juliandickie/creators-studio/releases/tag/v4.2.3
@@ -90,56 +90,56 @@ If the migration produces an unexpected result, users can:
 
 ### Headline
 
-**Vertex AI retired. VEO 3.1 and Lyria now on Replicate.** Sub-project B of the multi-provider roadmap. `_vertex_backend.py` deleted (958 lines). VEO 3.1 (all three tiers) routes through `ReplicateBackend` via `google/veo-3.1-*`. Lyria upgraded from Lyria 2 (Vertex) to Lyria 3 Clip (Replicate) as within-Lyria default — cheaper, newer, image-input support. Lyria 2 kept for `negative_prompt` workflows. Lyria 3 Pro registered for full-song generation. Zero user-visible behavior change for non-Vertex flows.
+**Vertex AI retired. VEO 3.1 and Lyria now on Replicate.** Sub-project B of the multi-provider roadmap. `_vertex_backend.py` deleted (958 lines). VEO 3.1 (all three tiers) routes through `ReplicateBackend` via `google/veo-3.1-*`. Lyria upgraded from Lyria 2 (Vertex) to Lyria 3 Clip (Replicate) as within-Lyria default - cheaper, newer, image-input support. Lyria 2 kept for `negative_prompt` workflows. Lyria 3 Pro registered for full-song generation. Zero user-visible behavior change for non-Vertex flows.
 
 ### Added
 
 - **Three VEO 3.1 tiers** in the model registry: `veo-3.1-lite`, `veo-3.1-fast`, `veo-3.1`. All route through `ReplicateBackend`. Correct pricing per tier with resolution-keyed (Lite) and audio-keyed (Fast, Standard) modes.
 - **Three Lyria variants**: `lyria-2` ($0.06/clip, 30s, negative_prompt), `lyria-3` ($0.04/clip, 30s, reference_images), `lyria-3-pro` ($0.08/file, up to 3 min, structure tags + custom lyrics + timestamp control).
-- **ElevenLabs Music** registered with `(direct)` sentinel slug — honoring the multi-model principle while the ElevenLabs backend refactor is deferred to a future sub-project. `family_defaults.music = "elevenlabs-music"`.
+- **ElevenLabs Music** registered with `(direct)` sentinel slug - honoring the multi-model principle while the ElevenLabs backend refactor is deferred to a future sub-project. `family_defaults.music = "elevenlabs-music"`.
 - **Three new pricing modes** in `cost_tracker.py`: `per_second_by_resolution` (VEO Lite), `per_second_by_audio` (VEO Fast + Standard), `per_second_by_resolution_and_audio` (Kling v3 + v3 Omni). `_lookup_cost()` gains keyword-only `duration_s` + `audio_enabled` kwargs. CLI `--duration-s` + `--audio-enabled` flags on the `log` and `estimate` subcommands.
-- **Canonical schema extension** — `_canonical.py::validate_canonical_params` accepts `duration_s: {enum: [...]}` as an alternative to `{min, max, integer}`. VEO uses enum `{4, 6, 8}`; Kling / Fabric / DreamActor continue using range.
+- **Canonical schema extension** - `_canonical.py::validate_canonical_params` accepts `duration_s: {enum: [...]}` as an alternative to `{min, max, integer}`. VEO uses enum `{4, 6, 8}`; Kling / Fabric / DreamActor continue using range.
 - **`music-generation` task type** wired into `ReplicateBackend._TASK_PARAM_MAPS`. Per-model filtering via `_MODEL_PARAM_DROPS` silently drops unsupported params with WARN log (Lyria 3 drops `negative_prompt`, Lyria 2 drops `reference_images`).
 - **Lyria auto-routing helpers** in `audio_pipeline.py`: `detect_lyrics_intent()`, `resolve_lyria_version()`, `LyriaUpgradeGateError`. Pattern-match song-structure markers to route between Lyria 3 Clip and Pro. Hard-gated via `--confirm-upgrade` flag to prevent silent 2x cost surprises.
 - **New CLI flags** on `audio_pipeline.py music` and `pipeline` subcommands:
-  - `--lyria-version {2,3,3-pro}` — force a specific Lyria variant
-  - `--confirm-upgrade` — acknowledge 2x cost when auto-detection would upgrade to Pro
-- **Test suite grew from 74 to 137 tests** — stdlib `unittest`, zero new dependencies. New files: `test_lyria_migration.py`, `test_cost_tracker.py`. Extensions to `test_canonical.py`, `test_registry.py`, `test_replicate_backend.py`.
+  - `--lyria-version {2,3,3-pro}` - force a specific Lyria variant
+  - `--confirm-upgrade` - acknowledge 2x cost when auto-detection would upgrade to Pro
+- **Test suite grew from 74 to 137 tests** - stdlib `unittest`, zero new dependencies. New files: `test_lyria_migration.py`, `test_cost_tracker.py`. Extensions to `test_canonical.py`, `test_registry.py`, `test_replicate_backend.py`.
 - **Reference docs**: `veo-3.1.md` (placeholder replaced with full tier content), new `lyria-2.md`, `lyria-3.md`, `lyria-3-pro.md`, `elevenlabs-music.md`. `references/providers/replicate.md` updated with VEO + Lyria entries + 3 new pricing modes.
 
 ### Changed
 
-- **`audio_pipeline.py` Lyria paths** — `generate_music_lyria` and `generate_music_lyria_extended` rewritten to use `ReplicateBackend.submit/poll/parse_result` instead of inline Vertex URL construction. Default within-Lyria model changes from Lyria 2 (`lyria-002`) to Lyria 3 Clip.
-- **`video_generate.py` backend selector** — `_select_backend()` returns `gemini` or `replicate` only; the `vertex` branch is gone. `--backend vertex-ai` and `--provider veo` become deprecation aliases that auto-route to Replicate. Legacy Vertex model IDs (`veo-3.1-generate-001` etc.) auto-translate to Replicate slugs via `_VERTEX_TO_REPLICATE_SLUG` map.
+- **`audio_pipeline.py` Lyria paths** - `generate_music_lyria` and `generate_music_lyria_extended` rewritten to use `ReplicateBackend.submit/poll/parse_result` instead of inline Vertex URL construction. Default within-Lyria model changes from Lyria 2 (`lyria-002`) to Lyria 3 Clip.
+- **`video_generate.py` backend selector** - `_select_backend()` returns `gemini` or `replicate` only; the `vertex` branch is gone. `--backend vertex-ai` and `--provider veo` become deprecation aliases that auto-route to Replicate. Legacy Vertex model IDs (`veo-3.1-generate-001` etc.) auto-translate to Replicate slugs via `_VERTEX_TO_REPLICATE_SLUG` map.
 - **Kling v3 and v3 Omni pricing corrected** in the registry and `cost_tracker.py`. v4.2.0 shipped with `per_second: $0.02/s` from an outdated source; v4.2.1 uses `per_second_by_resolution_and_audio` with verified rates from `dev-docs/kwaivgi-kling-v3-*-llms.md`. See the Notes section below for the cost-narrative implication.
 
 ### Deprecated
 
-- **`--backend vertex-ai`** (in `video_generate.py`) — honored for one release; removed in v4.3.0.
-- **`--provider veo`** (in `video_generate.py`) — honored for one release; removed in v4.3.0. Users should pass `--provider replicate --model {veo-3.1-lite,veo-3.1-fast,veo-3.1}` explicitly.
-- **Legacy Vertex model IDs** (`veo-3.1-generate-001` etc.) — auto-translate to Replicate slugs with deprecation warning; translation removed in v4.3.0.
+- **`--backend vertex-ai`** (in `video_generate.py`) - honored for one release; removed in v4.3.0.
+- **`--provider veo`** (in `video_generate.py`) - honored for one release; removed in v4.3.0. Users should pass `--provider replicate --model {veo-3.1-lite,veo-3.1-fast,veo-3.1}` explicitly.
+- **Legacy Vertex model IDs** (`veo-3.1-generate-001` etc.) - auto-translate to Replicate slugs with deprecation warning; translation removed in v4.3.0.
 
 ### Removed
 
-- **`skills/create-video/scripts/_vertex_backend.py`** — 958 lines. Every consumer migrated to `ReplicateBackend` in prior commits. Verified no imports remain.
+- **`skills/create-video/scripts/_vertex_backend.py`** - 958 lines. Every consumer migrated to `ReplicateBackend` in prior commits. Verified no imports remain.
 - **Inline `aiplatform.googleapis.com` URL construction** in `audio_pipeline.py`.
 
 ### Fixed
 
-- **Latent `subprocess` import missing in `video_generate.py`** — the cost-log shell-out at end of `main()` referenced `subprocess` without importing it. Masked by a bare `except Exception: pass`. Fixed during the Task 20 refactor.
-- **NameError bug caught by code-quality review** — early implementation of Tasks 3-5 had `model` (bare) instead of `args.model` in three places in `video_generate.py` cost-logging. Would have silently failed every Kling cost log. Fixed in the same task's review loop. The two-stage review pattern's payoff.
+- **Latent `subprocess` import missing in `video_generate.py`** - the cost-log shell-out at end of `main()` referenced `subprocess` without importing it. Masked by a bare `except Exception: pass`. Fixed during the Task 20 refactor.
+- **NameError bug caught by code-quality review** - early implementation of Tasks 3-5 had `model` (bare) instead of `args.model` in three places in `video_generate.py` cost-logging. Would have silently failed every Kling cost log. Fixed in the same task's review loop. The two-stage review pattern's payoff.
 
 ### Preserved (deliberately)
 
-- **`~/.banana/` config directory path** — unchanged. Queued as v4.2.2 separately.
-- **ElevenLabs TTS / music / voice-design code** — untouched. ElevenLabs-as-ProviderBackend is a future sub-project.
-- **Gemini direct (`generate.py`, `edit.py`) code paths** — untouched. Gemini-as-ProviderBackend is a future sub-project.
-- **`--music-source elevenlabs` behavior** — identical output for identical input.
-- **`setup_mcp.py` migration shim** — legacy `vertex_api_key`/`vertex_project_id`/`vertex_location` keys still read into `providers.vertex.*` for graceful upgrade (harmless — nothing consumes them).
+- **`~/.banana/` config directory path** - unchanged. Queued as v4.2.2 separately.
+- **ElevenLabs TTS / music / voice-design code** - untouched. ElevenLabs-as-ProviderBackend is a future sub-project.
+- **Gemini direct (`generate.py`, `edit.py`) code paths** - untouched. Gemini-as-ProviderBackend is a future sub-project.
+- **`--music-source elevenlabs` behavior** - identical output for identical input.
+- **`setup_mcp.py` migration shim** - legacy `vertex_api_key`/`vertex_project_id`/`vertex_location` keys still read into `providers.vertex.*` for graceful upgrade (harmless - nothing consumes them).
 
 ### Notes
 
-**Kling pricing correction — cost narrative inverted.** The v3.8.0 decision to default to Kling over VEO was partly justified by a "7.5× cheaper than VEO" claim based on an outdated `$0.02/s` Kling figure. At verified v4.2.1 rates for an 8-second 1080p clip with audio:
+**Kling pricing correction - cost narrative inverted.** The v3.8.0 decision to default to Kling over VEO was partly justified by a "7.5× cheaper than VEO" claim based on an outdated `$0.02/s` Kling figure. At verified v4.2.1 rates for an 8-second 1080p clip with audio:
 
 | Model | Cost |
 |---|---|
@@ -152,12 +152,12 @@ VEO 3.1 Lite is now ~4× **cheaper** than Kling at comparable settings. Doesn't 
 
 ### Deferred (explicit follow-up releases)
 
-- **v4.2.2 — `~/.banana/` → `~/.creators-studio/` config rename** with auto-migration.
-- **v4.3.0 — Sub-project C (Kie.ai backend + Suno music)**. Unlocks the 4-way music bake-off.
-- **v4.3.x — Kling-vs-VEO default re-evaluation bake-off** (triggered by v4.2.1 pricing correction).
-- **v4.3.x — 4-way music bake-off** (ElevenLabs / Lyria 3 Clip / Lyria 3 Pro / Suno via Kie.ai).
-- **v4.3.x+ — Kling 3.0 motion-control** registration as a new canonical task (motion transfer).
-- **v4.4.0+ — Sub-project D (Hugging Face Inference Providers)**.
+- **v4.2.2 - `~/.banana/` → `~/.creators-studio/` config rename** with auto-migration.
+- **v4.3.0 - Sub-project C (Kie.ai backend + Suno music)**. Unlocks the 4-way music bake-off.
+- **v4.3.x - Kling-vs-VEO default re-evaluation bake-off** (triggered by v4.2.1 pricing correction).
+- **v4.3.x - 4-way music bake-off** (ElevenLabs / Lyria 3 Clip / Lyria 3 Pro / Suno via Kie.ai).
+- **v4.3.x+ - Kling 3.0 motion-control** registration as a new canonical task (motion transfer).
+- **v4.4.0+ - Sub-project D (Hugging Face Inference Providers)**.
 
 ### Design documents
 
@@ -172,42 +172,42 @@ VEO 3.1 Lite is now ~4× **cheaper** than Kling at comparable settings. Doesn't 
 
 ### Added
 
-- **`scripts/backends/_base.py`** — `ProviderBackend` abstract base class + canonical types (`JobRef`, `JobStatus`, `TaskResult`, `AuthStatus`, `CanonicalImage`) + exception hierarchy (`ProviderError` → Validation/HTTP/Auth). Every provider backend implements this contract. Stdlib only.
-- **`scripts/backends/_canonical.py`** — canonical image normalizer (Path/bytes/URL/data-URI → data URI with stdlib MIME sniffing across PNG/JPEG/GIF/WebP) + constraint validator (duration, aspect ratio, resolution, prompt length, source-image byte limits). Runs BEFORE any HTTP call so invalid params never burn budget.
-- **`scripts/registry/models.json`** — single-source-of-truth model registry seeded with all 6 currently-used models: `kling-v3`, `kling-v3-omni`, `fabric-1.0`, `dreamactor-m2.0`, `recraft-vectorize`, `nano-banana-2`. Adding a new model is a one-JSON-entry change; upgrading a model is a field edit.
-- **`scripts/registry/registry.py`** — typed loader + query API (`load_registry()`, `get_model()`, `models_by_family()`, `providers_for_model()`, `family_default()`, `validate()`). Structural validation runs at startup to catch malformed entries before runtime.
-- **`scripts/routing.py`** — two-stage resolution. (1) `resolve_model()`: explicit `--model` flag > config `defaults.<family>_model` > registry family default. (2) `resolve_provider()`: explicit `--provider` flag > config `defaults.<family>` > `default_provider` > first-with-configured-api-key in registry insertion order.
-- **`scripts/backends/_replicate.py`** — `ReplicateBackend` class implementing `ProviderBackend`. Delegates to the existing legacy helpers (`validate_kling_params`, `build_kling_request_body`, `replicate_post`, `replicate_get`, parse/poll helpers) so the refactor is mechanical — zero duplicated logic.
+- **`scripts/backends/_base.py`** - `ProviderBackend` abstract base class + canonical types (`JobRef`, `JobStatus`, `TaskResult`, `AuthStatus`, `CanonicalImage`) + exception hierarchy (`ProviderError` → Validation/HTTP/Auth). Every provider backend implements this contract. Stdlib only.
+- **`scripts/backends/_canonical.py`** - canonical image normalizer (Path/bytes/URL/data-URI → data URI with stdlib MIME sniffing across PNG/JPEG/GIF/WebP) + constraint validator (duration, aspect ratio, resolution, prompt length, source-image byte limits). Runs BEFORE any HTTP call so invalid params never burn budget.
+- **`scripts/registry/models.json`** - single-source-of-truth model registry seeded with all 6 currently-used models: `kling-v3`, `kling-v3-omni`, `fabric-1.0`, `dreamactor-m2.0`, `recraft-vectorize`, `nano-banana-2`. Adding a new model is a one-JSON-entry change; upgrading a model is a field edit.
+- **`scripts/registry/registry.py`** - typed loader + query API (`load_registry()`, `get_model()`, `models_by_family()`, `providers_for_model()`, `family_default()`, `validate()`). Structural validation runs at startup to catch malformed entries before runtime.
+- **`scripts/routing.py`** - two-stage resolution. (1) `resolve_model()`: explicit `--model` flag > config `defaults.<family>_model` > registry family default. (2) `resolve_provider()`: explicit `--provider` flag > config `defaults.<family>` > `default_provider` > first-with-configured-api-key in registry insertion order.
+- **`scripts/backends/_replicate.py`** - `ReplicateBackend` class implementing `ProviderBackend`. Delegates to the existing legacy helpers (`validate_kling_params`, `build_kling_request_body`, `replicate_post`, `replicate_get`, parse/poll helpers) so the refactor is mechanical - zero duplicated logic.
 - **Config migration shim** in `setup_mcp.py`: `migrate_config_to_v4_2_0()` rewrites old flat keys (`replicate_api_token`, `google_api_key`, `elevenlabs_api_key`, `vertex_*`, `kie_api_key`) into the new `providers.<name>.{api_key,project_id,location}` schema. Runs automatically on every `load_banana_config()` call. When both old and new forms are present, new wins.
-- **`references/providers/`** — new reference catalog: `replicate.md` (auth, polling, Cloudflare User-Agent rule, 6-value status enum, pricing modes, known quirks, diagnose command) + `gemini-direct.md` (backend refactor deferred; documentation-only placeholder).
-- **`references/models/`** — new per-model reference catalog: `kling-v3.md`, `kling-v3-omni.md`, `nano-banana-2.md`, `fabric-1.0.md`, `dreamactor-m2.0.md`, `recraft-vectorize.md`, `veo-3.1.md` (placeholder). Each entry documents capabilities, canonical constraints matching the registry, pricing, authoritative source under `dev-docs/`.
-- **Test suite at `tests/`** — 74 tests using stdlib `unittest`. Zero new pip dependencies. HTTP calls mocked via `urllib.request.urlopen` patches — no network required. Run from plugin root: `python3 -m unittest discover tests`. Files: `test_base.py`, `test_canonical.py`, `test_registry.py`, `test_routing.py`, `test_replicate_backend.py`, `test_setup_mcp_migration.py` + fixtures at `tests/fixtures/*.json`.
+- **`references/providers/`** - new reference catalog: `replicate.md` (auth, polling, Cloudflare User-Agent rule, 6-value status enum, pricing modes, known quirks, diagnose command) + `gemini-direct.md` (backend refactor deferred; documentation-only placeholder).
+- **`references/models/`** - new per-model reference catalog: `kling-v3.md`, `kling-v3-omni.md`, `nano-banana-2.md`, `fabric-1.0.md`, `dreamactor-m2.0.md`, `recraft-vectorize.md`, `veo-3.1.md` (placeholder). Each entry documents capabilities, canonical constraints matching the registry, pricing, authoritative source under `dev-docs/`.
+- **Test suite at `tests/`** - 74 tests using stdlib `unittest`. Zero new pip dependencies. HTTP calls mocked via `urllib.request.urlopen` patches - no network required. Run from plugin root: `python3 -m unittest discover tests`. Files: `test_base.py`, `test_canonical.py`, `test_registry.py`, `test_routing.py`, `test_replicate_backend.py`, `test_setup_mcp_migration.py` + fixtures at `tests/fixtures/*.json`.
 
 ### Changed
 
 - **`skills/create-video/scripts/_replicate_backend.py` → `scripts/backends/_replicate.py`** (file moved to plugin root + refactored to implement the new `ProviderBackend` interface). All legacy module-level helpers preserved so the diagnose CLI and pre-v4.2.0 call paths keep working.
 - **Call-site migration**: `video_generate.py`, `video_lipsync.py`, `video_sequence.py`, and `vectorize.py` now import from `scripts.backends._replicate` via a plugin-root sys.path shim. The public alias (`import ... as replicate`) is preserved, so the rest of each file is unchanged.
-- **Shared abstraction code now lives at plugin-root `scripts/`** — not per-skill. Supersedes the v4.1.0 cross-skill import pattern (which routed through `skills/create-video/scripts/`). Skills reach in via a sys.path shim. This unblocks future shared infrastructure beyond the provider abstraction.
+- **Shared abstraction code now lives at plugin-root `scripts/`** - not per-skill. Supersedes the v4.1.0 cross-skill import pattern (which routed through `skills/create-video/scripts/`). Skills reach in via a sys.path shim. This unblocks future shared infrastructure beyond the provider abstraction.
 - **`.gitignore` cleanup**: removed the stale `/scripts/` root-level exclusion from the pre-v4.0.0 nano-banana era. The plugin-root `scripts/` directory is now intentional shared infrastructure.
 
 ### Breaking changes
 
-- **Python floor lifted from 3.6+ to 3.12+.** Inherited 3.6+ constraint dates to the 2023-era `banana-claude` fork and is retired. All new code uses PEP 604 union syntax (`X | None`), built-in generics (`list[int]`, `dict[str, Any]`), `dataclass(slots=True)`, `match`/`case` pattern matching, and PEP 695 `type` aliases. Existing per-skill scripts keep their current Python idiom — they modernize lazily when edited for other reasons. Users on Python 3.11 or older will need to upgrade; Claude Code ships modern Python by default and this affects almost no one in practice.
+- **Python floor lifted from 3.6+ to 3.12+.** Inherited 3.6+ constraint dates to the 2023-era `banana-claude` fork and is retired. All new code uses PEP 604 union syntax (`X | None`), built-in generics (`list[int]`, `dict[str, Any]`), `dataclass(slots=True)`, `match`/`case` pattern matching, and PEP 695 `type` aliases. Existing per-skill scripts keep their current Python idiom - they modernize lazily when edited for other reasons. Users on Python 3.11 or older will need to upgrade; Claude Code ships modern Python by default and this affects almost no one in practice.
 
 ### Preserved (deliberately)
 
 - **`~/.banana/` config directory path.** The v4.0.0 rule ("product branding can rename freely, user state paths touch carefully") still applies. Existing API keys, custom voices, preset overrides, cost ledger, and session history keep working with zero user action required. Cosmetic rename to `~/.creators-studio/` is queued as v4.2.2 with a dedicated migration plan.
 - **Zero behavior change for end users.** All existing commands (`/create-image generate`, `/create-image social`, `/create-video generate`, `/create-video lipsync`, `/create-image vectorize`, etc.) produce identical output from identical inputs. The new `--provider` flag is optional; no other user-visible changes.
 - **Fallback chain**: MCP (primary) → Direct Gemini API → Replicate. Ordering survives this refactor.
-- **`@ycse/nanobanana-mcp` MCP package name** is NOT renamed — it's a third-party upstream dependency the plugin doesn't own.
-- **Gemini direct (`generate.py`, `edit.py`) and ElevenLabs (`audio_pipeline.py`)** are NOT yet refactored into `ProviderBackend` implementations. They continue to work via their current direct-call code paths. The refactors are queued as follow-ups — non-blocking and unrelated to the provider abstraction's correctness.
+- **`@ycse/nanobanana-mcp` MCP package name** is NOT renamed - it's a third-party upstream dependency the plugin doesn't own.
+- **Gemini direct (`generate.py`, `edit.py`) and ElevenLabs (`audio_pipeline.py`)** are NOT yet refactored into `ProviderBackend` implementations. They continue to work via their current direct-call code paths. The refactors are queued as follow-ups - non-blocking and unrelated to the provider abstraction's correctness.
 
 ### Deferred (explicit follow-up releases)
 
-- **v4.2.1 — Sub-project B: Vertex retirement.** Route VEO 3.1 (all tiers) + Lyria 3 through `scripts/backends/_replicate.py` using `google/veo-3.1-*` and `google/lyria-3` slugs. Delete `_vertex_backend.py`. Retire `vertex_*` setup flow (migration shim continues to read legacy keys).
-- **v4.2.2 — Config directory rename.** Centralize path constants into a shared `scripts/config.py`, auto-migrate `~/.banana/` → `~/.creators-studio/` on first run, leave `.banana.bak` as a rollback safety net.
-- **v4.3.0 — Sub-project C: Kie.ai backend.** New `scripts/backends/_kie.py`. Unlocks Suno music (Kie-exclusive). Users with existing Kie.ai billing can run `--provider kie` for shared models.
-- **v4.4.0+ — Sub-project D: Hugging Face Inference Providers backend.** One `scripts/backends/_hf.py` unlocks ~17 underlying providers for image + video tasks. Gated on confirming HF supports image-to-video specifically.
+- **v4.2.1 - Sub-project B: Vertex retirement.** Route VEO 3.1 (all tiers) + Lyria 3 through `scripts/backends/_replicate.py` using `google/veo-3.1-*` and `google/lyria-3` slugs. Delete `_vertex_backend.py`. Retire `vertex_*` setup flow (migration shim continues to read legacy keys).
+- **v4.2.2 - Config directory rename.** Centralize path constants into a shared `scripts/config.py`, auto-migrate `~/.banana/` → `~/.creators-studio/` on first run, leave `.banana.bak` as a rollback safety net.
+- **v4.3.0 - Sub-project C: Kie.ai backend.** New `scripts/backends/_kie.py`. Unlocks Suno music (Kie-exclusive). Users with existing Kie.ai billing can run `--provider kie` for shared models.
+- **v4.4.0+ - Sub-project D: Hugging Face Inference Providers backend.** One `scripts/backends/_hf.py` unlocks ~17 underlying providers for image + video tasks. Gated on confirming HF supports image-to-video specifically.
 
 ### Design documents
 
@@ -218,24 +218,24 @@ VEO 3.1 Lite is now ~4× **cheaper** than Kling at comparable settings. Doesn't 
 
 ### Fixed
 
-- **Windows: `os.rename` → `os.replace` for atomic config writes** ([PR #1](https://github.com/juliandickie/creators-studio/pull/1) by @creators-idd). `_atomic_write_config` in `skills/create-video/scripts/audio_pipeline.py` used `os.rename` to promote a tempfile to `~/.banana/config.json`. On Windows, `os.rename` raises `FileExistsError [WinError 183]` when the target already exists, so every config-mutating subcommand (`voice-clone`, `voice-promote`, `voice-measure`, `voice-design`) crashed on the save step after the first write — the ElevenLabs API call succeeded but the local config save always failed, leaving a stray `~/.banana/.config.*.tmp` file that required manual cleanup. Same swap applied to the webp → png fallback in `skills/create-image/scripts/multiformat.py` for consistency. `os.replace` has atomic-overwrite semantics on both POSIX and Windows (see [Python docs](https://docs.python.org/3/library/os.html#os.replace)); no behavior change on macOS or Linux where both functions resolve to the same `rename(2)` syscall. Brings all three atomic-promote sites (`audio_pipeline.py:186`, `multiformat.py:129`, and the pre-existing `history.py:57`) onto the same `os.replace` idiom. No dependency, CLI, or config-schema changes.
+- **Windows: `os.rename` → `os.replace` for atomic config writes** ([PR #1](https://github.com/juliandickie/creators-studio/pull/1) by @creators-idd). `_atomic_write_config` in `skills/create-video/scripts/audio_pipeline.py` used `os.rename` to promote a tempfile to `~/.banana/config.json`. On Windows, `os.rename` raises `FileExistsError [WinError 183]` when the target already exists, so every config-mutating subcommand (`voice-clone`, `voice-promote`, `voice-measure`, `voice-design`) crashed on the save step after the first write - the ElevenLabs API call succeeded but the local config save always failed, leaving a stray `~/.banana/.config.*.tmp` file that required manual cleanup. Same swap applied to the webp → png fallback in `skills/create-image/scripts/multiformat.py` for consistency. `os.replace` has atomic-overwrite semantics on both POSIX and Windows (see [Python docs](https://docs.python.org/3/library/os.html#os.replace)); no behavior change on macOS or Linux where both functions resolve to the same `rename(2)` syscall. Brings all three atomic-promote sites (`audio_pipeline.py:186`, `multiformat.py:129`, and the pre-existing `history.py:57`) onto the same `os.replace` idiom. No dependency, CLI, or config-schema changes.
 
 ## [4.1.2] - 2026-04-17
 
 ### Headline
 
-**Full social platform coverage — 87 image placements across 16 platforms — plus plugin-wide text-by-default.** v4.1.1 over-narrowed to 6 platforms; v4.1.2 corrects course by restoring Pinterest, Threads, Snapchat, Google Ads, and Spotify, then adding Telegram, Signal, WhatsApp, ManyChat, and BlueSky to cover marketer needs for messaging groups, automated response engines, and emerging platforms. Every pixel spec remains at SOP max-quality (including the v4.1.1 YouTube thumbnail 4K upgrade). Default `--mode` on `/create-image social` flips from `image-only` to `complete` — social posts typically need text, and the `image-only` flag now additionally appends an explicit text-suppression clause to the prompt so it actually does what its name implies. Video specs for the same 16 platforms (37 placements across 14 — Signal and ManyChat have no native video) are captured as reference data in a new `skills/create-video/references/social-platforms.md` ready for v4.2.0's forthcoming `/create-video social` command.
+**Full social platform coverage - 87 image placements across 16 platforms - plus plugin-wide text-by-default.** v4.1.1 over-narrowed to 6 platforms; v4.1.2 corrects course by restoring Pinterest, Threads, Snapchat, Google Ads, and Spotify, then adding Telegram, Signal, WhatsApp, ManyChat, and BlueSky to cover marketer needs for messaging groups, automated response engines, and emerging platforms. Every pixel spec remains at SOP max-quality (including the v4.1.1 YouTube thumbnail 4K upgrade). Default `--mode` on `/create-image social` flips from `image-only` to `complete` - social posts typically need text, and the `image-only` flag now additionally appends an explicit text-suppression clause to the prompt so it actually does what its name implies. Video specs for the same 16 platforms (37 placements across 14 - Signal and ManyChat have no native video) are captured as reference data in a new `skills/create-video/references/social-platforms.md` ready for v4.2.0's forthcoming `/create-video social` command.
 
 ### Changed (non-breaking)
 
-- **`PLATFORMS` dict in `social.py` restored + expanded** from v4.1.1's 38 placements to **87 across 16 platforms**. Restored: Pinterest (3), Threads (4), Snapchat (6), Google Ads (10), Spotify (4). Added: Telegram (4), Signal (1), WhatsApp (6), ManyChat (2), BlueSky (4). Expanded Instagram 8→10, Facebook 8→10, LinkedIn 9→10, Twitter/X 6→7, TikTok 3→2 (dropped `tt-feed` + `tt-ad` — those are video-only and moved to the video spec doc; `tt-hashtag-banner` and `tt-profile` retained as the two TikTok image placements).
+- **`PLATFORMS` dict in `social.py` restored + expanded** from v4.1.1's 38 placements to **87 across 16 platforms**. Restored: Pinterest (3), Threads (4), Snapchat (6), Google Ads (10), Spotify (4). Added: Telegram (4), Signal (1), WhatsApp (6), ManyChat (2), BlueSky (4). Expanded Instagram 8→10, Facebook 8→10, LinkedIn 9→10, Twitter/X 6→7, TikTok 3→2 (dropped `tt-feed` + `tt-ad` - those are video-only and moved to the video spec doc; `tt-hashtag-banner` and `tt-profile` retained as the two TikTok image placements).
 - **`GROUPS` dict expanded** with per-platform groups for all 16 platforms plus new cross-platform family groups: `all-feeds` (expanded to 6 platforms), `all-squares` (6 platforms), `all-stories`, `all-ads`, `all-profiles` (12 variants), `all-banners`, and **`all-messaging`** (Telegram + Signal + WhatsApp + ManyChat for marketer messaging-channel packs).
 - **Default `--mode` on `/create-image social` flipped from `image-only` to `complete`**. Rationale: finished social content typically has text (CTAs, ads, headline overlays); the `image-only` default was backwards. Opt-in to text-free via `--mode image-only`.
 - **`--mode image-only` behavior fixed**: previously only set `responseModalities` to `["IMAGE"]` (which controls whether the model returns a text description alongside the image, NOT whether text appears in the image). v4.1.2 additionally appends an explicit `"IMPORTANT: produce a clean image with NO text, NO logos, NO typography, NO labels, NO captions. Pure visual content only."` clause to the prompt so the flag actually suppresses text in the output. The v4.1.1 flag was semantically misleading.
 
 ### Added
 
-- **`skills/create-video/references/social-platforms.md`** — new reference doc for **37 video placements across 14 platforms**. Each entry lists pixel dimensions, aspect ratio, `duration_min_s`, `duration_max_s`, and platform-specific notes (safe zones, codec constraints, bitrate requirements). This is **data-only in v4.1.2** — consumed by the forthcoming `/create-video social` command in v4.2.0. Cites the January 2026 SOP doc as authoritative source. Signal and ManyChat are explicitly excluded (no native video placements); BlueSky specs flagged as best-guess pending verification.
+- **`skills/create-video/references/social-platforms.md`** - new reference doc for **37 video placements across 14 platforms**. Each entry lists pixel dimensions, aspect ratio, `duration_min_s`, `duration_max_s`, and platform-specific notes (safe zones, codec constraints, bitrate requirements). This is **data-only in v4.1.2** - consumed by the forthcoming `/create-video social` command in v4.2.0. Cites the January 2026 SOP doc as authoritative source. Signal and ManyChat are explicitly excluded (no native video placements); BlueSky specs flagged as best-guess pending verification.
 - **11 new image placements** beyond the v4.1.1 set:
   - `ig-carousel` + `ig-explore-grid` (Instagram)
   - `fb-reel` + `fb-right-column-ad` (Facebook)
@@ -251,7 +251,7 @@ VEO 3.1 Lite is now ~4× **cheaper** than Kling at comparable settings. Doesn't 
 
 ### Fixed
 
-- **Semantic misalignment on `--mode image-only`**: the flag name promised text-free output but only affected API response modalities, not whether the model actually rendered text in the image. v4.1.2 makes the flag do what it says — append a suppression clause to the prompt and set image-only modality.
+- **Semantic misalignment on `--mode image-only`**: the flag name promised text-free output but only affected API response modalities, not whether the model actually rendered text in the image. v4.1.2 makes the flag do what it says - append a suppression clause to the prompt and set image-only modality.
 - **Legacy "Banana Claude" branding cleanup in scripts and live docs**: ~40 references to the pre-rename project name survived the v4.0.0 rebrand in Python script docstrings, argparse `description=` strings, print headers, a brand-book HTML output footer, `CONTRIBUTING.md` H1, and one line in `setup.md`. All now reference "Creators Studio." Historical entries in `CHANGELOG.md` (v2.1.0 rename release notes, v1.x retrospectives) and `PROGRESS.md` (session history) are preserved as factual at their point in time; only LIVE user-facing and runtime references were updated. Archived release-zip filenames like `banana-claude-v1.7.0.zip` remain unchanged (they're public URLs).
 
 ### Platform count clarification
@@ -270,7 +270,7 @@ All 87 placements use only the 14 Nano Banana 2-supported aspect ratios (per `de
 
 ### Headline
 
-**Honest platform coverage and max-quality upload specs.** The `/create-image social` command's platform coverage was previously framed as "46 platforms" — a misleading count because it was really 46 placements across 11 namespace prefixes, with shallow coverage (2-3 placements each, no profile photos, no ad variants) on Pinterest, Threads, Snapchat, Google Ads, and Spotify. v4.1.1 narrows scope to **38 placements across 6 platforms** with deep coverage (Instagram, Facebook, YouTube, LinkedIn, Twitter/X, TikTok), and — more importantly — upgrades every pixel spec to the **highest-quality upload dimensions each platform accepts**, not the minimum. The YouTube thumbnail alone jumps from 1280×720 to **3840×2160** (9× pixel count, 4K quality) at no extra generation cost.
+**Honest platform coverage and max-quality upload specs.** The `/create-image social` command's platform coverage was previously framed as "46 platforms" - a misleading count because it was really 46 placements across 11 namespace prefixes, with shallow coverage (2-3 placements each, no profile photos, no ad variants) on Pinterest, Threads, Snapchat, Google Ads, and Spotify. v4.1.1 narrows scope to **38 placements across 6 platforms** with deep coverage (Instagram, Facebook, YouTube, LinkedIn, Twitter/X, TikTok), and - more importantly - upgrades every pixel spec to the **highest-quality upload dimensions each platform accepts**, not the minimum. The YouTube thumbnail alone jumps from 1280×720 to **3840×2160** (9× pixel count, 4K quality) at no extra generation cost.
 
 ### Changed (breaking for removed platform keys)
 
@@ -297,7 +297,7 @@ All 87 placements use only the 14 Nano Banana 2-supported aspect ratios (per `de
 
 ### Fixed
 
-- **`x-header` generated at wrong aspect ratio** in v4.0.x and earlier. The `ratio: "3:2"` hint (1.5:1) meant Gemini generated at 4096×2731 pixels, then `resize_for_platform` cropped hard to 1500×500 (3:1) — discarding most of the vertical content. v4.1.1 uses `ratio: "21:9"` (2.33:1, closest supported), trimming only ~11% vertical to land on exact 3:1 pixel spec.
+- **`x-header` generated at wrong aspect ratio** in v4.0.x and earlier. The `ratio: "3:2"` hint (1.5:1) meant Gemini generated at 4096×2731 pixels, then `resize_for_platform` cropped hard to 1500×500 (3:1) - discarding most of the vertical content. v4.1.1 uses `ratio: "21:9"` (2.33:1, closest supported), trimming only ~11% vertical to land on exact 3:1 pixel spec.
 
 ### Platform count clarification
 
@@ -311,17 +311,17 @@ The `/create-image social` feature's public framing changes from "46 platforms" 
 
 ### Added
 
-- **`/create-image vectorize <image>` subcommand** backed by **Recraft Vectorize** on Replicate (~$0.01 flat per output image, 8-20s typical wall time). New `skills/create-image/scripts/vectorize.py` runner with pre-flight size validation (5 MB / 16 MP / 256-4096 px), poll loop, SVG download, and cost logging. Imports `_replicate_backend.py` cross-skill for HTTP + auth plumbing — zero duplicated Replicate code.
-- **`recraft-ai/recraft-vectorize` registered in `_replicate_backend.py::REPLICATE_MODELS`** with the full model card specs (input formats, size caps, pricing). New `RECRAFT_IMAGE_MIME_MAP` that accepts WEBP (Kling's doesn't — kept separate to avoid weakening Kling's validation). New helpers: `recraft_image_path_to_data_uri()`, `validate_recraft_image()`, `build_recraft_request_body()`.
+- **`/create-image vectorize <image>` subcommand** backed by **Recraft Vectorize** on Replicate (~$0.01 flat per output image, 8-20s typical wall time). New `skills/create-image/scripts/vectorize.py` runner with pre-flight size validation (5 MB / 16 MP / 256-4096 px), poll loop, SVG download, and cost logging. Imports `_replicate_backend.py` cross-skill for HTTP + auth plumbing - zero duplicated Replicate code.
+- **`recraft-ai/recraft-vectorize` registered in `_replicate_backend.py::REPLICATE_MODELS`** with the full model card specs (input formats, size caps, pricing). New `RECRAFT_IMAGE_MIME_MAP` that accepts WEBP (Kling's doesn't - kept separate to avoid weakening Kling's validation). New helpers: `recraft_image_path_to_data_uri()`, `validate_recraft_image()`, `build_recraft_request_body()`.
 - **`recraft-ai/recraft-vectorize` pricing entry in `cost_tracker.py` PRICING dict** with a new `per_call` pricing mode ($0.01 flat, resolution arg ignored). `_lookup_cost()` gets a new branch for `per_call` alongside the existing `per_second` (Replicate video) and `per_clip` (Lyria) modes.
 - **`skills/create-image/references/vectorize.md`** reference doc (~180 lines) covering the canonical workflow, best-practice vectorization prompts (isolated subject + pure background + flat design + limited colors), pre-flight validation, cost model, integration with other commands, known limitations, and troubleshooting. Cites `dev-docs/recraft-ai-recraft-vectorize-llms.md` as the authoritative source.
 - **Exact-dimension enforcer in `social.py`**: new `inspect_dimensions()` helper (tries `magick identify` → `identify` → `sips -g pixelWidth/Height` in order) and refactored `crop_image()` → `resize_for_platform()` that inspects the source, detects ratio drift (0.5% tolerance), and picks the right path: pure downscale (same ratio, fastest) or resize-to-cover + center-crop (ratio change). Returns a structured dict with `method`, `tool`, `source_dimensions`, `output_dimensions`, and a `warning` field. Fixes the silent "copy unchanged when magick missing" degradation that left user outputs at Gemini's native ~3840×2048 instead of the platform's exact spec like 1920×1080 or 1080×1080.
-- **`sips` fallback path in `resize_for_platform()`** for the same-ratio pure-downscale case when ImageMagick is missing — preserves correct output dimensions for the majority of social platform targets (any platform whose ratio matches a supported Gemini output). Emits an informational warning so the user knows ImageMagick would handle the remaining ratio-change cases.
+- **`sips` fallback path in `resize_for_platform()`** for the same-ratio pure-downscale case when ImageMagick is missing - preserves correct output dimensions for the majority of social platform targets (any platform whose ratio matches a supported Gemini output). Emits an informational warning so the user knows ImageMagick would handle the remaining ratio-change cases.
 - **Optional-tool + API-credential checks in `validate_setup.py`** (reachable via `/create-image status`). Shows a ✓/✗ for `ImageMagick`, `ffmpeg`, `cwebp`, plus ElevenLabs / Replicate / Vertex API keys, with a one-line "unlocks: ..." summary per tool/key. When any optional tool is missing, a "To install missing tools on macOS" block appears with per-tool `brew install` commands. This replaces the previous "ElevenLabs key configured" one-liner with a comprehensive feature-mapping view.
-- **`multiformat.py::convert_image_with_backend()` wrapper** that appends the `backend` and `warning` fields to the JSON result, making the tool selection visible to the orchestrator (so Claude can surface "using sips fallback — install ImageMagick for X" messaging).
-- **`SKILL.md` §Step 9.5 "Handle missing-tool warnings"** new rule documenting the 3-option choice pattern Claude must present when a script returns `method: copy_fallback` or a non-null `warning` — never silently accept a degraded output. Includes proactive-check guidance (shell out `which magick` before `/create-image social` with aggressive ratio platforms) and reactive-check guidance (after the call, surface any warning verbatim).
-- **`setup.md` "Optional Tools" + "API Credentials" sections** — the first feature-mapping table inside the user-facing setup flow. Users running `/create-image setup` now hear about which tools unlock which features without digging into references.
-- **README Requirements section upgrade** from a flat bullet list to two feature-mapping tables: "Optional command-line tools — each unlocks specific features" (ImageMagick/ffmpeg/cwebp with install commands) and "Optional API credentials — each activates specific model providers" (Replicate/ElevenLabs/Vertex).
+- **`multiformat.py::convert_image_with_backend()` wrapper** that appends the `backend` and `warning` fields to the JSON result, making the tool selection visible to the orchestrator (so Claude can surface "using sips fallback - install ImageMagick for X" messaging).
+- **`SKILL.md` §Step 9.5 "Handle missing-tool warnings"** new rule documenting the 3-option choice pattern Claude must present when a script returns `method: copy_fallback` or a non-null `warning` - never silently accept a degraded output. Includes proactive-check guidance (shell out `which magick` before `/create-image social` with aggressive ratio platforms) and reactive-check guidance (after the call, surface any warning verbatim).
+- **`setup.md` "Optional Tools" + "API Credentials" sections** - the first feature-mapping table inside the user-facing setup flow. Users running `/create-image setup` now hear about which tools unlock which features without digging into references.
+- **README Requirements section upgrade** from a flat bullet list to two feature-mapping tables: "Optional command-line tools - each unlocks specific features" (ImageMagick/ffmpeg/cwebp with install commands) and "Optional API credentials - each activates specific model providers" (Replicate/ElevenLabs/Vertex).
 
 ### Changed
 
@@ -332,7 +332,7 @@ The `/create-image social` feature's public framing changes from "46 platforms" 
 ### Fixed
 
 - **Silent dimension corruption in `/create-image social` when ImageMagick is absent.** Pre-v4.1.0, missing ImageMagick triggered a `shutil.copy2()` fallback that produced platform outputs at Gemini's native ~3840×2048 dimensions instead of the platform's exact spec (1920×1080 for YouTube thumbnail, 1080×1920 for TikTok, etc.). Social media upload endpoints reject or re-compress these, degrading quality. Now: if the ratio matches, sips handles the downscale correctly; if the ratio differs, a structured `copy_fallback` + `warning` result is returned so the orchestrator can prompt the user before proceeding.
-- **Lyria `per_clip` branch was previously unreachable dead code** (covered in v3.8.4 but worth reiterating since it's now part of the broader per-pricing-mode dispatch — `per_call` (Recraft), `per_clip` (Lyria), `per_second` (Kling/DreamActor/Fabric/VEO), resolution-keyed (Gemini) are all live paths).
+- **Lyria `per_clip` branch was previously unreachable dead code** (covered in v3.8.4 but worth reiterating since it's now part of the broader per-pricing-mode dispatch - `per_call` (Recraft), `per_clip` (Lyria), `per_second` (Kling/DreamActor/Fabric/VEO), resolution-keyed (Gemini) are all live paths).
 
 ### Research
 
@@ -342,7 +342,7 @@ The `/create-image social` feature's public framing changes from "46 platforms" 
 
 ### Headline
 
-**Full rebrand from `nano-banana-studio` to `creators-studio`.** The plugin is now **Creators Studio — Creative Engine for Claude Code**, with the tagline *Imagine · Direct · Generate*. The old name anchored the product to a single Google model (Nano Banana) at a moment when the AI race is emphatically not finished — Kling v3 Std already beat VEO 3.1 to become the video default in v3.8.0, ElevenLabs Music beat Lyria to become the music default in v3.8.3, and the next best-in-class swap will happen again. The rename separates the product's identity from any one model so the plugin can continue absorbing new state-of-the-art engines without carrying a misleading brand.
+**Full rebrand from `nano-banana-studio` to `creators-studio`.** The plugin is now **Creators Studio - Creative Engine for Claude Code**, with the tagline *Imagine · Direct · Generate*. The old name anchored the product to a single Google model (Nano Banana) at a moment when the AI race is emphatically not finished - Kling v3 Std already beat VEO 3.1 to become the video default in v3.8.0, ElevenLabs Music beat Lyria to become the music default in v3.8.3, and the next best-in-class swap will happen again. The rename separates the product's identity from any one model so the plugin can continue absorbing new state-of-the-art engines without carrying a misleading brand.
 
 This is a rename-only release. **No functional changes.** 77 files touched, ~425 string replacements, all 28 Python scripts compile cleanly.
 
@@ -357,7 +357,7 @@ This is a rename-only release. **No functional changes.** 77 files touched, ~425
   - `~/Documents/nanobanana_generated` → `~/Documents/creators_generated`
   - `~/Documents/nano-banana-audio` → `~/Documents/creators_audio`
   - `~/Documents/nano-banana-sequences` → `~/Documents/creators_sequences`
-  - Existing output directories are left in place — the script only creates the new dir on a fresh install.
+  - Existing output directories are left in place - the script only creates the new dir on a fresh install.
 - **Repository homepage + all README/doc references** updated from `github.com/juliandickie/nano-banana-studio` to `github.com/juliandickie/creators-studio`.
 - **CITATION.cff** project name + repository-code URL updated.
 - **All 28 Python scripts'** internal `Path(__file__)` traversal, help strings, User-Agent headers, and error messages updated to the new plugin name.
@@ -367,13 +367,13 @@ This is a rename-only release. **No functional changes.** 77 files touched, ~425
 ### Preserved (backward compatibility)
 
 - **`~/.banana/` config directory** is intentionally NOT renamed. API keys (`google_ai_api_key`, `replicate_api_token`, `elevenlabs_api_key`, `vertex_api_key`, `vertex_project_id`, `vertex_location`), custom voices, custom preset overrides, cost ledger, and session history all stay at the existing path. Existing users upgrade with zero config loss.
-- **Google model identifiers** (`gemini-3.1-flash-image-preview`, `gemini-2.5-flash-image`, `google/nano-banana-2`) are Google's brand — they stay unchanged. Renaming them would break the Replicate dispatch and Gemini API routes.
-- **MCP package name** `@ycse/nanobanana-mcp` unchanged — it's a third-party upstream dependency the plugin doesn't own.
+- **Google model identifiers** (`gemini-3.1-flash-image-preview`, `gemini-2.5-flash-image`, `google/nano-banana-2`) are Google's brand - they stay unchanged. Renaming them would break the Replicate dispatch and Gemini API routes.
+- **MCP package name** `@ycse/nanobanana-mcp` unchanged - it's a third-party upstream dependency the plugin doesn't own.
 
 ### Release process
 
 - **GitHub repo renamed** from `juliandickie/nano-banana-studio` to `juliandickie/creators-studio` as a prerequisite. GitHub auto-redirects the old URL, so cloned forks continue to work, but new clones should use the new URL.
-- **Release zip** renamed from `nano-banana-studio-vX.Y.Z.zip` to `creators-studio-vX.Y.Z.zip` pattern. Historical `banana-claude-vX.Y.Z.zip` and `nano-banana-studio-vX.Y.Z.zip` files at the workspace root are preserved as archived build artifacts — do not delete or rename them, as their URLs are public.
+- **Release zip** renamed from `nano-banana-studio-vX.Y.Z.zip` to `creators-studio-vX.Y.Z.zip` pattern. Historical `banana-claude-vX.Y.Z.zip` and `nano-banana-studio-vX.Y.Z.zip` files at the workspace root are preserved as archived build artifacts - do not delete or rename them, as their URLs are public.
 
 ### Migration notes for existing users
 
@@ -381,37 +381,37 @@ This is a rename-only release. **No functional changes.** 77 files touched, ~425
 2. Pull the latest: `git pull`
 3. Commands change: replace `/banana` with `/create-image` and `/video` with `/create-video` in any scripts, aliases, or documentation you maintain.
 4. Your `~/.banana/` config, API keys, voices, and presets **carry forward unchanged**.
-5. Old output directories in `~/Documents/nanobanana_generated` etc. are left in place — move them to the new `creators_*` locations manually if you want a single canonical location.
+5. Old output directories in `~/Documents/nanobanana_generated` etc. are left in place - move them to the new `creators_*` locations manually if you want a single canonical location.
 
 ## [3.8.4] - 2026-04-16
 
 ### Headline
 
-**Replicate cost tracking + strip-list config extensibility + dangling-phrase cleanup.** A five-item housekeeping release that closes the last three ROADMAP items tagged "after v3.8.0" and brings the cost ledger up to date for Kling, DreamActor, and Fabric — which together account for most of the ~$62 cumulative video spend since spike 5 but were invisible in `~/.banana/costs.json` because the PRICING table was still image-only. This is the release that makes the analytics dashboard honest for video work.
+**Replicate cost tracking + strip-list config extensibility + dangling-phrase cleanup.** A five-item housekeeping release that closes the last three ROADMAP items tagged "after v3.8.0" and brings the cost ledger up to date for Kling, DreamActor, and Fabric - which together account for most of the ~$62 cumulative video spend since spike 5 but were invisible in `~/.banana/costs.json` because the PRICING table was still image-only. This is the release that makes the analytics dashboard honest for video work.
 
 ### Added
 
-- **Replicate video model pricing in `cost_tracker.py` PRICING dict** — three new entries, each with a `per_second` rate sourced from the authoritative Replicate model page or predictions dashboard:
+- **Replicate video model pricing in `cost_tracker.py` PRICING dict** - three new entries, each with a `per_second` rate sourced from the authoritative Replicate model page or predictions dashboard:
   - `kwaivgi/kling-v3-video`: `$0.02/s` (model page)
   - `bytedance/dreamactor-m2.0`: `$0.05/s` (model page)
-  - `veed/fabric-1.0`: `$0.15/s` (predictions dashboard, session 19 2026-04-16 — authoritative over the speculative $0.30/call figure from session 18's first lipsync.md draft)
-- **`per_second` and `per_clip` pricing modes** in `cost_tracker._lookup_cost()` — the image-era function only handled resolution-keyed image pricing (`"512" | "1K" | "2K" | "4K"` → $). Now it branches on which pricing key is present: `per_second` (video models; duration passed as the `resolution` string e.g. `"8s"`), `per_clip` (Lyria — always $0.06), or the original resolution-keyed mode (Gemini image-gen). Lyria's existing `per_clip` entry was previously bypassed; it now works correctly.
-- **Best-effort cost logging in `video_generate.py` and `video_lipsync.py`** — after a successful generation, the script shells out to `cost_tracker.py log` with the model name + duration. Uses `subprocess.run(..., capture_output=True, timeout=5)` with a bare `except Exception: pass` — cost logging **never blocks generation output** or returns a non-zero exit. Duration passed as `f"{args.duration}s"` to satisfy the new `per_second` branch.
-- **`_load_custom_triggers()` helper in `audio_pipeline.py`** — reads `~/.banana/config.json` `named_creator_triggers` key (list). Returns the list if present and non-empty, else `None`. Called by `strip_named_creators()` before falling back to the hardcoded default.
-- **`_DANGLING_PHRASES` module-level list in `audio_pipeline.py`** — eight wrapper phrases (`"in the style of"`, `"inspired by"`, `"reminiscent of"`, `"like"`, `"à la"`, `"a la"`, `"channeling"`, `"evoking"`) that commonly precede creator names. When the creator is stripped, these are detected and removed via a case-insensitive regex so `"in the style of Hans Zimmer, warm strings"` → `"warm strings"` instead of the v3.8.3 output `"in the style of , warm strings"`.
+  - `veed/fabric-1.0`: `$0.15/s` (predictions dashboard, session 19 2026-04-16 - authoritative over the speculative $0.30/call figure from session 18's first lipsync.md draft)
+- **`per_second` and `per_clip` pricing modes** in `cost_tracker._lookup_cost()` - the image-era function only handled resolution-keyed image pricing (`"512" | "1K" | "2K" | "4K"` → $). Now it branches on which pricing key is present: `per_second` (video models; duration passed as the `resolution` string e.g. `"8s"`), `per_clip` (Lyria - always $0.06), or the original resolution-keyed mode (Gemini image-gen). Lyria's existing `per_clip` entry was previously bypassed; it now works correctly.
+- **Best-effort cost logging in `video_generate.py` and `video_lipsync.py`** - after a successful generation, the script shells out to `cost_tracker.py log` with the model name + duration. Uses `subprocess.run(..., capture_output=True, timeout=5)` with a bare `except Exception: pass` - cost logging **never blocks generation output** or returns a non-zero exit. Duration passed as `f"{args.duration}s"` to satisfy the new `per_second` branch.
+- **`_load_custom_triggers()` helper in `audio_pipeline.py`** - reads `~/.banana/config.json` `named_creator_triggers` key (list). Returns the list if present and non-empty, else `None`. Called by `strip_named_creators()` before falling back to the hardcoded default.
+- **`_DANGLING_PHRASES` module-level list in `audio_pipeline.py`** - eight wrapper phrases (`"in the style of"`, `"inspired by"`, `"reminiscent of"`, `"like"`, `"à la"`, `"a la"`, `"channeling"`, `"evoking"`) that commonly precede creator names. When the creator is stripped, these are detected and removed via a case-insensitive regex so `"in the style of Hans Zimmer, warm strings"` → `"warm strings"` instead of the v3.8.3 output `"in the style of , warm strings"`.
 
 ### Changed
 
 - **`strip_named_creators()` trigger precedence** is now explicitly documented and three-tier:
   1. Explicit `triggers=` parameter passed by a caller (override)
-  2. `named_creator_triggers` list in `~/.banana/config.json` (user override — NEW in v3.8.4)
+  2. `named_creator_triggers` list in `~/.banana/config.json` (user override - NEW in v3.8.4)
   3. Hardcoded `NAMED_CREATOR_TRIGGERS` module constant (default)
-  The function signature didn't change — the change is behavioral. Callers that don't care about the override path (which is all of them today) get the v3.8.3 behavior unless the config key is present.
+  The function signature didn't change - the change is behavioral. Callers that don't care about the override path (which is all of them today) get the v3.8.3 behavior unless the config key is present.
 - **`ROADMAP.md` housekeeping**: fixed duplicate "priority 9" rows (three `| 9 |` rows were clobbering each other in the table), consolidated the "Deferred research spikes" + "Pending spikes for v3.8.x" + "Future research backlog" sections into a single "Completed research spikes" block now that everything in the pending buckets has shipped, marked all items completed in v3.8.2 / v3.8.3 / v3.8.4, and struck through the "strip-list extensibility" + "compound-phrase stripping" entries that landed this release.
 
 ### Fixed
 
-- **Lyria cost entries were unreachable pre-v3.8.4.** `PRICING["vertex/lyria-002"]` has `per_clip: 0.06` but `_lookup_cost()` only branched on the resolution-keyed image path and would emit `"Warning: Unknown resolution '32.768s'"` then fall through to 1K image pricing ($0.039). No real cost was miscomputed in practice because `audio_pipeline.py` never called `cost_tracker.py` for music — but the dead-code path is now live and correct.
+- **Lyria cost entries were unreachable pre-v3.8.4.** `PRICING["vertex/lyria-002"]` has `per_clip: 0.06` but `_lookup_cost()` only branched on the resolution-keyed image path and would emit `"Warning: Unknown resolution '32.768s'"` then fall through to 1K image pricing ($0.039). No real cost was miscomputed in practice because `audio_pipeline.py` never called `cost_tracker.py` for music - but the dead-code path is now live and correct.
 
 ### Release process
 
@@ -421,7 +421,7 @@ This is a rename-only release. **No functional changes.** 77 files touched, ~425
 
 ### Headline
 
-**ElevenLabs Music replaces Lyria 2 as the default music provider.** A 12-genre blind A/B bake-off (session 19, 2026-04-16, $0.72 Lyria cost) produced a decisive ElevenLabs **12-0 sweep**: cinematic, corporate, electronic, lo-fi, classical, ambient, jazz, acoustic, hip-hop, synthwave, world, and funk — ElevenLabs won every genre, each time by a clear margin. This overrides the v3.7.2 spike 4 finding where Lyria won a single-genre cinematic-documentary test. That result was a genre-specific anomaly — both providers were "very close and hard to pick" on cinematic, the one genre spike 4 tested.
+**ElevenLabs Music replaces Lyria 2 as the default music provider.** A 12-genre blind A/B bake-off (session 19, 2026-04-16, $0.72 Lyria cost) produced a decisive ElevenLabs **12-0 sweep**: cinematic, corporate, electronic, lo-fi, classical, ambient, jazz, acoustic, hip-hop, synthwave, world, and funk - ElevenLabs won every genre, each time by a clear margin. This overrides the v3.7.2 spike 4 finding where Lyria won a single-genre cinematic-documentary test. That result was a genre-specific anomaly - both providers were "very close and hard to pick" on cinematic, the one genre spike 4 tested.
 
 `DEFAULT_MUSIC_SOURCE` in `audio_pipeline.py` flipped from `"lyria"` to `"elevenlabs"`. Lyria remains available via `--music-source lyria` for users who need `negative_prompt` exclusion or lack an ElevenLabs subscription.
 
@@ -434,92 +434,92 @@ This is a rename-only release. **No functional changes.** 77 files touched, ~425
 
 ### Research
 
-- **Session 19 12-genre blind A/B bake-off (24 calls, $0.72 Lyria + ElevenLabs subscription)**. Methodology: identical positive prompt per genre for both providers, Lyria additionally gets `--negative-prompt "vocals, singing, lyrics, spoken word, voice, humming"` (its key differentiator), duration matched at ~32.768s, randomized A/B assignment (seed=42), user evaluated blind. Result: **ElevenLabs 12-0**. Per the user: "each winner was a clear winner and a definite difference in quality and interpretation" — the cinematic genre where spike 4 found Lyria winning was the one genre both providers were closest on. Spike artifacts at `/tmp/genre-bakeoff/` with `results.json`, `mapping.json`, `prompts.json`, and blind samples.
-- **F13 confirmed from the other direction**: Lyria produces 1026 KB (48kHz/192kbps) vs ElevenLabs 512 KB (44.1kHz/128kbps). Higher bitrate and sample rate did not help — ElevenLabs won every genre. Spec-sheet metrics remain uncorrelated with perceived quality.
+- **Session 19 12-genre blind A/B bake-off (24 calls, $0.72 Lyria + ElevenLabs subscription)**. Methodology: identical positive prompt per genre for both providers, Lyria additionally gets `--negative-prompt "vocals, singing, lyrics, spoken word, voice, humming"` (its key differentiator), duration matched at ~32.768s, randomized A/B assignment (seed=42), user evaluated blind. Result: **ElevenLabs 12-0**. Per the user: "each winner was a clear winner and a definite difference in quality and interpretation" - the cinematic genre where spike 4 found Lyria winning was the one genre both providers were closest on. Spike artifacts at `/tmp/genre-bakeoff/` with `results.json`, `mapping.json`, `prompts.json`, and blind samples.
+- **F13 confirmed from the other direction**: Lyria produces 1026 KB (48kHz/192kbps) vs ElevenLabs 512 KB (44.1kHz/128kbps). Higher bitrate and sample rate did not help - ElevenLabs won every genre. Spec-sheet metrics remain uncorrelated with perceived quality.
 
 ## [3.8.2] - 2026-04-16
 
 ### Headline
 
-**Kling character consistency via start_image: the primary path for brand-character multi-clip work.** Session 19's spike (8 predictions, ~$1.10) proved that Kling v3 Std's `start_image` + a character-matching text prompt preserves character identity across separate generations at full 1072x1928 resolution — 1.5x higher resolution and 2.5x cheaper per clip than DreamActor M2.0 ($0.02/s vs $0.05/s). The critical finding: prompt engineering is the variable, not the model architecture. When the prompt describes the same character as the start image, identity locks. When it describes a different character, Kling morphs completely within 5 seconds. DreamActor M2.0 is deferred to v3.9.x for its narrower real-footage-to-avatar niche (filming yourself performing, then mapping a generated avatar onto your motion). This release adds orchestrator guidance, a new reference section in kling-models.md, and SKILL.md updates so Claude knows when and how to use start_image for character consistency.
+**Kling character consistency via start_image: the primary path for brand-character multi-clip work.** Session 19's spike (8 predictions, ~$1.10) proved that Kling v3 Std's `start_image` + a character-matching text prompt preserves character identity across separate generations at full 1072x1928 resolution - 1.5x higher resolution and 2.5x cheaper per clip than DreamActor M2.0 ($0.02/s vs $0.05/s). The critical finding: prompt engineering is the variable, not the model architecture. When the prompt describes the same character as the start image, identity locks. When it describes a different character, Kling morphs completely within 5 seconds. DreamActor M2.0 is deferred to v3.9.x for its narrower real-footage-to-avatar niche (filming yourself performing, then mapping a generated avatar onto your motion). This release adds orchestrator guidance, a new reference section in kling-models.md, and SKILL.md updates so Claude knows when and how to use start_image for character consistency.
 
 ### Added
 
-- **kling-models.md "Character Consistency via start_image (v3.8.2+)" section** (~60 lines) — new empirical section with the 6-run comparison table (2 DreamActor runs preserving identity at 694x1242, 2 Kling mismatched-prompt runs morphing completely, 2 Kling matched-prompt runs preserving identity at 1072x1928), the prompt-matching rule, orchestrator guidance for multi-clip workflows, decision matrix for when to use DreamActor instead, and confirmation that non-human characters work (spike 5 Phase 2 test_11 robot mascot, user-confirmed).
-- **CLAUDE.md key constraint** for start_image conditional identity lock — documents the prompt-matching rule, empirical evidence from session 19, DreamActor comparison data, and the finding that non-human characters are also supported.
+- **kling-models.md "Character Consistency via start_image (v3.8.2+)" section** (~60 lines) - new empirical section with the 6-run comparison table (2 DreamActor runs preserving identity at 694x1242, 2 Kling mismatched-prompt runs morphing completely, 2 Kling matched-prompt runs preserving identity at 1072x1928), the prompt-matching rule, orchestrator guidance for multi-clip workflows, decision matrix for when to use DreamActor instead, and confirmation that non-human characters work (spike 5 Phase 2 test_11 robot mascot, user-confirmed).
+- **CLAUDE.md key constraint** for start_image conditional identity lock - documents the prompt-matching rule, empirical evidence from session 19, DreamActor comparison data, and the finding that non-human characters are also supported.
 
 ### Changed
 
-- **kling-models.md "Known limitations"** — character variation bullet updated from "adopt DreamActor" to "use start_image + matched prompt (see §Character Consistency)" as the primary recommendation.
-- **kling-models.md "When NOT to use Kling"** — reference-image bullet updated to distinguish VEO's multi-reference-image feature from Kling's start_image character consistency.
-- **Video SKILL.md Core Principle 5** — renamed to "Image-to-Video & Character Consistency"; added start_image + matched prompt guidance with pointer to kling-models.md.
-- **Video SKILL.md Step 5 character consistency rule** — updated to include `--first-frame` guidance alongside the existing "repeat exact identity phrasing" rule.
-- **ROADMAP.md** — DreamActor entry updated from v3.9.0 research release to "deferred to v3.9.x for real-footage-to-avatar niche."
+- **kling-models.md "Known limitations"** - character variation bullet updated from "adopt DreamActor" to "use start_image + matched prompt (see §Character Consistency)" as the primary recommendation.
+- **kling-models.md "When NOT to use Kling"** - reference-image bullet updated to distinguish VEO's multi-reference-image feature from Kling's start_image character consistency.
+- **Video SKILL.md Core Principle 5** - renamed to "Image-to-Video & Character Consistency"; added start_image + matched prompt guidance with pointer to kling-models.md.
+- **Video SKILL.md Step 5 character consistency rule** - updated to include `--first-frame` guidance alongside the existing "repeat exact identity phrasing" rule.
+- **ROADMAP.md** - DreamActor entry updated from v3.9.0 research release to "deferred to v3.9.x for real-footage-to-avatar niche."
 
 ### Research
 
-- **Session 19 DreamActor + Kling start_image spike (8 runs, ~$1.10 total)**: 2 DreamActor M2.0 runs ($0.50) at $0.05/s (from replicate.com/bytedance/dreamactor-m2.0), 4 Kling start_image runs ($0.40), 2 Kling driving clips ($0.20). DreamActor preserves identity at 694x1242. Kling + matched prompt preserves identity at 1072x1928 — higher quality, lower cost, full prompt control. Kling + mismatched prompt morphs completely (proved prompt overrides start_image when they conflict). Spike artifacts at `/tmp/dreamactor-spike/`.
+- **Session 19 DreamActor + Kling start_image spike (8 runs, ~$1.10 total)**: 2 DreamActor M2.0 runs ($0.50) at $0.05/s (from replicate.com/bytedance/dreamactor-m2.0), 4 Kling start_image runs ($0.40), 2 Kling driving clips ($0.20). DreamActor preserves identity at 694x1242. Kling + matched prompt preserves identity at 1072x1928 - higher quality, lower cost, full prompt control. Kling + mismatched prompt morphs completely (proved prompt overrides start_image when they conflict). Spike artifacts at `/tmp/dreamactor-spike/`.
 
 ### Not in v3.8.2
 
-- **DreamActor `/video animate-character` subcommand** — deferred to v3.9.x. The real-footage-to-avatar use case is valid but niche. Primary character consistency is handled by Kling start_image + matched prompt.
-- **Kling v3 Omni** — supports dedicated reference images (up to 7) but deferred from spike 5 for 25+ min wall time.
-- **Auto-resizing images to provider constraints** — face.jpg needed manual `sips -Z 1920` for DreamActor's bounds. A future helper would automate this.
+- **DreamActor `/video animate-character` subcommand** - deferred to v3.9.x. The real-footage-to-avatar use case is valid but niche. Primary character consistency is handled by Kling start_image + matched prompt.
+- **Kling v3 Omni** - supports dedicated reference images (up to 7) but deferred from spike 5 for 25+ min wall time.
+- **Auto-resizing images to provider constraints** - face.jpg needed manual `sips -Z 1920` for DreamActor's bounds. A future helper would automate this.
 
 ## [3.8.1] - 2026-04-15
 
 ### Headline
 
-**Fabric 1.0 `/video lipsync` + defensive hardening bundle.** v3.8.1 ships four follow-up items from v3.8.0's post-release triage: (1) a new `/video lipsync` subcommand backed by VEED Fabric 1.0 that pairs any face image with any audio file to produce a lip-synced talking-head MP4 — closing the v3.8.0 gap where VEO generated speech internally and Kling didn't accept external audio at all, so custom-designed ElevenLabs voices from `audio_pipeline.py narrate` had no way to reach a visible character; (2) User-Agent hardening on the image-gen Replicate scripts as a defensive fix for a Cloudflare WAF issue the video-side encountered in v3.8.0; (3) the user-requested Seedance 2.0 retest with the final verdict **permanently rejected for human-subject workflows** (E005 safety filter triggers on every human subject tested across two phases); (4) a new `smoke-test` subcommand on `_vertex_backend.py` that validates 3 spike 5 Phase 2 Vertex constraints without burning budget — after a first draft of that subcommand accidentally burned ~$3.60 submitting valid VEO requests that the spike had led me to believe would be rejected synchronously.
+**Fabric 1.0 `/video lipsync` + defensive hardening bundle.** v3.8.1 ships four follow-up items from v3.8.0's post-release triage: (1) a new `/video lipsync` subcommand backed by VEED Fabric 1.0 that pairs any face image with any audio file to produce a lip-synced talking-head MP4 - closing the v3.8.0 gap where VEO generated speech internally and Kling didn't accept external audio at all, so custom-designed ElevenLabs voices from `audio_pipeline.py narrate` had no way to reach a visible character; (2) User-Agent hardening on the image-gen Replicate scripts as a defensive fix for a Cloudflare WAF issue the video-side encountered in v3.8.0; (3) the user-requested Seedance 2.0 retest with the final verdict **permanently rejected for human-subject workflows** (E005 safety filter triggers on every human subject tested across two phases); (4) a new `smoke-test` subcommand on `_vertex_backend.py` that validates 3 spike 5 Phase 2 Vertex constraints without burning budget - after a first draft of that subcommand accidentally burned ~$3.60 submitting valid VEO requests that the spike had led me to believe would be rejected synchronously.
 
 This release also documents a real behavior drift from spike 5 Phase 2: Vertex now ACCEPTS `durationSeconds=5` on VEO 3.1 Lite GA -001 models at submit time and validates asynchronously during generation, where spike 5 Phase 2 observed a synchronous rejection. Either the constraint has relaxed, or Vertex's validation topology changed. The `smoke-test` output surfaces this finding explicitly so future sessions don't re-hit the same billing trap.
 
 ### Added
 
-- **`skills/video/scripts/video_lipsync.py`** (~260 lines) — new standalone runner for VEED Fabric 1.0. Argparse: `--image FACE --audio AUDIO [--resolution {480p,720p}] [--output DIR] [--replicate-key KEY] [--poll-interval N] [--max-wait N]`. Imports `_replicate_backend` for HTTP plumbing + auth + validation + data-URI encoding — zero duplicated Replicate logic. Poll loop, download, and save follow the exact pattern as `video_generate.py::_poll_replicate`. Pre-flight validation catches missing files, unsupported formats, and invalid resolutions before any API call. Output JSON on success mirrors `video_generate.py`'s shape: `{path, model, resolution, source_image, source_audio, generation_time_seconds, backend}`.
-- **`skills/video/references/lipsync.md`** (~180 lines) — reference doc citing `dev-docs/veed-fabric-1.0-llms.md` as authoritative. Covers: why `/video lipsync` exists (closes the VEO external-audio gap), Fabric 1.0 capabilities table (480p/720p, 60s max, mp3/wav/m4a/aac, jpg/jpeg/png), canonical 2-step workflow (`audio_pipeline.py narrate` → `video_lipsync.py`), full ElevenLabs + Banana + Fabric showcase example, cost comparison vs Kling/VEO alternatives, known limitations (mouth region only, no camera movement, no emotional direction beyond audio prosody), and the design note explaining why Fabric is a separate script rather than a `--provider fabric` flag on `video_generate.py` (fundamentally different input shape — no prompt, no duration, no aspect ratio).
+- **`skills/video/scripts/video_lipsync.py`** (~260 lines) - new standalone runner for VEED Fabric 1.0. Argparse: `--image FACE --audio AUDIO [--resolution {480p,720p}] [--output DIR] [--replicate-key KEY] [--poll-interval N] [--max-wait N]`. Imports `_replicate_backend` for HTTP plumbing + auth + validation + data-URI encoding - zero duplicated Replicate logic. Poll loop, download, and save follow the exact pattern as `video_generate.py::_poll_replicate`. Pre-flight validation catches missing files, unsupported formats, and invalid resolutions before any API call. Output JSON on success mirrors `video_generate.py`'s shape: `{path, model, resolution, source_image, source_audio, generation_time_seconds, backend}`.
+- **`skills/video/references/lipsync.md`** (~180 lines) - reference doc citing `dev-docs/veed-fabric-1.0-llms.md` as authoritative. Covers: why `/video lipsync` exists (closes the VEO external-audio gap), Fabric 1.0 capabilities table (480p/720p, 60s max, mp3/wav/m4a/aac, jpg/jpeg/png), canonical 2-step workflow (`audio_pipeline.py narrate` → `video_lipsync.py`), full ElevenLabs + Banana + Fabric showcase example, cost comparison vs Kling/VEO alternatives, known limitations (mouth region only, no camera movement, no emotional direction beyond audio prosody), and the design note explaining why Fabric is a separate script rather than a `--provider fabric` flag on `video_generate.py` (fundamentally different input shape - no prompt, no duration, no aspect ratio).
 - **Fabric 1.0 helpers in `_replicate_backend.py`**: new `REPLICATE_MODELS["veed/fabric-1.0"]` registry entry, new `AUDIO_MIME_MAP` constant covering mp3/wav/m4a/aac, new `VALID_FABRIC_RESOLUTIONS` + `FABRIC_MAX_DURATION_S` + `MAX_FABRIC_AUDIO_BYTES` constants, new `audio_path_to_data_uri()` helper mirroring the existing `image_path_to_data_uri()` but for audio files, new `validate_fabric_params(image, audio, resolution)` validator enforcing the model card's 3 rules (resolution set membership, image extension set membership, audio extension set membership, both files exist), and new `build_fabric_request_body(image, audio, resolution)` pure function returning the canonical `{"input": {...}}` envelope.
 - **10 new Fabric unit tests** at `/tmp/test_replicate_fabric.py` (kept in `/tmp` per the plugin's stdlib-only convention, not committed). Tests: `build_fabric_request_body` with explicit 720p + defaults + 480p + `{"input": ...}` envelope shape; `audio_path_to_data_uri` with mp3 → `"data:audio/mpeg;base64,..."` + wav → `"data:audio/wav;base64,..."` + unsupported `.ogg` raises + missing file raises; `validate_fabric_params` accepting png/mp3/720p + png/mp3/480p + rejecting 1080p + rejecting 4K + rejecting .webp image + rejecting .ogg audio + rejecting missing image + rejecting missing audio + accepting jpg/m4a alternate formats; plus a `REPLICATE_MODELS` registry regression check that Kling v3 Std is still registered alongside the new Fabric entry.
-- **`smoke-test` subcommand on `_vertex_backend.py`** — sibling to the existing `diagnose` subcommand. Runs 3 FREE probes validating spike 5 Phase 2 Vertex constraints: (1) preview ID → HTTP 404 at URL resolution level, (2) invalid aspect ratio "1:1" → HTTP 400 at submit-validation level, (3) Gemini text-gen auth ping on the same credentials. Outputs a markdown PASS/FAIL/WARN report with exit codes 0/1/2. Designed to be safe to run repeatedly — any probe that can't be tested without charging is documented in the "untested constraints" section of the output instead of attempted.
-- **`--seedance-only` flag on `spikes/v3.8.0-provider-bakeoff/phase2_run.py`** — v3.8.1 retest support. When set, overrides model selection to `[MODEL_SEEDANCE]` (just `bytedance/seedance-2.0`). Combine with `--tests test_id_1,test_id_2,...` to restrict the matrix. Supports the bounded 3-test retest plan from v3.8.0's NEXT_SESSION.md.
+- **`smoke-test` subcommand on `_vertex_backend.py`** - sibling to the existing `diagnose` subcommand. Runs 3 FREE probes validating spike 5 Phase 2 Vertex constraints: (1) preview ID → HTTP 404 at URL resolution level, (2) invalid aspect ratio "1:1" → HTTP 400 at submit-validation level, (3) Gemini text-gen auth ping on the same credentials. Outputs a markdown PASS/FAIL/WARN report with exit codes 0/1/2. Designed to be safe to run repeatedly - any probe that can't be tested without charging is documented in the "untested constraints" section of the output instead of attempted.
+- **`--seedance-only` flag on `spikes/v3.8.0-provider-bakeoff/phase2_run.py`** - v3.8.1 retest support. When set, overrides model selection to `[MODEL_SEEDANCE]` (just `bytedance/seedance-2.0`). Combine with `--tests test_id_1,test_id_2,...` to restrict the matrix. Supports the bounded 3-test retest plan from v3.8.0's NEXT_SESSION.md.
 - **`MODEL_SEEDANCE = "seedance-2-0"` constant** + `EXTRA_REPLICATE_MODELS = [MODEL_SEEDANCE]` list + new dispatch branch in `execute_test_cell()` + new `execute_seedance_cell()` function + new `build_input_for_seedance()` helper in `phase2_run.py`. Seedance input dict mirrors Kling's but uses `image` (not `start_image`) for the first-frame field per the Seedance model card. `_project_cost()` updated to handle Seedance's per-call pricing (vs Kling/VEO's per-8s rates).
 - **Seedance roster entry in `spikes/v3.8.0-provider-bakeoff/config/phase2_tests.json`** with `provider: "replicate"`, `replicate_id: "bytedance/seedance-2.0"`, full aspect support list, and `price_per_call_usd: 0.14`.
 
 ### Changed
 
 - **`_replicate_backend.py::_cmd_diagnose` family-aware model listing**. The v3.8.0 version hardcoded `info["aspects"]` and `info["min_duration_s"]` field lookups that Kling has but Fabric doesn't. v3.8.1 branches on `info["family"]` and formats each family's row appropriately: Kling rows show `(min-max s, aspect_list)`, Fabric rows show `(lipsync, ≤60s, resolutions_list)`. Unknown families fall back to slug + display_name only. This change was required to make `_replicate_backend.py diagnose` not crash with KeyError after registering Fabric.
-- **`skills/banana/scripts/replicate_generate.py`** — added `REPLICATE_USER_AGENT = "nano-banana-studio/3.8.1 (...)"` constant and `"User-Agent": REPLICATE_USER_AGENT` header in `_api_request()`. Defensive hardening against Cloudflare WAF error 1010 that could tighten on `/v1/models/.../predictions` endpoints. Deliberately duplicated from `_replicate_backend.py` rather than imported (no cross-skill sys.path gymnastics).
-- **`skills/banana/scripts/replicate_edit.py`** — same User-Agent hardening applied. Both Replicate scripts now send the same User-Agent on every request.
-- **`skills/video/SKILL.md`** — added `/video lipsync` to the Quick Reference table, annotated `/video extend` as "**DEPRECATED in v3.8.0**, requires `--acknowledge-veo-limitations`", added `references/lipsync.md` to the Reference Documentation list. Total: +3 lines. Size: still well under 500 lines.
-- **`skills/video/references/kling-models.md`** — appended a "Seedance 2.0 retest outcome (v3.8.1)" section with the full 3-test results table, E005 filter pattern analysis, decision rationale, and pointers to the spike run directory with the failed `meta.json` files containing the error payloads.
-- **`nano-banana-studio/CLAUDE.md`** — file responsibilities table gains `video_lipsync.py` and `lipsync.md` rows, `_replicate_backend.py` row updated to mention Fabric additions, `kling-models.md` row updated to mention the Seedance retest section. 6 new Key Constraints entries covering Fabric 1.0, Fabric parameter constraints, User-Agent hardening, Seedance retest verdict, Vertex smoke-test subcommand, and the empirical Vertex drift finding from spike 5 Phase 2.
+- **`skills/banana/scripts/replicate_generate.py`** - added `REPLICATE_USER_AGENT = "nano-banana-studio/3.8.1 (...)"` constant and `"User-Agent": REPLICATE_USER_AGENT` header in `_api_request()`. Defensive hardening against Cloudflare WAF error 1010 that could tighten on `/v1/models/.../predictions` endpoints. Deliberately duplicated from `_replicate_backend.py` rather than imported (no cross-skill sys.path gymnastics).
+- **`skills/banana/scripts/replicate_edit.py`** - same User-Agent hardening applied. Both Replicate scripts now send the same User-Agent on every request.
+- **`skills/video/SKILL.md`** - added `/video lipsync` to the Quick Reference table, annotated `/video extend` as "**DEPRECATED in v3.8.0**, requires `--acknowledge-veo-limitations`", added `references/lipsync.md` to the Reference Documentation list. Total: +3 lines. Size: still well under 500 lines.
+- **`skills/video/references/kling-models.md`** - appended a "Seedance 2.0 retest outcome (v3.8.1)" section with the full 3-test results table, E005 filter pattern analysis, decision rationale, and pointers to the spike run directory with the failed `meta.json` files containing the error payloads.
+- **`nano-banana-studio/CLAUDE.md`** - file responsibilities table gains `video_lipsync.py` and `lipsync.md` rows, `_replicate_backend.py` row updated to mention Fabric additions, `kling-models.md` row updated to mention the Seedance retest section. 6 new Key Constraints entries covering Fabric 1.0, Fabric parameter constraints, User-Agent hardening, Seedance retest verdict, Vertex smoke-test subcommand, and the empirical Vertex drift finding from spike 5 Phase 2.
 
 ### Fixed
 
-- **`_replicate_backend.py::_cmd_diagnose` KeyError on Fabric entries** — fixed during Phase A by branching on `info["family"]` before accessing family-specific fields. Caught immediately because diagnose CLI is a standard Phase A verification step.
-- **Spike-harness cost projection missing Seedance** — `_project_cost()` only iterated `CORE_MODELS + TIER_EXTRA_MODELS`, skipping `EXTRA_REPLICATE_MODELS` entirely. v3.8.1 adds the Seedance iteration with per-call pricing support. Caught by comparing the dry-run `projected_cost_usd` ($0.12 = anchors only) against the expected $0.54 (3 × $0.14 Seedance + $0.12 anchors).
+- **`_replicate_backend.py::_cmd_diagnose` KeyError on Fabric entries** - fixed during Phase A by branching on `info["family"]` before accessing family-specific fields. Caught immediately because diagnose CLI is a standard Phase A verification step.
+- **Spike-harness cost projection missing Seedance** - `_project_cost()` only iterated `CORE_MODELS + TIER_EXTRA_MODELS`, skipping `EXTRA_REPLICATE_MODELS` entirely. v3.8.1 adds the Seedance iteration with per-call pricing support. Caught by comparing the dry-run `projected_cost_usd` ($0.12 = anchors only) against the expected $0.54 (3 × $0.14 Seedance + $0.12 anchors).
 
 ### Research
 
-- **Seedance 2.0 retest verdict: PERMANENTLY REJECTED for human-subject workflows.** v3.8.1 ran the user-requested retest with 3 diverse Phase 2 subjects (woman in home office, woman athlete, cartoon robot mascot) via the updated spike harness. Results: 2 of 3 FAILED with `E005 — input/output flagged as sensitive` on both human subjects (talking head AND athlete, both ~5-9 seconds to fail). Only the non-human cartoon robot mascot succeeded ($0.14, 123s wall). Combined with Phase 1's rejection on the bearded-man subject, the pattern is: **any human subject triggers the filter, non-human subjects pass**. For a plugin whose primary use cases involve human subjects, Seedance is not usable as a default, backup, or even tertiary provider. Documented in full in `references/kling-models.md` "Seedance 2.0 retest outcome (v3.8.1)" section. Retest spend: $0.14 (1 success) + $0.48 (12 anchor images regenerated for the retest matrix, ignoring the tests we didn't actually run). The spike's idempotent-skip logic + cost ledger reservation/release behavior correctly released the 2 failed cells' budget.
+- **Seedance 2.0 retest verdict: PERMANENTLY REJECTED for human-subject workflows.** v3.8.1 ran the user-requested retest with 3 diverse Phase 2 subjects (woman in home office, woman athlete, cartoon robot mascot) via the updated spike harness. Results: 2 of 3 FAILED with `E005 - input/output flagged as sensitive` on both human subjects (talking head AND athlete, both ~5-9 seconds to fail). Only the non-human cartoon robot mascot succeeded ($0.14, 123s wall). Combined with Phase 1's rejection on the bearded-man subject, the pattern is: **any human subject triggers the filter, non-human subjects pass**. For a plugin whose primary use cases involve human subjects, Seedance is not usable as a default, backup, or even tertiary provider. Documented in full in `references/kling-models.md` "Seedance 2.0 retest outcome (v3.8.1)" section. Retest spend: $0.14 (1 success) + $0.48 (12 anchor images regenerated for the retest matrix, ignoring the tests we didn't actually run). The spike's idempotent-skip logic + cost ledger reservation/release behavior correctly released the 2 failed cells' budget.
 
-- **Vertex API behavior drift from spike 5 Phase 2**: during the v3.8.1 Vertex smoke-test development, Vertex ACCEPTED `durationSeconds=5` on VEO 3.1 Lite GA -001 and started the generation (burning budget), where spike 5 Phase 2 observed a synchronous HTTP 400 with `"supported durations are [8,4,6] for feature text_to_video"`. This is a real behavior change — either the duration constraint has relaxed on this Vertex project, or Google moved some parameter validation from synchronous (submit-time) to asynchronous (generation-time). v3.8.1's smoke test does NOT test duration to avoid burning budget, and the drift is documented in both `references/veo-models.md` and the smoke-test's "untested constraints" output. Future sessions should re-verify other spike 5 findings (preview-ID 404, aspect-ratio 400, Scene Ext v2 720p forcing) before relying on them for production workflows.
+- **Vertex API behavior drift from spike 5 Phase 2**: during the v3.8.1 Vertex smoke-test development, Vertex ACCEPTED `durationSeconds=5` on VEO 3.1 Lite GA -001 and started the generation (burning budget), where spike 5 Phase 2 observed a synchronous HTTP 400 with `"supported durations are [8,4,6] for feature text_to_video"`. This is a real behavior change - either the duration constraint has relaxed on this Vertex project, or Google moved some parameter validation from synchronous (submit-time) to asynchronous (generation-time). v3.8.1's smoke test does NOT test duration to avoid burning budget, and the drift is documented in both `references/veo-models.md` and the smoke-test's "untested constraints" output. Future sessions should re-verify other spike 5 findings (preview-ID 404, aspect-ratio 400, Scene Ext v2 720p forcing) before relying on them for production workflows.
 
-- **v3.8.1 smoke-test-design-bug cost audit**: the first draft of the Vertex `smoke-test` subcommand accidentally submitted 3 valid VEO requests to test model reachability (one preview ID → 404 correctly, two GA -001 IDs → both succeeded at submit time and started generation). Estimated worst-case overspend: ~$3.60 (Standard 8s = $3.20, Lite 8s = $0.40). The subcommand was immediately redesigned to only use probes that fail at URL resolution (404) or synchronous submit-validation (400), and the real runtime was re-verified with all 3 free probes PASSing at $0 additional cost. The incident is documented as a design pattern lesson: **smoke tests that send "minimal valid" requests are not safe** — always use intentionally-invalid probes whose rejection happens before billing.
+- **v3.8.1 smoke-test-design-bug cost audit**: the first draft of the Vertex `smoke-test` subcommand accidentally submitted 3 valid VEO requests to test model reachability (one preview ID → 404 correctly, two GA -001 IDs → both succeeded at submit time and started generation). Estimated worst-case overspend: ~$3.60 (Standard 8s = $3.20, Lite 8s = $0.40). The subcommand was immediately redesigned to only use probes that fail at URL resolution (404) or synchronous submit-validation (400), and the real runtime was re-verified with all 3 free probes PASSing at $0 additional cost. The incident is documented as a design pattern lesson: **smoke tests that send "minimal valid" requests are not safe** - always use intentionally-invalid probes whose rejection happens before billing.
 
 ### Not in v3.8.1
 
-- **Seedance 2.0 as a tertiary plugin provider** — retest verdict was "permanently rejected for human workflows". Not wired into `_replicate_backend.py` model registry, not added to `video_generate.py --provider` choices, no `seedance-models.md` reference doc. Users who specifically need non-human workflows (brand mascots, animated characters) can call Seedance directly via Replicate's SDK.
-- **Fabric + audio_pipeline.py tight coupling** — the two scripts are deliberately decoupled. Users chain them manually with the 2-step pattern. A future version could add a convenience `audio_pipeline.py lipsync --image FACE --text "..."` that auto-orchestrates narrate → Fabric, but that's out of scope for v3.8.1.
-- **DreamActor M2.0 integration** for full-body character animation — still queued for potential v3.9.x research.
-- **Upscaling post-Fabric** for 1080p/4K talking-head output — no current plugin path; Real-ESRGAN on Replicate is the candidate.
-- **`video_extend.py` removal** — still deprecated + gated, not deleted, for backward compat.
+- **Seedance 2.0 as a tertiary plugin provider** - retest verdict was "permanently rejected for human workflows". Not wired into `_replicate_backend.py` model registry, not added to `video_generate.py --provider` choices, no `seedance-models.md` reference doc. Users who specifically need non-human workflows (brand mascots, animated characters) can call Seedance directly via Replicate's SDK.
+- **Fabric + audio_pipeline.py tight coupling** - the two scripts are deliberately decoupled. Users chain them manually with the 2-step pattern. A future version could add a convenience `audio_pipeline.py lipsync --image FACE --text "..."` that auto-orchestrates narrate → Fabric, but that's out of scope for v3.8.1.
+- **DreamActor M2.0 integration** for full-body character animation - still queued for potential v3.9.x research.
+- **Upscaling post-Fabric** for 1080p/4K talking-head output - no current plugin path; Real-ESRGAN on Replicate is the candidate.
+- **`video_extend.py` removal** - still deprecated + gated, not deleted, for backward compat.
 
 ## [3.8.0] - 2026-04-15
 
 ### Headline
 
-**Kling v3 Std replaces VEO 3.1 as the default video model.** Spike 5 (94 video generations, ~$53 total spend across two phases) decisively proved Kling wins: 8 of 15 playback-verified shot types (VEO 3.1 Fast: 0 wins, 7 ties), 7.5× cheaper per 8s clip, 20× cheaper than VEO Standard, native 1:1 Instagram-square aspect ratio support (VEO does not support 1:1), and coherent 30-second narrative generation where VEO's extended workflow produces "glitches, inconsistent actors, audio seam discontinuities — horrible, do not use" (user verdict 2026-04-15). VEO remains callable as opt-in backup via `--provider veo --tier {lite|fast|standard}` with a warning to review against Kling output before committing to VEO for production. `video_extend.py` is hard-gated by a new `--acknowledge-veo-limitations` flag and exits with code 2 if the flag is absent.
+**Kling v3 Std replaces VEO 3.1 as the default video model.** Spike 5 (94 video generations, ~$53 total spend across two phases) decisively proved Kling wins: 8 of 15 playback-verified shot types (VEO 3.1 Fast: 0 wins, 7 ties), 7.5× cheaper per 8s clip, 20× cheaper than VEO Standard, native 1:1 Instagram-square aspect ratio support (VEO does not support 1:1), and coherent 30-second narrative generation where VEO's extended workflow produces "glitches, inconsistent actors, audio seam discontinuities - horrible, do not use" (user verdict 2026-04-15). VEO remains callable as opt-in backup via `--provider veo --tier {lite|fast|standard}` with a warning to review against Kling output before committing to VEO for production. `video_extend.py` is hard-gated by a new `--acknowledge-veo-limitations` flag and exits with code 2 if the flag is absent.
 
 This is a backend routing change, not a UX change: `/video generate`, `/video sequence`, and `/video extend` retain the same surface area. The only new CLI flags are `--provider {auto,kling,veo}`, `--tier {lite,fast,standard}`, and `--replicate-key`. The default model changes from `veo-3.1-generate-preview` to `kwaivgi/kling-v3-video`.
 
@@ -527,101 +527,101 @@ Full spike 5 findings: `spikes/v3.8.0-provider-bakeoff/writeup/v3.8.0-bakeoff-fi
 
 ### Added
 
-- **`skills/video/scripts/_replicate_backend.py`** — pure data translation helper for Replicate predictions API, mirroring the `_vertex_backend.py` architecture. Exports: `build_kling_request_body`, `validate_kling_params`, `image_path_to_data_uri`, `parse_replicate_submit_response`, `parse_replicate_poll_response`, `build_predictions_url`, `load_replicate_credentials`, `replicate_post`, `replicate_get`. Error classes: `ReplicateBackendError`, `ReplicateValidationError`, `ReplicateAuthError`, `ReplicateSubmitError`, `ReplicatePollError`. Stdlib only. Includes `--diagnose` CLI that pings `/v1/account` to verify auth without burning a generation. Sends `User-Agent: nano-banana-studio/3.8.0 (...)` on every request to avoid Cloudflare WAF error 1010 on the account endpoint (observed during initial diagnose testing).
-- **`skills/video/references/kling-models.md`** — new reference doc covering Kling v3 Std capabilities, spike 5 rationale for the default switch, pricing table ($0.16/8s pro, $0.30/15s pro, ~$0.60 for 30s via shot-list pipeline), `multi_prompt` JSON format with example, extended workflow guidance (use `video_sequence.py` shot-list pipeline), image-to-video constraints (10 MB start_image cap, 300 px minimum, 1:2.5-2.5:1 aspect range), wall time expectations (3-6 min per call), known limitations (English + Chinese audio only, character variation across separate generations). Authoritative source: `dev-docs/kwaivgi-kling-v3-video-llms.md`.
-- **`--provider {auto,kling,veo}` flag** on `video_generate.py` — resolves to a concrete `--model` slug if `--model` is not explicitly set. `auto` defaults to Kling; `kling` forces Kling; `veo` forces VEO with `--tier {lite,fast,standard}` (default: lite).
-- **`--tier {lite,fast,standard}` flag** on `video_generate.py` — VEO tier selector, only consulted when `--provider veo`. Defaults to `lite` per spike 5 Phase 2B finding that Fast and Standard tier premiums are imperceptible at 1 fps sampling.
-- **`--replicate-key` flag** on `video_generate.py` — overrides the Replicate API token, else loads from `REPLICATE_API_TOKEN` env var or `~/.banana/config.json` `replicate_api_token` field (same field used by the image-gen side via `setup_mcp.py`).
-- **`--acknowledge-veo-limitations` flag** on `video_extend.py` — **required**. Without this flag, the script exits with code 2 and prints a deprecation message pointing users at `video_sequence.py` with the Kling shot-list pipeline. Hard-gate prevents accidental VEO extended usage given the spike 5 "horrible, do not use" verdict.
-- **`BACKEND_REPLICATE` constant** + routing branch in `_select_backend()` — model slugs containing `/` (owner/name format) route to Replicate with highest priority, before any other rule.
+- **`skills/video/scripts/_replicate_backend.py`** - pure data translation helper for Replicate predictions API, mirroring the `_vertex_backend.py` architecture. Exports: `build_kling_request_body`, `validate_kling_params`, `image_path_to_data_uri`, `parse_replicate_submit_response`, `parse_replicate_poll_response`, `build_predictions_url`, `load_replicate_credentials`, `replicate_post`, `replicate_get`. Error classes: `ReplicateBackendError`, `ReplicateValidationError`, `ReplicateAuthError`, `ReplicateSubmitError`, `ReplicatePollError`. Stdlib only. Includes `--diagnose` CLI that pings `/v1/account` to verify auth without burning a generation. Sends `User-Agent: nano-banana-studio/3.8.0 (...)` on every request to avoid Cloudflare WAF error 1010 on the account endpoint (observed during initial diagnose testing).
+- **`skills/video/references/kling-models.md`** - new reference doc covering Kling v3 Std capabilities, spike 5 rationale for the default switch, pricing table ($0.16/8s pro, $0.30/15s pro, ~$0.60 for 30s via shot-list pipeline), `multi_prompt` JSON format with example, extended workflow guidance (use `video_sequence.py` shot-list pipeline), image-to-video constraints (10 MB start_image cap, 300 px minimum, 1:2.5-2.5:1 aspect range), wall time expectations (3-6 min per call), known limitations (English + Chinese audio only, character variation across separate generations). Authoritative source: `dev-docs/kwaivgi-kling-v3-video-llms.md`.
+- **`--provider {auto,kling,veo}` flag** on `video_generate.py` - resolves to a concrete `--model` slug if `--model` is not explicitly set. `auto` defaults to Kling; `kling` forces Kling; `veo` forces VEO with `--tier {lite,fast,standard}` (default: lite).
+- **`--tier {lite,fast,standard}` flag** on `video_generate.py` - VEO tier selector, only consulted when `--provider veo`. Defaults to `lite` per spike 5 Phase 2B finding that Fast and Standard tier premiums are imperceptible at 1 fps sampling.
+- **`--replicate-key` flag** on `video_generate.py` - overrides the Replicate API token, else loads from `REPLICATE_API_TOKEN` env var or `~/.banana/config.json` `replicate_api_token` field (same field used by the image-gen side via `setup_mcp.py`).
+- **`--acknowledge-veo-limitations` flag** on `video_extend.py` - **required**. Without this flag, the script exits with code 2 and prints a deprecation message pointing users at `video_sequence.py` with the Kling shot-list pipeline. Hard-gate prevents accidental VEO extended usage given the spike 5 "horrible, do not use" verdict.
+- **`BACKEND_REPLICATE` constant** + routing branch in `_select_backend()` - model slugs containing `/` (owner/name format) route to Replicate with highest priority, before any other rule.
 - **`MODELS_REPLICATE` registry** in `video_generate.py` listing the Replicate model slugs (v3.8.0 ships with one: `kwaivgi/kling-v3-video`).
-- **`_submit_replicate()`, `_poll_replicate()`, `_save_video_replicate()` functions** in `video_generate.py` — per-backend implementations following the same pattern as the existing `_vertex_ai` functions. The submit function translates VEO-shaped kwargs (resolution → mode, first_frame → start_image data URI, etc.) and blocks unsupported VEO-only features (`--reference-image`, `--video-input`).
-- **`veo-backup` quality tier** in `video_sequence.py` — opt-in VEO 3.1 Lite path for the sequence pipeline. All other tiers (draft, fast, standard, premium, lite, legacy) now route to Kling v3 Std.
-- **Kling entries in `VALID_DURATIONS_BY_MODEL` and `VALID_RATIOS_BY_MODEL`** — Kling accepts any integer in [3, 15] seconds and supports 16:9 / 9:16 / **1:1** aspect ratios. The empty-dict default keeps VEO at its existing `{4, 6, 8}` duration set and `{16:9, 9:16}` aspect set.
+- **`_submit_replicate()`, `_poll_replicate()`, `_save_video_replicate()` functions** in `video_generate.py` - per-backend implementations following the same pattern as the existing `_vertex_ai` functions. The submit function translates VEO-shaped kwargs (resolution → mode, first_frame → start_image data URI, etc.) and blocks unsupported VEO-only features (`--reference-image`, `--video-input`).
+- **`veo-backup` quality tier** in `video_sequence.py` - opt-in VEO 3.1 Lite path for the sequence pipeline. All other tiers (draft, fast, standard, premium, lite, legacy) now route to Kling v3 Std.
+- **Kling entries in `VALID_DURATIONS_BY_MODEL` and `VALID_RATIOS_BY_MODEL`** - Kling accepts any integer in [3, 15] seconds and supports 16:9 / 9:16 / **1:1** aspect ratios. The empty-dict default keeps VEO at its existing `{4, 6, 8}` duration set and `{16:9, 9:16}` aspect set.
 
 ### Changed
 
 - **`DEFAULT_MODEL` in `video_generate.py`** changed from `"veo-3.1-generate-preview"` to `"kwaivgi/kling-v3-video"`. Explicit `--model` overrides still work; `--provider auto` resolves to the new default when `--model` is unset.
 - **`DEFAULT_SEQUENCE_MODEL` in `video_sequence.py`** changed from `"veo-3.1-generate-preview"` to `"kwaivgi/kling-v3-video"`.
-- **`QUALITY_TIER_MODELS` remapped in `video_sequence.py`** — draft, fast, standard, premium, lite, and legacy all point to `kwaivgi/kling-v3-video`. Kling's $0.16/8s pricing is cheap enough to serve as both draft and premium tiers — no point in the v3.6.x 5-tier VEO ladder when Kling quality is already equivalent to VEO Standard at 20× lower cost. Aliases (`lite`, `legacy`) preserved for backward compat but point to Kling, not VEO. New `veo-backup` tier provides explicit VEO opt-in.
+- **`QUALITY_TIER_MODELS` remapped in `video_sequence.py`** - draft, fast, standard, premium, lite, and legacy all point to `kwaivgi/kling-v3-video`. Kling's $0.16/8s pricing is cheap enough to serve as both draft and premium tiers - no point in the v3.6.x 5-tier VEO ladder when Kling quality is already equivalent to VEO Standard at 20× lower cost. Aliases (`lite`, `legacy`) preserved for backward compat but point to Kling, not VEO. New `veo-backup` tier provides explicit VEO opt-in.
 - **`_veo_cost()` in `video_sequence.py`** dispatches on model slug shape: slugs with `/` look up `_KLING_PER_SECOND` (Kling at ~$0.02/s pro mode); plain IDs look up `_VEO_PER_SECOND` (unchanged). Returns None for unknown models so callers can treat unknown as opaque.
-- **`MODELS_WITHOUT_4K` now includes Kling** (`kwaivgi/kling-v3-video`) — Kling maxes at 1080p pro mode. The error message is Kling-aware: instructs users to use `--resolution 1080p` for Kling, or explicitly `--provider veo` if they need 4K (VEO Fast/Standard preview IDs only).
+- **`MODELS_WITHOUT_4K` now includes Kling** (`kwaivgi/kling-v3-video`) - Kling maxes at 1080p pro mode. The error message is Kling-aware: instructs users to use `--resolution 1080p` for Kling, or explicitly `--provider veo` if they need 4K (VEO Fast/Standard preview IDs only).
 - **`skills/video/SKILL.md` orchestrator** updated to default to Kling for `/video generate` and `/video sequence`. Added Kling-specific guidance: 3-6 minute wall time expectation, aspect_ratio + start_image mutual exclusion caveat, English + Chinese audio limitation. Added explicit VEO warning for when users request VEO backup. Updated Model Routing table with Kling as the default row. Core Principle 2 generalized from "VEO 3.1 generates audio" to "both Kling and VEO generate audio".
 - **`skills/video/references/veo-models.md`** prepended with "v3.8.0 status: BACKUP ONLY" section containing the spike 5 scoreboard, cost ratios, and the 5 Vertex API constraints discovered in Phase 2 (preview ID restrictions, Scene Ext v2 720p forcing, 15 MB inline upload limit, duration {4,6,8} only, aspect {16:9, 9:16} only). Added the Lite/Fast/Standard tier comparison table from spike 5 Phase 2B.
 - **`nano-banana-studio/CLAUDE.md` file responsibilities table** updated with `_replicate_backend.py` and `kling-models.md` entries. Added 10+ new Key Constraints entries covering the v3.8.0 default change, Kling parameter rules, English+Chinese audio limitation, aspect+start_image mutual exclusion, Cloudflare User-Agent requirement, `Prefer: wait=0` non-compliance, `aborted` status enum handling, and the `video_extend.py` deprecation gate rationale.
 
 ### Deprecated
 
-- **`video_extend.py`** — hard-gated by `--acknowledge-veo-limitations` flag as of v3.8.0. Running without the flag exits with code 2 and a JSON deprecation message. Kept in the codebase for backward compat and for users who explicitly want VEO extended output after reviewing the spike 5 findings.
+- **`video_extend.py`** - hard-gated by `--acknowledge-veo-limitations` flag as of v3.8.0. Running without the flag exits with code 2 and a JSON deprecation message. Kept in the codebase for backward compat and for users who explicitly want VEO extended output after reviewing the spike 5 findings.
 
 ### Fixed
 
-- **Replicate API `/v1/account` endpoint blocked by Cloudflare WAF error 1010** when using Python-urllib's default User-Agent. `_replicate_backend.py` sends a custom `User-Agent: nano-banana-studio/3.8.0 (+https://github.com/juliandickie/creators-studio)` header on every request. The existing image-gen `replicate_generate.py` does NOT set a User-Agent and works only because `/v1/models/.../predictions` endpoints have more lenient Cloudflare rules — adding User-Agent to that script is a candidate v3.8.x hardening but out of scope for this release.
-- **Replicate Prediction.status `aborted` not handled by the spike's client** — the OpenAPI schema explicitly defines 6 status values (`starting | processing | succeeded | failed | canceled | aborted`) but `spikes/v3.8.0-provider-bakeoff/lib/replicate_client.py` only handles the first 5. `_replicate_backend.parse_replicate_poll_response()` maps `aborted` to the "failed" bucket — without this fix, the poll loop would spin forever on aborted predictions.
+- **Replicate API `/v1/account` endpoint blocked by Cloudflare WAF error 1010** when using Python-urllib's default User-Agent. `_replicate_backend.py` sends a custom `User-Agent: nano-banana-studio/3.8.0 (+https://github.com/juliandickie/creators-studio)` header on every request. The existing image-gen `replicate_generate.py` does NOT set a User-Agent and works only because `/v1/models/.../predictions` endpoints have more lenient Cloudflare rules - adding User-Agent to that script is a candidate v3.8.x hardening but out of scope for this release.
+- **Replicate Prediction.status `aborted` not handled by the spike's client** - the OpenAPI schema explicitly defines 6 status values (`starting | processing | succeeded | failed | canceled | aborted`) but `spikes/v3.8.0-provider-bakeoff/lib/replicate_client.py` only handles the first 5. `_replicate_backend.parse_replicate_poll_response()` maps `aborted` to the "failed" bucket - without this fix, the poll loop would spin forever on aborted predictions.
 - **Spike's `Prefer: wait=0` is non-spec-compliant per the Replicate OpenAPI regex** (`^wait(=([1-9]|[1-9][0-9]|60))?$`). `_replicate_backend.py` omits the Prefer header entirely for async-first semantic, which is correct for Kling's 3-6 min wall times.
-- **4K error message in `video_generate.py` was hardcoded to VEO-only guidance** — used to say "Use 'veo-3.1-generate-preview' or 'veo-3.1-fast-generate-preview' for 4K" regardless of which model was blocked. Now model-aware: Kling users see "Kling v3 Std maxes at 1080p (pro mode). Use --resolution 1080p or --provider veo if you specifically need 4K output."
+- **4K error message in `video_generate.py` was hardcoded to VEO-only guidance** - used to say "Use 'veo-3.1-generate-preview' or 'veo-3.1-fast-generate-preview' for 4K" regardless of which model was blocked. Now model-aware: Kling users see "Kling v3 Std maxes at 1080p (pro mode). Use --resolution 1080p or --provider veo if you specifically need 4K output."
 
 ### Deferred to v3.8.x / later
 
-- **Kling chain helper** — spike's `extended_run.py` proved the last-frame-chaining pattern works for single-continuous-long-shot workflows, but the existing `video_sequence.py` shot-list pipeline already handles extended workflows via independent Kling calls per shot. A dedicated chain helper is deferred until a specific single-continuous-30s use case emerges.
-- **Seedance 2.0 retest** — rejected in spike 5 Phase 1 due to E005 safety filter on all 4 attempts with the bearded-man subject. Phase 2 uses different subjects, so a retest with Phase 2 shot definitions could succeed. Queued as v3.8.x ROADMAP priority 10a. Estimated spend: $2-3.
-- **Kling v3 Omni** — deferred from spike 5 Phase 1 for 25+ minute wall time on multi_prompt + refs config. Revisit only if Replicate optimizes this below 5 min.
-- **PrunaAI P-Video** — tested in spike 5 Phase 1 as a potential "draft tier" at $0.04/13s wall time, but user declined to wire it in v3.8.0 after reviewing the Phase 1 output. Kling at $0.16/clip serves the iteration-loop use case well enough.
-- **`_vertex_smoke_test.py`** — pre-flight check script for the 5 Vertex API constraints discovered in Phase 2 (preview ID restrictions, Scene Ext v2 720p forcing, 15 MB inline limit, duration {4,6,8}, aspect {16:9, 9:16}). Put it in `skills/video/scripts/` next to `_vertex_backend.py`. Queued as ROADMAP priority 10b.
-- **Adding User-Agent to `skills/banana/scripts/replicate_generate.py`** — defensive hardening to future-proof the image-gen path if Cloudflare tightens the `/v1/models/.../predictions` rules. Low priority given the image-gen path currently works without it.
+- **Kling chain helper** - spike's `extended_run.py` proved the last-frame-chaining pattern works for single-continuous-long-shot workflows, but the existing `video_sequence.py` shot-list pipeline already handles extended workflows via independent Kling calls per shot. A dedicated chain helper is deferred until a specific single-continuous-30s use case emerges.
+- **Seedance 2.0 retest** - rejected in spike 5 Phase 1 due to E005 safety filter on all 4 attempts with the bearded-man subject. Phase 2 uses different subjects, so a retest with Phase 2 shot definitions could succeed. Queued as v3.8.x ROADMAP priority 10a. Estimated spend: $2-3.
+- **Kling v3 Omni** - deferred from spike 5 Phase 1 for 25+ minute wall time on multi_prompt + refs config. Revisit only if Replicate optimizes this below 5 min.
+- **PrunaAI P-Video** - tested in spike 5 Phase 1 as a potential "draft tier" at $0.04/13s wall time, but user declined to wire it in v3.8.0 after reviewing the Phase 1 output. Kling at $0.16/clip serves the iteration-loop use case well enough.
+- **`_vertex_smoke_test.py`** - pre-flight check script for the 5 Vertex API constraints discovered in Phase 2 (preview ID restrictions, Scene Ext v2 720p forcing, 15 MB inline limit, duration {4,6,8}, aspect {16:9, 9:16}). Put it in `skills/video/scripts/` next to `_vertex_backend.py`. Queued as ROADMAP priority 10b.
+- **Adding User-Agent to `skills/banana/scripts/replicate_generate.py`** - defensive hardening to future-proof the image-gen path if Cloudflare tightens the `/v1/models/.../predictions` rules. Low priority given the image-gen path currently works without it.
 
 ## [3.7.4] - 2026-04-15
 
 ### Headline
 
-**Audio polish + voice cloning bundle.** Five changes close the v3.7.1/v3.7.2 polish debt before the v3.8.0 provider-abstraction work starts: real stereo FFmpeg mix (the v3.7.1 narration was mono-in-stereo-container on headphones, fixed with `pan=stereo|c0=c0|c1=c0` + explicit `-ac 2`), ElevenLabs Instant Voice Cloning via a new `voice-clone` subcommand (30+ seconds of audio → permanent `custom_voices.{role}` entry with `source_type=cloned`), auto-measured per-voice WPM persisted to `custom_voices.{role}.wpm` on promote/clone/retroactive-measure, multi-call Lyria with FFmpeg `acrossfade` for music longer than the 32.768s hard cap (auto-routed when `length_ms > 32768` and `source=lyria`), and shared client-side stripping of named copyrighted creators from both Lyria and ElevenLabs Music prompts (20+ triggers — photographers, publications, composers, broadcasters, pop artists — with `--allow-creators` bypass).
+**Audio polish + voice cloning bundle.** Five changes close the v3.7.1/v3.7.2 polish debt before the v3.8.0 provider-abstraction work starts: real stereo FFmpeg mix (the v3.7.1 narration was mono-in-stereo-container on headphones, fixed with `pan=stereo|c0=c0|c1=c0` + explicit `-ac 2`), ElevenLabs Instant Voice Cloning via a new `voice-clone` subcommand (30+ seconds of audio → permanent `custom_voices.{role}` entry with `source_type=cloned`), auto-measured per-voice WPM persisted to `custom_voices.{role}.wpm` on promote/clone/retroactive-measure, multi-call Lyria with FFmpeg `acrossfade` for music longer than the 32.768s hard cap (auto-routed when `length_ms > 32768` and `source=lyria`), and shared client-side stripping of named copyrighted creators from both Lyria and ElevenLabs Music prompts (20+ triggers - photographers, publications, composers, broadcasters, pop artists - with `--allow-creators` bypass).
 
-Pure documentation-plus-polish release on top of the v3.7.x audio foundation. No new external dependencies, no breaking changes, no API calls during build (just a syntax + help + status smoke test — `py_compile` clean, all 11 subcommands registered, status passes all 6 checks).
+Pure documentation-plus-polish release on top of the v3.7.x audio foundation. No new external dependencies, no breaking changes, no API calls during build (just a syntax + help + status smoke test - `py_compile` clean, all 11 subcommands registered, status passes all 6 checks).
 
 ### Added
 
 - **`voice-clone` subcommand** wrapping ElevenLabs IVC (`POST /v1/voices/add`). Accepts a single audio file OR a directory of audio files (`--audio`) and uploads them together as multipart/form-data via a new `_http_post_multipart()` stdlib helper. CLI surface: `--name`, `--role`, `--description`, `--label-{language,accent,gender,age}`, `--remove-background-noise`, `--notes`, `--no-auto-wpm`, `--api-key`. Supported input formats: mp3, wav, m4a, flac, ogg, opus, aiff, webm. Persists to `custom_voices.{role}` with `source_type=cloned`, `design_method=ivc`, plus `source_audio_count` / `source_audio_total_bytes` / `source_audio_total_duration_sec` / `requires_verification` / `labels`.
 - **`voice-measure` subcommand** for retroactively measuring WPM on voices that pre-date v3.7.4. Runs the same 38-word reference phrase → duration probe → WPM calculation as the auto-measure path, persists to `custom_voices.{role}.wpm` + `.wpm_measured_at`.
-- **`generate_music_lyria_extended()` function** — multi-call Lyria with FFmpeg acrossfade for music durations longer than 32.768s. Computes N = `ceil((target - crossfade) / (32.768 - crossfade))`, generates N clips via `generate_music_lyria()`, chains them with equal-power `acrossfade=d=2:c1=tri:c2=tri`, trims to exact target duration, transcodes to MP3 at the requested bitrate. Result dict includes `clip_count`, `cost_usd_estimate`, `crossfade_sec`. Auto-routed by `generate_music()` when `source=lyria` and `length_ms > 32768 + 500ms` grace.
+- **`generate_music_lyria_extended()` function** - multi-call Lyria with FFmpeg acrossfade for music durations longer than 32.768s. Computes N = `ceil((target - crossfade) / (32.768 - crossfade))`, generates N clips via `generate_music_lyria()`, chains them with equal-power `acrossfade=d=2:c1=tri:c2=tri`, trims to exact target duration, transcodes to MP3 at the requested bitrate. Result dict includes `clip_count`, `cost_usd_estimate`, `crossfade_sec`. Auto-routed by `generate_music()` when `source=lyria` and `length_ms > 32768 + 500ms` grace.
 - **`strip_named_creators()` helper + `NAMED_CREATOR_TRIGGERS` list** (20+ entries: Annie Leibovitz, Dorothea Lange, Ansel Adams, Richard Avedon, Helmut Newton, Steve McCurry, Vanity Fair, National Geographic, Harper's Bazaar, Vogue, WIRED, Wallpaper*, Architectural Digest, Bon Appetit, Kinfolk, Rolling Stone, BBC Earth, BBC, Pixar, Disney, Netflix, HBO, Hans Zimmer, John Williams, Ennio Morricone, Ludovico Einaudi, Max Richter, Philip Glass, Taylor Swift, Beyoncé, Drake, Kanye, The Beatles). Case-insensitive substring match with longer-phrase precedence and whitespace normalisation. Called on both `generate_music_lyria()` and `generate_music_elevenlabs()` entry points so both providers behave consistently.
 - **`_http_post_multipart()` stdlib helper** for `multipart/form-data` file uploads. Constructs the body by hand with a UUID-based boundary, supports multiple file parts sharing the same form field name (ElevenLabs IVC expects multiple `files` parts in one request). Used by `clone_voice()`; reusable for future multipart endpoints.
-- **`_collect_audio_files()` helper** that resolves the `--audio` argument to a list of Path objects — accepts a single file or a directory, filters directories to audio extensions, errors if no files found.
+- **`_collect_audio_files()` helper** that resolves the `--audio` argument to a list of Path objects - accepts a single file or a directory, filters directories to audio extensions, errors if no files found.
 - **`measure_voice_wpm()` function** generating a 38-word neutral reference phrase via `generate_narration()`, probing duration with ffprobe, returning `word_count / (duration_sec / 60)`. Cost: one TTS call (~fraction of a cent on subscription tiers). Persists to `custom_voices.{role}.wpm` on voice-promote and voice-clone.
-- **`voice_measure()` function** — CLI entry point for retroactive WPM measurement on existing voices.
+- **`voice_measure()` function** - CLI entry point for retroactive WPM measurement on existing voices.
 - **`--allow-creators` flag** on both `music` and `pipeline` subcommands. Bypasses the client-side named-creator strip when users want to test whether the upstream filter has relaxed for a specific term or when they hit a false positive (e.g. "Drake" in a duck-themed prompt).
-- **`stripped_terms` field** in the `generate_music_lyria()` and `generate_music_elevenlabs()` result dicts — a list of triggers removed by the pre-flight strip (empty if none matched).
-- **`source_audio_total_duration_sec` sanity check** in `clone_voice()` that warns (but does not block) when total audio is under 25 seconds — ElevenLabs documents 30s as the minimum, and the upstream API is the authoritative rejection.
+- **`stripped_terms` field** in the `generate_music_lyria()` and `generate_music_elevenlabs()` result dicts - a list of triggers removed by the pre-flight strip (empty if none matched).
+- **`source_audio_total_duration_sec` sanity check** in `clone_voice()` that warns (but does not block) when total audio is under 25 seconds - ElevenLabs documents 30s as the minimum, and the upstream API is the authoritative rejection.
 - **`voice-clone` / `voice-measure` / `voice-clone` sections** in `skills/video/references/audio-pipeline.md` documenting the new subcommands, the strip behaviour, the WPM calibration model, IVC vs PVC delta (PVC deferred to v3.7.5+), voice captcha verification flow, and the consent caveat.
 
 ### Changed
 
-- **`SIDECHAIN_FILTER` in `audio_pipeline.py` rewritten** to use `aformat=channel_layouts=mono,pan=stereo|c0=c0|c1=c0` on the narration branch, explicitly duplicating the mono ElevenLabs TTS source onto both L+R channels before `apad` and `sidechaincompress`. The v3.7.1 `aformat=channel_layouts=stereo` alone declared stereo metadata but did not upmix the actual signal — the result was "stereo in container, silent right channel" that presented as speaker-left-only narration on headphones. The `mix_narration_with_music()` ffmpeg invocation also gains `-ac 2` to lock the output container channel count.
+- **`SIDECHAIN_FILTER` in `audio_pipeline.py` rewritten** to use `aformat=channel_layouts=mono,pan=stereo|c0=c0|c1=c0` on the narration branch, explicitly duplicating the mono ElevenLabs TTS source onto both L+R channels before `apad` and `sidechaincompress`. The v3.7.1 `aformat=channel_layouts=stereo` alone declared stereo metadata but did not upmix the actual signal - the result was "stereo in container, silent right channel" that presented as speaker-left-only narration on headphones. The `mix_narration_with_music()` ffmpeg invocation also gains `-ac 2` to lock the output container channel count.
 - **`generate_music()` dispatcher** auto-routes to `generate_music_lyria_extended()` when `source="lyria"` and requested length exceeds 32.768s (with a 500ms grace). Single-call Lyria path preserved for efficiency when the duration fits in one clip.
-- **`promote_voice()` now auto-measures WPM** immediately after promoting a designed voice. Non-fatal if measurement fails — the voice is persisted with base metadata first, WPM is patched in a second atomic write. User can retry via `voice-measure --role ROLE`.
+- **`promote_voice()` now auto-measures WPM** immediately after promoting a designed voice. Non-fatal if measurement fails - the voice is persisted with base metadata first, WPM is patched in a second atomic write. User can retry via `voice-measure --role ROLE`.
 - **`clone_voice()` auto-measures WPM** on successful clone (skipped when `requires_verification=true` is returned, since the voice isn't usable until captcha completion). Disable with `--no-auto-wpm`.
 - **`skills/video/references/audio-pipeline.md`** header bumped to "v3.7.1 + v3.7.2 + v3.7.4" with a 5-item summary of the v3.7.4 changes at the top. Existing "Banned content" and "TOS guardrails" sections updated to reference the new client-side strip. New sections for voice cloning and WPM measurement.
 - **`pipeline()` Python function signature** gained `allow_creators: bool = False` parameter, passed through to `generate_music()` for the music generation stage.
 
 ### Fixed
 
-- **Mono narration on headphones** (v3.7.1 regression): the sidechain mix declared stereo but the signal was mono-on-left-only. Users reported narration "coming from the left speaker" on headphones. Root cause was `aformat=channel_layouts=stereo` acting as metadata-only declaration rather than an actual upmix — verified by reading the FFmpeg filter documentation after the bug was noticed in spike 3 session notes. `pan=stereo|c0=c0|c1=c0` is the canonical mono-to-stereo upmix filter and produces real two-channel audio.
+- **Mono narration on headphones** (v3.7.1 regression): the sidechain mix declared stereo but the signal was mono-on-left-only. Users reported narration "coming from the left speaker" on headphones. Root cause was `aformat=channel_layouts=stereo` acting as metadata-only declaration rather than an actual upmix - verified by reading the FFmpeg filter documentation after the bug was noticed in spike 3 session notes. `pan=stereo|c0=c0|c1=c0` is the canonical mono-to-stereo upmix filter and produces real two-channel audio.
 
 ### Deferred to later v3.7.x / v3.8.0
 
-- **Professional Voice Cloning (PVC)** — separate `/v1/voices/pvc/*` endpoint family, requires 30+ minutes of audio, Creator+ plan, multi-step fine-tuning workflow. Reserved as `design_method="pvc"` under the existing `source_type="cloned"` enum. Targets v3.7.5+.
-- **Lyria long-music cost warning** — when `generate_music_lyria_extended` would issue more than 5 calls (~$0.30 per request), emit a pre-flight confirmation prompt or require a `--confirm-extended-cost` flag. Not implemented in v3.7.4; the `cost_usd_estimate` field in the result is the only signal.
-- **Stripping of "in the style of X" compound phrases** — current behaviour leaves `"in the style of , warm strings"` after stripping X. The providers ignore the dangling phrase, but a future polish pass could match the containing `in the style of NAME` pattern as a unit. Tracked as a small polish item.
-- **Strip-list extensibility** — the `NAMED_CREATOR_TRIGGERS` list is hardcoded. A future release could move it to `~/.banana/config.json` so users can add their own terms without editing the script.
+- **Professional Voice Cloning (PVC)** - separate `/v1/voices/pvc/*` endpoint family, requires 30+ minutes of audio, Creator+ plan, multi-step fine-tuning workflow. Reserved as `design_method="pvc"` under the existing `source_type="cloned"` enum. Targets v3.7.5+.
+- **Lyria long-music cost warning** - when `generate_music_lyria_extended` would issue more than 5 calls (~$0.30 per request), emit a pre-flight confirmation prompt or require a `--confirm-extended-cost` flag. Not implemented in v3.7.4; the `cost_usd_estimate` field in the result is the only signal.
+- **Stripping of "in the style of X" compound phrases** - current behaviour leaves `"in the style of , warm strings"` after stripping X. The providers ignore the dangling phrase, but a future polish pass could match the containing `in the style of NAME` pattern as a unit. Tracked as a small polish item.
+- **Strip-list extensibility** - the `NAMED_CREATOR_TRIGGERS` list is hardcoded. A future release could move it to `~/.banana/config.json` so users can add their own terms without editing the script.
 - Spike 5 (character-consistency bake-off) still deferred to v3.8.0 planning.
 
 ## [3.7.3] - 2026-04-15
 
 ### Headline
 
-**Spike 6 ships — prompt-engineering guidance refreshed against Gemini 3.1 and Google's official prompting docs.** Two pieces of v3.6.x guidance turned out to be wrong:
+**Spike 6 ships - prompt-engineering guidance refreshed against Gemini 3.1 and Google's official prompting docs.** Two pieces of v3.6.x guidance turned out to be wrong:
 
-1. The "banned keywords" rule (`"8K"`, `"masterpiece"`, `"ultra-realistic"`, `"high resolution"`) was based on older model behaviour. Spike 6 tested it on `gemini-3.1-flash-image-preview` with a 9-image matrix (3 conditions × 3 samples, $0.70). Result: file-size variance *within* conditions (213 KB) exceeded variance *between* conditions (66 KB). Visual quality was indistinguishable with or without the modifiers. The rule is obsolete — the keywords are useless, not harmful.
-2. The replacement "use prestigious context anchors" rule (`"Vanity Fair editorial portrait"`, `"National Geographic cover story"`, `"Wallpaper* design editorial"`) is actively harmful. The same spike 6 test included `"Annie Leibovitz editorial portrait, Vanity Fair magazine cover style, dramatic studio lighting"` — all 3 samples rendered as **literal magazine covers** with masthead typography (`"VAVANITY FAIR"`), headline text overlays, cover-line gibberish, and magazine-layout framing. Gemini 3.1's text-rendering strength works against you here: it's *good enough* at rendering "Vanity Fair" that when you name it, you get Vanity Fair.
+1. The "banned keywords" rule (`"8K"`, `"masterpiece"`, `"ultra-realistic"`, `"high resolution"`) was based on older model behaviour. Spike 6 tested it on `gemini-3.1-flash-image-preview` with a 9-image matrix (3 conditions × 3 samples, $0.70). Result: file-size variance *within* conditions (213 KB) exceeded variance *between* conditions (66 KB). Visual quality was indistinguishable with or without the modifiers. The rule is obsolete - the keywords are useless, not harmful.
+2. The replacement "use prestigious context anchors" rule (`"Vanity Fair editorial portrait"`, `"National Geographic cover story"`, `"Wallpaper* design editorial"`) is actively harmful. The same spike 6 test included `"Annie Leibovitz editorial portrait, Vanity Fair magazine cover style, dramatic studio lighting"` - all 3 samples rendered as **literal magazine covers** with masthead typography (`"VAVANITY FAIR"`), headline text overlays, cover-line gibberish, and magazine-layout framing. Gemini 3.1's text-rendering strength works against you here: it's *good enough* at rendering "Vanity Fair" that when you name it, you get Vanity Fair.
 
 The authoritative replacement is Google's official Gemini 3.1 Flash Image prompting guide, which leads with: *"Describe the scene, don't just list keywords. The model's core strength is its deep language understanding. A narrative, descriptive paragraph will almost always produce a better, more coherent image than a list of disconnected words."*
 
@@ -639,24 +639,24 @@ The authoritative replacement is Google's official Gemini 3.1 Flash Image prompt
 - **`references/prompt-engineering.md` → Prompt Templates section** scrubbed magazine-name anchors from the five affected examples (Instagram Ad, National Geographic fitness ad, Bon Appetit beverage ad, Bon Appetit food ad, Wallpaper* bottle branding). Each replacement describes the visual register directly.
 - **`references/prompt-engineering.md` → Prompt Adaptation Rules table** the `8K, masterpiece, ultra-detailed → use prestigious anchors` row was rewritten to cut the modifiers without replacement (the old advice pointed users into the publication-name failure mode).
 - **`references/prompt-engineering.md` → Common Prompt Mistakes #1 + Key Tactics #9** rewritten to reflect the new rule: describe register directly, do not substitute magazine names. Cameras, lenses, lighting, and composition remain safe and productive.
-- **`references/prompt-engineering.md` → Product/Commercial + Logo/Branding "Pattern" lines** updated to end in `[direct visual-register description — NOT a magazine name]` instead of `[prestigious publication reference]`.
+- **`references/prompt-engineering.md` → Product/Commercial + Logo/Branding "Pattern" lines** updated to end in `[direct visual-register description - NOT a magazine name]` instead of `[prestigious publication reference]`.
 - **`CLAUDE.md` → Key constraints** the legacy "NEVER use banned keywords" bullet is replaced by three bullets: (1) the core "describe the scene" principle, (2) the publication-format warning with the spike 6 citation, and (3) a note that the old banned-keywords list is useless-but-not-harmful on Gemini 3.1.
 
 ### Spike 6 results (full)
 
 | Condition | Prompt fragment | Avg file size (KB) | Avg gen time (s) | Visual outcome |
 |---|---|---|---|---|
-| A — banned keywords | `"8K ultra-realistic masterpiece high resolution portrait of..."` | 3015 | 25.5 | Clean portrait, no quality difference from B |
-| B — neutral baseline | `"portrait of..."` (no quality modifiers) | 3055 | 26.5 | Clean portrait, baseline reference |
-| C — prestigious anchor | `"Annie Leibovitz editorial portrait, Vanity Fair magazine cover style..."` | 2989 | 25.4 | All 3 samples rendered as literal magazine covers with masthead + headline text overlays |
+| A - banned keywords | `"8K ultra-realistic masterpiece high resolution portrait of..."` | 3015 | 25.5 | Clean portrait, no quality difference from B |
+| B - neutral baseline | `"portrait of..."` (no quality modifiers) | 3055 | 26.5 | Clean portrait, baseline reference |
+| C - prestigious anchor | `"Annie Leibovitz editorial portrait, Vanity Fair magazine cover style..."` | 2989 | 25.4 | All 3 samples rendered as literal magazine covers with masthead + headline text overlays |
 
 File-size variance within each condition (≤ 213 KB) exceeded between-condition variance (66 KB), confirming that the "banned" modifiers are statistically indistinguishable from baseline on Gemini 3.1. Total spike 6 cost: $0.70. Cumulative session spend across all strategic-reset spikes: ~$5.53.
 
 ### Deferred to later v3.7.x / v3.8.0
 
 - Spike 5 (character-consistency bake-off: VEO vs Kling vs Runway, ~$15-20) still deferred to v3.8.0 planning.
-- Automated regression eval for prompt-engineering claims — still targeted at v3.8.1 after the v3.8.0 provider abstraction lands.
-- Lyria-vs-ElevenLabs genre bake-off, multi-call Lyria for long music, stereo FFmpeg mix, auto-measured per-voice WPM, voice cloning — unchanged from v3.7.2.
+- Automated regression eval for prompt-engineering claims - still targeted at v3.8.1 after the v3.8.0 provider abstraction lands.
+- Lyria-vs-ElevenLabs genre bake-off, multi-call Lyria for long music, stereo FFmpeg mix, auto-measured per-voice WPM, voice cloning - unchanged from v3.7.2.
 
 ## [3.7.2] - 2026-04-14
 
@@ -670,23 +670,23 @@ File-size variance within each condition (≤ 213 KB) exceeded between-condition
 
 ### Added
 
-- **Google Lyria 2 (`lyria-002`) as the default music source** in `audio_pipeline.py`. Reuses the existing `vertex_api_key` + `vertex_project_id` + `vertex_location` from VEO setup — no new credentials needed. Outputs 32.768 second 48kHz/192kbps stereo MP3 (transcoded by the script from base64 WAV in the API response). Cost: $0.06 per call.
+- **Google Lyria 2 (`lyria-002`) as the default music source** in `audio_pipeline.py`. Reuses the existing `vertex_api_key` + `vertex_project_id` + `vertex_location` from VEO setup - no new credentials needed. Outputs 32.768 second 48kHz/192kbps stereo MP3 (transcoded by the script from base64 WAV in the API response). Cost: $0.06 per call.
 - **`generate_music_lyria()` function** in `audio_pipeline.py` with full Lyria 2 API support including the `negative_prompt` field that ElevenLabs Music doesn't have. Empirically validated by spike 4 + a follow-up smoke test through the new Python wrapper.
 - **`generate_music()` dispatcher function** that routes to either Lyria or ElevenLabs based on a `source` parameter (default `"lyria"`). Both providers remain first-class.
 - **`--music-source {lyria,elevenlabs}` CLI flag** on both the `pipeline` and `music` subcommands. Default is `lyria`.
 - **`--music-negative-prompt` CLI flag** on the `pipeline` subcommand for Lyria's negative-exclusion feature. Lyria honors it cleanly; ElevenLabs ignores it.
 - **`vertex/lyria-002` pricing row** in `cost_tracker.py` with the fixed $0.06/call rate and a comment explaining the per-clip vs per-second billing model and the spike 4 5-way bake-off context.
 - **F13 finding** in `references/video-audio.md` documenting the spec-vs-quality decoupling discovered in spike 4. Each music model's empirical ranking is captured with the generalizable principles for future model evaluations.
-- **"Music sources (v3.7.2 multi-provider)" section** in `references/audio-pipeline.md` with the full provider comparison table (Lyria vs ElevenLabs across audio quality, duration, negative prompt support, cost, generation time, etc.), the 5-way bake-off results table, the "when to use which" decision matrix, the Lyria-specific prompt engineering tips, and the API-key auth caveat (Lyria's docs only document OAuth but spike 4 confirmed API-key auth works — same pattern as VEO).
+- **"Music sources (v3.7.2 multi-provider)" section** in `references/audio-pipeline.md` with the full provider comparison table (Lyria vs ElevenLabs across audio quality, duration, negative prompt support, cost, generation time, etc.), the 5-way bake-off results table, the "when to use which" decision matrix, the Lyria-specific prompt engineering tips, and the API-key auth caveat (Lyria's docs only document OAuth but spike 4 confirmed API-key auth works - same pattern as VEO).
 - **Updated architecture diagram** in `references/audio-pipeline.md` showing the new multi-provider music branch (Lyria default, ElevenLabs alternative).
 
 ### Changed
 
-- **Renamed `skills/video/scripts/elevenlabs_audio.py` → `skills/video/scripts/audio_pipeline.py`** via `git mv` (preserves blame history). The file was named after a single provider (ElevenLabs) when it shipped in v3.7.1 yesterday, but now serves multiple music providers — the v3.7.1 name is misleading post-Lyria-integration. 12-hour-old script, no external consumers, clean rename with no migration cost.
+- **Renamed `skills/video/scripts/elevenlabs_audio.py` → `skills/video/scripts/audio_pipeline.py`** via `git mv` (preserves blame history). The file was named after a single provider (ElevenLabs) when it shipped in v3.7.1 yesterday, but now serves multiple music providers - the v3.7.1 name is misleading post-Lyria-integration. 12-hour-old script, no external consumers, clean rename with no migration cost.
 - **Renamed `skills/video/references/elevenlabs-audio.md` → `skills/video/references/audio-pipeline.md`** for the same reason. All cross-references in `video-audio.md`, SKILL.md, CLAUDE.md, and PROGRESS.md updated.
 - **Default music source for the audio pipeline is now Lyria 2** (was ElevenLabs Music in v3.7.1). The `pipeline` subcommand uses Lyria by default. Users who want ElevenLabs explicitly pass `--music-source elevenlabs`.
 - **`pipeline()` Python function signature** gained `music_source` and `music_negative_prompt` parameters with sensible defaults. Backward compat: existing v3.7.1 usage via the renamed script still works because the new parameters have defaults.
-- **`status` subcommand now reports both music providers** — Lyria/Vertex credentials check + ElevenLabs key check + ffmpeg/ffprobe + custom voice library. Previously only checked ElevenLabs.
+- **`status` subcommand now reports both music providers** - Lyria/Vertex credentials check + ElevenLabs key check + ffmpeg/ffprobe + custom voice library. Previously only checked ElevenLabs.
 - **`mix_narration_with_music` is now called with the actual probed music duration** rather than the requested `music_length_ms`. This was a latent bug in v3.7.1: if ElevenLabs returned a slightly off-target duration, the apad would be wrong. With Lyria's fixed 32.768s clip ignoring `music_length_ms` entirely, the bug would have surfaced as a 768ms music-tail truncation. Now fixed.
 - **`audio-pipeline.md` "Prompt engineering" section restructured** to cover both providers together, with a Lyria-specific subsection on negative prompts (the killer feature vs ElevenLabs) and a shared subsection on the named-creator TOS rule that applies to both providers.
 
@@ -704,19 +704,19 @@ Total spike 4 cost: ~$0.30 (Lyria $0.06 × 2 spike calls + Eleven $0 subscriptio
 
 ### Deferred to v3.7.3+
 
-- **Spike 6 — banned-keywords re-validation** ($1.50). Originally part of the v3.7.2 plan but deferred to keep this release focused on Lyria. Targets v3.7.3.
+- **Spike 6 - banned-keywords re-validation** ($1.50). Originally part of the v3.7.2 plan but deferred to keep this release focused on Lyria. Targets v3.7.3.
 - **Multi-call Lyria for longer music** (auto-loop calls when `--music-length-ms > 32768`). Currently Lyria has a hard 32.768s cap; users needing longer music must use `--music-source elevenlabs`.
 - **Lyria-vs-ElevenLabs genre bake-off** (user request from v3.7.2 listening session). Test both providers across electronic, classical, folk, ambient, jazz, and hip-hop genres to surface model-strength differences beyond the cinematic-orchestral case validated in spike 4. Targets a v3.7.x research release.
-- **Stereo output in FFmpeg mix** (still mono — known v3.7.1 polish issue).
-- **Auto-measured per-voice WPM** (still hardcoded — known v3.7.1 polish issue).
-- **Voice cloning** (Instant Voice Clone, Professional Voice Clone — schema field reserved).
+- **Stereo output in FFmpeg mix** (still mono - known v3.7.1 polish issue).
+- **Auto-measured per-voice WPM** (still hardcoded - known v3.7.1 polish issue).
+- **Voice cloning** (Instant Voice Clone, Professional Voice Clone - schema field reserved).
 
 ### Verification
 
-- **Smoke-tested the new `audio_pipeline.py music --source lyria` command** end-to-end. Returned structured JSON with `source: "lyria"`, `model_id: "lyria-002"`, `duration_seconds: 32.768`, `elapsed_seconds: 25.13`, and a 788KB MP3 (transcoded from 6.29MB WAV). Identical output characteristics to the spike 4 raw API call — the new Python wrapper produces no regression vs the spike script.
+- **Smoke-tested the new `audio_pipeline.py music --source lyria` command** end-to-end. Returned structured JSON with `source: "lyria"`, `model_id: "lyria-002"`, `duration_seconds: 32.768`, `elapsed_seconds: 25.13`, and a 788KB MP3 (transcoded from 6.29MB WAV). Identical output characteristics to the spike 4 raw API call - the new Python wrapper produces no regression vs the spike script.
 - **Lyria authentication via Vertex API key confirmed working** through the `audio_pipeline.py` code path. Same `vertex_api_key` from `~/.banana/config.json` that the existing VEO calls use. No new credentials needed.
-- **`audio_pipeline.py --help` and all subcommand `--help` outputs verified** — `music` subcommand correctly shows `--source {lyria,elevenlabs}`, `pipeline` subcommand correctly shows `--music-source {lyria,elevenlabs}` and `--music-negative-prompt`.
-- **`git mv` preserved file history** for both renamed files — `git status --short` shows them as `R` (renamed), not `D` (deleted) + `??` (added).
+- **`audio_pipeline.py --help` and all subcommand `--help` outputs verified** - `music` subcommand correctly shows `--source {lyria,elevenlabs}`, `pipeline` subcommand correctly shows `--music-source {lyria,elevenlabs}` and `--music-negative-prompt`.
+- **`git mv` preserved file history** for both renamed files - `git status --short` shows them as `R` (renamed), not `D` (deleted) + `??` (added).
 - **Version consistency verified**: `3.7.2` appears in `plugin.json`, `README.md` badge, and `CITATION.cff` (date `2026-04-14`).
 - **No new pip dependencies.** Lyria integration uses stdlib `urllib.request` + `base64` + `subprocess` for ffmpeg transcoding. Matches the plugin's existing fallback-script pattern.
 
@@ -726,11 +726,11 @@ Total spike 4 cost: ~$0.30 (Lyria $0.06 × 2 spike calls + Eleven $0 subscriptio
 
 **ElevenLabs audio replacement pipeline + custom voice design + strategic reset.** v3.7.1 ships the first non-VEO audio capability after a deep strategic reset session that questioned the entire v3.7.0 plan. Three empirical spike rounds invalidated the original "voice-changer post-pass" assumption, surfaced the real multi-clip music-bed seam problem, and validated a structural audio replacement architecture (continuous TTS + Eleven Music + FFmpeg ducked mix + lossless audio swap) end-to-end. The new `elevenlabs_audio.py` script + `references/elevenlabs-audio.md` ship as the canonical solution. Custom voice design via ElevenLabs Voice Design API is also wired in, with a nested `custom_voices.{role}` config schema designed for the multi-voice future already on the roadmap.
 
-### Strategic reset session — what changed
+### Strategic reset session - what changed
 
 The session was a deliberate "stop building, look up" checkpoint after 5 releases shipped in 48 hours. Three findings reshaped v3.7.0/v3.7.1:
 
-1. **VEO 3.1 generates voiceover narration natively** via `"A narrator says, '...'"` — confirmed by Google's own Vertex AI prompt guide and verified empirically. The original v3.7.0 ROADMAP claim that VEO "doesn't generate voiceover; it's added in post" was wrong. The TTS subcommand originally scoped for v3.7.0 was solving a non-problem.
+1. **VEO 3.1 generates voiceover narration natively** via `"A narrator says, '...'"` - confirmed by Google's own Vertex AI prompt guide and verified empirically. The original v3.7.0 ROADMAP claim that VEO "doesn't generate voiceover; it's added in post" was wrong. The TTS subcommand originally scoped for v3.7.0 was solving a non-problem.
 2. **VEO does NOT have voice character drift across separately-generated clips** when descriptors are locked. Spike 2 generated 4 clips of the same scene with the same voice descriptor and the user verified perfect voice consistency. The original v3.7.1 voice-changer scope was based on a false assumption.
 3. **The real "multi-clip drift" problem is musical, not vocal**: each VEO clip generates its own emergent music intro/outro envelope independently, so stitched sequences have audible music seams every clip-duration. Spike 3 confirmed the fix is structural audio replacement, not voice changing.
 
@@ -738,35 +738,35 @@ The session also discovered Replicate's official MCP server (npm `replicate-mcp`
 
 ### Added
 
-- **`skills/video/scripts/elevenlabs_audio.py`** — new ~720 line stdlib-only Python script implementing the v3.7.1 audio replacement pipeline. Subcommands:
-  - `pipeline` — canonical end-to-end command. Parallel TTS + Eleven Music API calls, FFmpeg sidechain mix, lossless audio swap into video. Halves user-perceived latency by parallelizing the two API calls.
-  - `narrate`, `music`, `mix`, `swap` — individual stage commands for debugging or partial workflows
-  - `voice-design` — POST `/v1/text-to-voice/design` to generate 3 candidate voice previews from a text description (eleven_ttv_v3 model)
-  - `voice-promote` — POST `/v1/text-to-voice` to save a chosen preview as a permanent custom voice, atomically write to `~/.banana/config.json` under the new `custom_voices.{role}` schema
-  - `voice-list` — list custom voices from config
-  - `status` — verify ElevenLabs API key + ffmpeg + custom voices
-- **`skills/video/references/elevenlabs-audio.md`** — comprehensive new reference doc covering the v3.7.1 architecture (TTS + music + ducked mix + audio swap), voice management (design → promote → use), prompt engineering for both TTS narration and Eleven Music, FFmpeg parameter rationale, the per-voice WPM calibration model, and the cost model.
-- **`custom_voices.{role}` config schema** in `~/.banana/config.json` — nested structure designed to support multiple semantic roles (narrator, character_a, brand_voice, etc.), three creation paths (designed, cloned, library), and per-voice metadata (model_id, source_type, design_method, guidance_scale, created_at, provider, notes). Forward-compatible for multi-provider future. Replaces the flat `custom_narrator_voice_id` field that briefly existed during the spike. **Lesson learned**: the flat field was a YAGNI miscall — when the user has *committed* future needs (multiple voices and clones), nested-now is correct.
+- **`skills/video/scripts/elevenlabs_audio.py`** - new ~720 line stdlib-only Python script implementing the v3.7.1 audio replacement pipeline. Subcommands:
+  - `pipeline` - canonical end-to-end command. Parallel TTS + Eleven Music API calls, FFmpeg sidechain mix, lossless audio swap into video. Halves user-perceived latency by parallelizing the two API calls.
+  - `narrate`, `music`, `mix`, `swap` - individual stage commands for debugging or partial workflows
+  - `voice-design` - POST `/v1/text-to-voice/design` to generate 3 candidate voice previews from a text description (eleven_ttv_v3 model)
+  - `voice-promote` - POST `/v1/text-to-voice` to save a chosen preview as a permanent custom voice, atomically write to `~/.banana/config.json` under the new `custom_voices.{role}` schema
+  - `voice-list` - list custom voices from config
+  - `status` - verify ElevenLabs API key + ffmpeg + custom voices
+- **`skills/video/references/elevenlabs-audio.md`** - comprehensive new reference doc covering the v3.7.1 architecture (TTS + music + ducked mix + audio swap), voice management (design → promote → use), prompt engineering for both TTS narration and Eleven Music, FFmpeg parameter rationale, the per-voice WPM calibration model, and the cost model.
+- **`custom_voices.{role}` config schema** in `~/.banana/config.json` - nested structure designed to support multiple semantic roles (narrator, character_a, brand_voice, etc.), three creation paths (designed, cloned, library), and per-voice metadata (model_id, source_type, design_method, guidance_scale, created_at, provider, notes). Forward-compatible for multi-provider future. Replaces the flat `custom_narrator_voice_id` field that briefly existed during the spike. **Lesson learned**: the flat field was a YAGNI miscall - when the user has *committed* future needs (multiple voices and clones), nested-now is correct.
 - **`elevenlabs_api_key` field in `~/.banana/config.json`** alongside the existing Google AI / Replicate / Vertex keys. Resolved with the same precedence pattern: CLI flag → env var → config file.
 - **12 empirical findings** in `references/video-audio.md` "Discoveries from real production" section, each with a `<!-- verified: 2026-04-14 -->` marker per the dated-verification principle. Findings cover: voice character anchoring (F1), delivery-mode drift / line-length calibration (F2), music seam problem (F3), VEO automatic ducking (F4), v3 audio tag flexibility / open-ended whitelist (F5), Eleven Music TOS guardrail on named creators (F6), Voice Design `should_enhance` behavior (F7), per-voice WPM differences (F8), Lite tier broadcast quality (F9), `[exhales]` audio tag (F10), capitalization emphasis (F11), ellipses pacing (F12).
 - **New `/video audio ...` and `/video voice ...` slash command surface** documented in `skills/video/SKILL.md` Quick Reference table. Includes routing rules ("when to use VEO native narration vs the v3.7.1 pipeline") and prompt engineering guidance for the new audio pipeline.
 - **ElevenLabs pricing rows in `cost_tracker.py`** for `eleven_v3`, `eleven_multilingual_v2`, `eleven_flash_v2_5`, `music_v1`, and `eleven_multilingual_sts_v2`. Subscription-billed users see negligible per-call cost; the entries support PAYG-equivalent estimates for users not on Creator tier.
-- **`validate_setup.py` informational check for ElevenLabs config** (non-blocking — v3.7.1 is opt-in). Surfaces "ElevenLabs API key configured" + custom voice list when present.
+- **`validate_setup.py` informational check for ElevenLabs config** (non-blocking - v3.7.1 is opt-in). Surfaces "ElevenLabs API key configured" + custom voice list when present.
 
 ### Changed
 
 - **The v3.7.0 audio strategy split scope is fundamentally redefined.** The original plan was "split per-shot `audio` field into ambient/sfx/dialogue/narration + build a `/video sequence narration` TTS subcommand for multi-clip drift." After the strategic reset, the architecture is "use the v3.7.1 ElevenLabs replacement pipeline for sequences that need narration, custom voices, or seam-free music." The schema split work is deferred to v3.7.x as a refinement, not a v3.7.0 blocker.
 - **`references/video-audio.md`** updated with the 12 empirical findings, the v3.7.1 audio replacement pipeline cross-reference, and a corrected "Limitations" section that points users to the audio swap workflow when audio quality is critical.
-- **VEO Lite tier framing in `references/veo-models.md`** is informally re-evaluated based on F9: Lite is broadcast-quality for narrated documentary footage. The "draft only" framing is being relaxed in v3.7.1+ — Standard is reserved for shots with extreme detail (extras, complex character interactions, hero product shots), not the default for hero work.
+- **VEO Lite tier framing in `references/veo-models.md`** is informally re-evaluated based on F9: Lite is broadcast-quality for narrated documentary footage. The "draft only" framing is being relaxed in v3.7.1+ - Standard is reserved for shots with extreme detail (extras, complex character interactions, hero product shots), not the default for hero work.
 - **`skills/video/SKILL.md`** Quick Reference table grew from 11 to 19 commands (new `/video audio ...` and `/video voice ...` subcommand groups). New "v3.7.1 Audio Replacement Pipeline" section in the body with routing rules, voice selection guidance, music TOS warning, and prompt engineering pointers for both TTS and music.
 
 ### Deferred to v3.7.2+
 
 The strategic reset plan included three more spikes that were deferred when the user pivoted to shipping v3.7.1:
 
-- **Spike 4 — Lyria 2 music smoke test** (~$0.50). Validates that Vertex AI Lyria 2/3 is callable through our existing Vertex API-key auth path. Lyria is Google's native music generation model and would be a complementary alternative to Eleven Music. Targets v3.7.2.
-- **Spike 5 — Character consistency bake-off** (~$15-20). Generates 4-shot character sequences on VEO 3.1 Lite, Kling 2.6 (Replicate), and Runway Gen-4 (Replicate) for direct comparison. Informs whether v3.8.0 multi-provider abstraction is urgent or deferred. Targets v3.8.0.
-- **Spike 6 — Banned-keywords re-validation** (~$1.50). Tests whether the 2025-era banned-keywords list (`"8K"`, `"masterpiece"`, `"ultra-realistic"`) still applies to Gemini 3.1 image generation. Quick, cheap, isolated. Targets v3.7.2 or v3.8.1.
+- **Spike 4 - Lyria 2 music smoke test** (~$0.50). Validates that Vertex AI Lyria 2/3 is callable through our existing Vertex API-key auth path. Lyria is Google's native music generation model and would be a complementary alternative to Eleven Music. Targets v3.7.2.
+- **Spike 5 - Character consistency bake-off** (~$15-20). Generates 4-shot character sequences on VEO 3.1 Lite, Kling 2.6 (Replicate), and Runway Gen-4 (Replicate) for direct comparison. Informs whether v3.8.0 multi-provider abstraction is urgent or deferred. Targets v3.8.0.
+- **Spike 6 - Banned-keywords re-validation** (~$1.50). Tests whether the 2025-era banned-keywords list (`"8K"`, `"masterpiece"`, `"ultra-realistic"`) still applies to Gemini 3.1 image generation. Quick, cheap, isolated. Targets v3.7.2 or v3.8.1.
 
 ### Verification
 
@@ -778,9 +778,9 @@ The strategic reset plan included three more spikes that were deferred when the 
 
 ### Known limitations (documented in `references/elevenlabs-audio.md`)
 
-- Stereo output collapses to mono in the current FFmpeg mix graph (workaround possible in a v3.7.x patch — route narration through `pan=stereo|c0=c0|c1=c0`)
+- Stereo output collapses to mono in the current FFmpeg mix graph (workaround possible in a v3.7.x patch - route narration through `pan=stereo|c0=c0|c1=c0`)
 - Per-voice WPM is hardcoded rather than auto-measured on first use of a new voice
-- Voice cloning (Instant Voice Clone, Professional Voice Clone) is not yet wired up — the `source_type: "cloned"` schema field is reserved for a future v3.7.x addition
+- Voice cloning (Instant Voice Clone, Professional Voice Clone) is not yet wired up - the `source_type: "cloned"` schema field is reserved for a future v3.7.x addition
 - Music TOS guardrail is runtime-discovered, not validated pre-flight
 
 ## [3.6.3] - 2026-04-11
@@ -791,15 +791,15 @@ The strategic reset plan included three more spikes that were deferred when the 
 
 ### Added
 
-- **`video_sequence.py generate` mandatory review gate.** `cmd_generate` now checks for `REVIEW-SHEET.md` in the storyboard directory and validates its embedded frame hashes against current disk state before doing any work. Missing, unparseable, or stale reviews abort with a clear error listing the exact fix command (either "run `review`" or "run `review` again because shot N's frame changed"). Pass `--skip-review` to bypass for CI/automation — intentionally disables the safety net.
+- **`video_sequence.py generate` mandatory review gate.** `cmd_generate` now checks for `REVIEW-SHEET.md` in the storyboard directory and validates its embedded frame hashes against current disk state before doing any work. Missing, unparseable, or stale reviews abort with a clear error listing the exact fix command (either "run `review`" or "run `review` again because shot N's frame changed"). Pass `--skip-review` to bypass for CI/automation - intentionally disables the safety net.
 - **Plan hash tracking via embedded manifest block.** `_build_review_sheet` now appends a machine-readable manifest wrapped in HTML comments (`<!-- BEGIN REVIEW MANIFEST v1 --> ... <!-- END ... -->`) containing the plan path, storyboard dir, and per-shot frame SHA-256 hashes. The block is inside a ````json` fenced code block so it doesn't render in markdown previews. `_check_review_freshness` parses the manifest on every `generate` run and compares against current hashes; any drift returns `{"status": "stale", "drifted_shots": [N, ...]}` and the gate aborts.
 - **New helpers in `video_sequence.py`:** `_sha256_file`, `_build_review_manifest`, `_parse_review_manifest`, `_load_review_manifest`, `_check_review_freshness`. All stdlib-only, all unit-tested.
-- **Shot-type semantic defaults** — new `SHOT_TYPE_DEFAULTS` table with 8 types (`establishing`, `content`, `medium`, `closeup`, `product`, `transition`, `cutaway`, `broll`) each mapping to default duration, camera hint, and `use_veo_interpolation` flag. `cmd_plan` accepts `--shot-types establishing,medium,closeup,product` and pre-fills shots with sensible defaults; shot count is determined by the list length and durations rescale to hit `--target`. Establishing/transition/cutaway/broll default to first-frame-only (they cut to unrelated material); content/medium/closeup/product default to first+last frame interpolation.
-- **`--reference-image` flag on banana `generate.py`** — up to 3 reference images passed as `inlineData` parts alongside the text prompt. Primary use case: cross-shot character/product continuity in video sequences. Different from `edit.py` — reference-guided generation is "generate a new image informed by these anchors" vs edit's "modify this existing image." New helper `_read_reference_image` with PNG/JPEG/WebP/GIF support and validation. Output JSON includes a note that reference-guided output is ~1K-ish regardless of `--resolution` request (known Gemini behavior).
+- **Shot-type semantic defaults** - new `SHOT_TYPE_DEFAULTS` table with 8 types (`establishing`, `content`, `medium`, `closeup`, `product`, `transition`, `cutaway`, `broll`) each mapping to default duration, camera hint, and `use_veo_interpolation` flag. `cmd_plan` accepts `--shot-types establishing,medium,closeup,product` and pre-fills shots with sensible defaults; shot count is determined by the list length and durations rescale to hit `--target`. Establishing/transition/cutaway/broll default to first-frame-only (they cut to unrelated material); content/medium/closeup/product default to first+last frame interpolation.
+- **`--reference-image` flag on banana `generate.py`** - up to 3 reference images passed as `inlineData` parts alongside the text prompt. Primary use case: cross-shot character/product continuity in video sequences. Different from `edit.py` - reference-guided generation is "generate a new image informed by these anchors" vs edit's "modify this existing image." New helper `_read_reference_image` with PNG/JPEG/WebP/GIF support and validation. Output JSON includes a note that reference-guided output is ~1K-ish regardless of `--resolution` request (known Gemini behavior).
 
 ### Changed
 
-- **`cost_tracker.py` VEO 3.1 Lite comment** — the v3.5.0 TODO "verify 1080p Lite pricing" has been exercised empirically. 1080p Lite is callable via the Vertex AI backend with ~73 s generation time vs ~38 s for 720p. The rate is unchanged ($0.05/sec) pending a full billing cycle — flag in the comment that 1080p billing may differ and users should check their GCP console.
+- **`cost_tracker.py` VEO 3.1 Lite comment** - the v3.5.0 TODO "verify 1080p Lite pricing" has been exercised empirically. 1080p Lite is callable via the Vertex AI backend with ~73 s generation time vs ~38 s for 720p. The rate is unchanged ($0.05/sec) pending a full billing cycle - flag in the comment that 1080p billing may differ and users should check their GCP console.
 - **`cmd_plan` no longer hardcodes `type: "content"` for every shot.** When `--shot-types` is set, each shot's `type` field reflects the user's intent and the `camera`, `duration`, and `use_veo_interpolation` fields are pre-filled from `SHOT_TYPE_DEFAULTS`.
 - **`cmd_plan` storyboard cost estimate** now accounts for `use_veo_interpolation` shots that skip the end frame (saves $0.08/frame). Previously the estimate assumed 2 frames per shot regardless.
 
@@ -814,12 +814,12 @@ The strategic reset plan included three more spikes that were deferred when the 
 
 - All 6 scripts (`video_sequence.py`, `_vertex_backend.py`, `video_generate.py`, `video_extend.py`, banana `generate.py`, `cost_tracker.py`) compile clean.
 - **8 new unit tests** via `python3 -c` import: `_shot_defaults` for all 8 types plus the unknown-type fallback; `_sha256_file` round-trip plus missing-file None; `_build_review_manifest` on a synthetic plan with interpolation and non-interpolation shots; review-sheet round-trip through `_load_review_manifest`; `_check_review_freshness` returns `ok` → `stale` (with correct `drifted_shots`) → `missing` as frames mutate; manifest parser handles raw JSON, `\`\`\`json` fenced, and bad/missing block cases.
-- **Functional test of the gate** — ran `cmd_generate` against the coffee shop storyboard dir with REVIEW-SHEET.md deleted; pipeline correctly aborted with the "No REVIEW-SHEET.md found" error. Then ran with `--skip-review` to prove the bypass path works.
-- **1080p Lite probe** ($0.40) — real 4-second clip generated via the Vertex AI backend at 1080p Lite, 73 seconds wall clock, 2.3 MB output at `/tmp/v363-pricing-probe/`. Confirms 1080p Lite is callable.
+- **Functional test of the gate** - ran `cmd_generate` against the coffee shop storyboard dir with REVIEW-SHEET.md deleted; pipeline correctly aborted with the "No REVIEW-SHEET.md found" error. Then ran with `--skip-review` to prove the bypass path works.
+- **1080p Lite probe** ($0.40) - real 4-second clip generated via the Vertex AI backend at 1080p Lite, 73 seconds wall clock, 2.3 MB output at `/tmp/v363-pricing-probe/`. Confirms 1080p Lite is callable.
 
 ### Release-process honesty
 
-**Unintended $0.40 spend during v3.6.3 verification.** When functionally testing the review gate's `--skip-review` path, I set `GOOGLE_AI_API_KEY=FAKE` expecting it to block any real API call. It didn't — the child `video_generate.py` process auto-routed Lite requests to the Vertex AI backend, which read real credentials from `~/.banana/config.json`, and generated one Shot 2 clip before I killed the pipeline. Total unintended spend: $0.40 (one 8-second Lite 1080p clip at `~/Documents/nano-banana-sequences/sequence_clips_20260411_223403/clip-02.mp4`). Root cause: non-hermetic test harness. Going forward, any functional test of `cmd_generate` must use a fixture storyboard directory where the child process cannot successfully hit a real API, not just an env-var block on one of two possible auth paths.
+**Unintended $0.40 spend during v3.6.3 verification.** When functionally testing the review gate's `--skip-review` path, I set `GOOGLE_AI_API_KEY=FAKE` expecting it to block any real API call. It didn't - the child `video_generate.py` process auto-routed Lite requests to the Vertex AI backend, which read real credentials from `~/.banana/config.json`, and generated one Shot 2 clip before I killed the pipeline. Total unintended spend: $0.40 (one 8-second Lite 1080p clip at `~/Documents/nano-banana-sequences/sequence_clips_20260411_223403/clip-02.mp4`). Root cause: non-hermetic test harness. Going forward, any functional test of `cmd_generate` must use a fixture storyboard directory where the child process cannot successfully hit a real API, not just an env-var block on one of two possible auth paths.
 
 ### Not in scope (still deferred)
 
@@ -829,22 +829,22 @@ Everything else from the v3.6.1/v3.6.2 deferred buckets: the `update-prompts` Ge
 
 ### Headline
 
-**Sequence production polish.** Five small-but-high-value improvements surfaced by the coffee shop demo that shipped earlier today — the ones you notice the moment you run a real 4-shot sequence end-to-end. Zero new VEO API calls to verify; everything tested against fixture plans.
+**Sequence production polish.** Five small-but-high-value improvements surfaced by the coffee shop demo that shipped earlier today - the ones you notice the moment you run a real 4-shot sequence end-to-end. Zero new VEO API calls to verify; everything tested against fixture plans.
 
 ### Added
 
-- **`video_sequence.py review` subcommand** — generates `REVIEW-SHEET.md` from a plan + storyboard directory. Each shot block shows frames inline, the full VEO prompt, resolved model + cost for the selected `--quality-tier`, and a ✅/⚠️ status badge. Sequence totals and any gaps blocking `generate` appear in the footer. Pure markdown, regenerated on demand, opens in Quick Look. This is the human approval gate between `storyboard` and `generate` that was previously an undocumented hand-written step. v3.6.2 ships it as a standalone subcommand; a `--skip-review` mandatory-gate integration is v3.6.3 scope.
+- **`video_sequence.py review` subcommand** - generates `REVIEW-SHEET.md` from a plan + storyboard directory. Each shot block shows frames inline, the full VEO prompt, resolved model + cost for the selected `--quality-tier`, and a ✅/⚠️ status badge. Sequence totals and any gaps blocking `generate` appear in the footer. Pure markdown, regenerated on demand, opens in Quick Look. This is the human approval gate between `storyboard` and `generate` that was previously an undocumented hand-written step. v3.6.2 ships it as a standalone subcommand; a `--skip-review` mandatory-gate integration is v3.6.3 scope.
 - **5-stage pipeline**: `plan → storyboard → **review** → generate → stitch`. The review stage is now first-class in the docs, the SKILL.md routing table, the README Commands table, and the Quick Start example.
-- **`use_veo_interpolation: true` per-shot flag in plan.json** — shots that should let VEO pick their own ending (establishing shots cutting away to unrelated material, transitions, etc.) can set this. The storyboard stage skips the end frame for those shots (saves $0.08/frame) and the generate stage drops `--last-frame` from the VEO call. Empirically validated by the coffee shop demo's Shot 1 where we used first-frame-only to let VEO execute a dramatic push-in. The field defaults to False so existing plans keep the strict first+last frame behavior.
-- **`video_sequence.py storyboard --shots 1,3-5` partial regeneration** — new `--shots` flag accepts a comma-separated list of shot numbers and/or hyphen ranges. When set, the storyboard stage only regenerates the selected shots instead of rebuilding the whole storyboard. Critical for iteration when one frame has a bug but others are approved.
-- **`_parse_shots_filter()` helper** in `video_sequence.py` — accepts `"1,3,5"`, `"2-4"`, `"1,3-5,7"`, or any mix. Validates and fails fast with a clear error on garbled input.
-- **`_sanitize_project_name()` helper** — builds filesystem-safe slugs for per-project output subdirs. `"Golden Bean Cafe — 30s"` becomes `"golden-bean-cafe-30s"`.
+- **`use_veo_interpolation: true` per-shot flag in plan.json** - shots that should let VEO pick their own ending (establishing shots cutting away to unrelated material, transitions, etc.) can set this. The storyboard stage skips the end frame for those shots (saves $0.08/frame) and the generate stage drops `--last-frame` from the VEO call. Empirically validated by the coffee shop demo's Shot 1 where we used first-frame-only to let VEO execute a dramatic push-in. The field defaults to False so existing plans keep the strict first+last frame behavior.
+- **`video_sequence.py storyboard --shots 1,3-5` partial regeneration** - new `--shots` flag accepts a comma-separated list of shot numbers and/or hyphen ranges. When set, the storyboard stage only regenerates the selected shots instead of rebuilding the whole storyboard. Critical for iteration when one frame has a bug but others are approved.
+- **`_parse_shots_filter()` helper** in `video_sequence.py` - accepts `"1,3,5"`, `"2-4"`, `"1,3-5,7"`, or any mix. Validates and fails fast with a clear error on garbled input.
+- **`_sanitize_project_name()` helper** - builds filesystem-safe slugs for per-project output subdirs. `"Golden Bean Cafe - 30s"` becomes `"golden-bean-cafe-30s"`.
 
 ### Changed
 
 - **Default output location** is now `~/Documents/nano-banana-sequences/` (was `~/Documents/nanobanana_generated/`). Visible from Finder, works with Quick Look (Space key), per-project subdirs when a project name is provided. `LEGACY_OUTPUT_BASE` still points at the old path for documentation continuity.
 - **`_default_output(suffix, project_name=None)`** now accepts an optional `project_name` argument. With a project name, the layout becomes `~/Documents/nano-banana-sequences/<project-slug>/<suffix>/` so all stages of one project cluster together.
-- **Storyboard stage cost accounting** — shots with `use_veo_interpolation=true` only charge for one frame ($0.08) instead of two ($0.16). The estimate subcommand and the review sheet both reflect this.
+- **Storyboard stage cost accounting** - shots with `use_veo_interpolation=true` only charge for one frame ($0.08) instead of two ($0.16). The estimate subcommand and the review sheet both reflect this.
 - **`cmd_storyboard()` missing-frame error messages** now distinguish "missing start frame" (always fatal) from "missing end frame" (fatal only when `use_veo_interpolation=false`). The error text also points users at the flag they can set to unblock themselves.
 
 ### Docs
@@ -858,17 +858,17 @@ Everything else from the v3.6.1/v3.6.2 deferred buckets: the `update-prompts` Ge
 - All 4 video scripts still compile clean.
 - `_parse_shots_filter` unit test covers the four supported syntaxes (None, `"1,3,5"`, `"2-4"`, `"1,3-5,7"`).
 - Real-data test: ran `video_sequence.py review --plan /tmp/coffee-shop-demo/plan.json --storyboard /tmp/coffee-shop-demo/storyboard --quality-tier draft` against the coffee shop demo fixture from earlier today. With Shot 1 marked `use_veo_interpolation=true` and filename symlinks in place, the review sheet reports 4/4 ready, $0.55 storyboard cost, $1.50 video cost (Lite draft), $2.05 total, and the Shot 1 block correctly shows "first-frame-only (VEO interpolates ending)" with no end-frame slot.
-- **Zero new VEO spend this release** — all testing used fixtures from earlier v3.6.1 work.
+- **Zero new VEO spend this release** - all testing used fixtures from earlier v3.6.1 work.
 
 ### Not in scope for v3.6.2 (deferred to v3.6.3+)
 
-Everything else in the original v3.6.1 deferred bucket: plan hash tracking with SHA-256, the `update-prompts` Gemini-vision subcommand, the review-as-mandatory-gate enforcement with `--skip-review`, the audio strategy split (narration/dialogue/ambient/sfx fields), the `/video sequence narration` TTS subcommand, shot-type semantic effects, `/banana` skill improvements (`--reference-image` flag on `generate.py`, conservatism bias docs), and the v3.6.0-research batch (`--num-videos`, object insertion, parallel execution, `output_gcs_uri`, regional detection, 1080p Lite pricing verification). These items need their own dedicated releases with proper plans — especially the audio strategy split which is a real product decision, not a code change.
+Everything else in the original v3.6.1 deferred bucket: plan hash tracking with SHA-256, the `update-prompts` Gemini-vision subcommand, the review-as-mandatory-gate enforcement with `--skip-review`, the audio strategy split (narration/dialogue/ambient/sfx fields), the `/video sequence narration` TTS subcommand, shot-type semantic effects, `/banana` skill improvements (`--reference-image` flag on `generate.py`, conservatism bias docs), and the v3.6.0-research batch (`--num-videos`, object insertion, parallel execution, `output_gcs_uri`, regional detection, 1080p Lite pricing verification). These items need their own dedicated releases with proper plans - especially the audio strategy split which is a real product decision, not a code change.
 
 ## [3.6.1] - 2026-04-11
 
 ### Headline
 
-**First+last frame interpolation and reference images now work on the Vertex AI backend.** v3.6.0 shipped the Vertex backend with `--first-frame` support but deferred `--last-frame` and `--reference-image` to v3.6.1 because the field names weren't empirically verified. Two authoritative Google doc pages published in the [Vertex first/last frame reference](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/video/generate-videos-from-first-and-last-frames) and the [Gemini API video guide](https://ai.google.dev/gemini-api/docs/video) confirmed the field names as `lastFrame` (camelCase, nested at the instance level alongside `image`) and `referenceImages` (an array of `{image, referenceType: "asset"}` entries). Wiring them in took ~40 lines in `_vertex_backend.build_vertex_request_body` plus removing the `_error_exit` stubs in `_submit_vertex_ai`. Verified end-to-end with a Lite first+last frame smoke test ($0.20) using coffee shop Shot 2's storyboard frames — real 2.27 MB MP4 produced in 42 seconds.
+**First+last frame interpolation and reference images now work on the Vertex AI backend.** v3.6.0 shipped the Vertex backend with `--first-frame` support but deferred `--last-frame` and `--reference-image` to v3.6.1 because the field names weren't empirically verified. Two authoritative Google doc pages published in the [Vertex first/last frame reference](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/video/generate-videos-from-first-and-last-frames) and the [Gemini API video guide](https://ai.google.dev/gemini-api/docs/video) confirmed the field names as `lastFrame` (camelCase, nested at the instance level alongside `image`) and `referenceImages` (an array of `{image, referenceType: "asset"}` entries). Wiring them in took ~40 lines in `_vertex_backend.build_vertex_request_body` plus removing the `_error_exit` stubs in `_submit_vertex_ai`. Verified end-to-end with a Lite first+last frame smoke test ($0.20) using coffee shop Shot 2's storyboard frames - real 2.27 MB MP4 produced in 42 seconds.
 
 ### Added
 - **`last_frame_path` parameter** on `_vertex_backend.build_vertex_request_body`. Builds the `lastFrame` field as a sibling of `image` at the instance level with `bytesBase64Encoded` + `mimeType`. Same camelCase field name used by both the Vertex AI REST reference and the Gemini API docs.
@@ -876,8 +876,8 @@ Everything else in the original v3.6.1 deferred bucket: plan hash tracking with 
 - **Four new mutual-exclusion checks** in `build_vertex_request_body`: (1) `video_input` cannot combine with any image inputs, (2) `last_frame` requires `image` (since `lastFrame` is always paired), (3) `reference_images` cannot combine with `image` or `last_frame` (separate Vertex code paths), (4) `reference_images` capped at 3 entries.
 
 ### Fixed
-- **`--last-frame` on the Vertex AI backend** — v3.6.0 raised `_error_exit("--last-frame is not yet supported on the Vertex AI backend")`. v3.6.1 lets it through to the wire. Works for all five VEO 3.1 model IDs (Standard/Fast/Lite, both preview and GA `-001`). VEO 3.0 does not support first+last frame per Vertex docs; the API will reject it with a clear error if a user tries.
-- **`--reference-image` on the Vertex AI backend** — same deferred-error was removed. Vertex supports reference images for all VEO 3.1 tiers except Lite per Google's parameter table; Lite requests with reference images will be rejected by the API.
+- **`--last-frame` on the Vertex AI backend** - v3.6.0 raised `_error_exit("--last-frame is not yet supported on the Vertex AI backend")`. v3.6.1 lets it through to the wire. Works for all five VEO 3.1 model IDs (Standard/Fast/Lite, both preview and GA `-001`). VEO 3.0 does not support first+last frame per Vertex docs; the API will reject it with a clear error if a user tries.
+- **`--reference-image` on the Vertex AI backend** - same deferred-error was removed. Vertex supports reference images for all VEO 3.1 tiers except Lite per Google's parameter table; Lite requests with reference images will be rejected by the API.
 
 ### Docs
 - **`_vertex_backend.py` docstring** on `build_vertex_request_body` rewritten with the full list of input modes (text-to-video, image-to-video, first+last interpolation, reference-guided, Scene Extension v2) and their mutual exclusions.
@@ -891,34 +891,34 @@ Everything else in the original v3.6.1 deferred bucket: plan hash tracking with 
 
 ### Headline
 
-**Vertex AI backend with API-key auth — unblocks the full VEO 3.1 capability surface.** The Gemini API surface (`generativelanguage.googleapis.com`) the plugin had been using only serves text-to-video on two preview model IDs. v3.5.0 documented every other VEO feature as "Vertex AI only — gated until v3.6.0" — image-to-video, Lite, Legacy 3.0, GA `-001` IDs, and Scene Extension v2 all returned clear errors instead of silent HTTP 404s. v3.6.0 wires up the Vertex AI backend with a stdlib-only request translator using bound-to-service-account API key auth (no OAuth, no service account JSON, no `gcloud` install required), un-gates everything, and re-points `--quality-tier draft` from the v3.5.0 Fast stopgap back to Lite for the full **8× cost reduction**.
+**Vertex AI backend with API-key auth - unblocks the full VEO 3.1 capability surface.** The Gemini API surface (`generativelanguage.googleapis.com`) the plugin had been using only serves text-to-video on two preview model IDs. v3.5.0 documented every other VEO feature as "Vertex AI only - gated until v3.6.0" - image-to-video, Lite, Legacy 3.0, GA `-001` IDs, and Scene Extension v2 all returned clear errors instead of silent HTTP 404s. v3.6.0 wires up the Vertex AI backend with a stdlib-only request translator using bound-to-service-account API key auth (no OAuth, no service account JSON, no `gcloud` install required), un-gates everything, and re-points `--quality-tier draft` from the v3.5.0 Fast stopgap back to Lite for the full **8× cost reduction**.
 
 ### Fixed
-- **Image-to-video / `--first-frame` / `--last-frame` / `--reference-image`** — the Gemini API surface stopped serving image-to-video for VEO when the GA `-001` IDs shipped on Vertex AI in March 2026. v3.6.0's Vertex backend handles all of these. `video_generate.py --first-frame` works again.
-- **`video_extend.py --method video` (Scene Extension v2)** — re-enabled as the default. The Vertex API accepts inline base64 video input via `instances[0].video.bytesBase64Encoded` (despite Google's docs only showing the `gcsUri` path). Verified end-to-end with a 1.69 MB → 4.5 MB MP4 generation.
-- **Lite duration constraint** — v3.5.0 documented Lite as supporting 5–60 second durations based on unverified docs. Real-API testing during v3.6.0 showed the API explicitly rejects 5-second Lite requests with `"supported durations are [8,4,6] for feature text_to_video"`. Lite is `{4, 6, 8}` like every other tier. The error message and argparse help text are corrected.
-- **1:1 aspect ratio claim for Lite** — v3.5.0 documented `1:1` as a Lite-only special-case based on unverified docs. The Vertex docs and the official Google Veo 3 notebook both list only `16:9` and `9:16`. v3.6.0 removes the special-case from `_valid_ratios()` and `video_generate.py`, and adds defense-in-depth validation in the Vertex request body builder.
-- **`video_extend.py GENERATE_DURATION` for Scene Extension v2** — was hardcoded to `8` (correct for the keyframe path) but Vertex's `feature=video_extension` accepts only `durationSeconds=7`. Replaced with two named constants `GENERATE_DURATION_KEYFRAME=8` and `GENERATE_DURATION_VIDEO=7`, dispatched via `_hop_duration_for_method()`.
+- **Image-to-video / `--first-frame` / `--last-frame` / `--reference-image`** - the Gemini API surface stopped serving image-to-video for VEO when the GA `-001` IDs shipped on Vertex AI in March 2026. v3.6.0's Vertex backend handles all of these. `video_generate.py --first-frame` works again.
+- **`video_extend.py --method video` (Scene Extension v2)** - re-enabled as the default. The Vertex API accepts inline base64 video input via `instances[0].video.bytesBase64Encoded` (despite Google's docs only showing the `gcsUri` path). Verified end-to-end with a 1.69 MB → 4.5 MB MP4 generation.
+- **Lite duration constraint** - v3.5.0 documented Lite as supporting 5-60 second durations based on unverified docs. Real-API testing during v3.6.0 showed the API explicitly rejects 5-second Lite requests with `"supported durations are [8,4,6] for feature text_to_video"`. Lite is `{4, 6, 8}` like every other tier. The error message and argparse help text are corrected.
+- **1:1 aspect ratio claim for Lite** - v3.5.0 documented `1:1` as a Lite-only special-case based on unverified docs. The Vertex docs and the official Google Veo 3 notebook both list only `16:9` and `9:16`. v3.6.0 removes the special-case from `_valid_ratios()` and `video_generate.py`, and adds defense-in-depth validation in the Vertex request body builder.
+- **`video_extend.py GENERATE_DURATION` for Scene Extension v2** - was hardcoded to `8` (correct for the keyframe path) but Vertex's `feature=video_extension` accepts only `durationSeconds=7`. Replaced with two named constants `GENERATE_DURATION_KEYFRAME=8` and `GENERATE_DURATION_VIDEO=7`, dispatched via `_hop_duration_for_method()`.
 
 ### Added
-- **`skills/video/scripts/_vertex_backend.py`** (NEW, ~650 lines) — pure data translation helper module for the Vertex AI VEO surface. Handles URL composition (regional + global endpoints, hard-coded `/v1/` to avoid SDK [issue #2079](https://github.com/googleapis/python-genai/issues/2079) routing bug), request body construction (`instances`/`parameters` wrapper with `bytesBase64Encoded` image/video parts, resolution normalization `4K → 4k`, defense-in-depth aspect ratio + Scene Extension v2 duration validation), submit + poll response parsing (handles all three known response shapes including the Vertex `cloud.ai.large_models.vision.GenerateVideoResponse` payload), and a `--diagnose` CLI for verifying the auth setup against a free Gemini text-gen sanity check.
+- **`skills/video/scripts/_vertex_backend.py`** (NEW, ~650 lines) - pure data translation helper module for the Vertex AI VEO surface. Handles URL composition (regional + global endpoints, hard-coded `/v1/` to avoid SDK [issue #2079](https://github.com/googleapis/python-genai/issues/2079) routing bug), request body construction (`instances`/`parameters` wrapper with `bytesBase64Encoded` image/video parts, resolution normalization `4K → 4k`, defense-in-depth aspect ratio + Scene Extension v2 duration validation), submit + poll response parsing (handles all three known response shapes including the Vertex `cloud.ai.large_models.vision.GenerateVideoResponse` payload), and a `--diagnose` CLI for verifying the auth setup against a free Gemini text-gen sanity check.
 - **`--backend {auto,gemini-api,vertex-ai}` flag** on `video_generate.py`, default `auto`. Routes Vertex-only features through Vertex automatically and keeps text-to-video on Gemini API for v3.4.x compat. Zero breaking changes for existing users.
 - **`--vertex-api-key` / `--vertex-project` / `--vertex-location` flags** on `video_generate.py` with the same precedence as `--api-key`: CLI flag → env var → `~/.banana/config.json`.
 - **`vertex_api_key` / `vertex_project_id` / `vertex_location` fields** in `~/.banana/config.json`. Backward compat: existing configs without these fields continue to work for the Gemini API path.
-- **Service-agent provisioning auto-retry** — the first Scene Extension v2 call against a fresh Vertex project returns a transient `"Service agents are being provisioned"` error (gRPC code 9) that auto-resolves in ~60-90 s. `video_generate.py` detects this specific error and retries once after a 90-second sleep, with a clear progress event explaining the wait. Subsequent failures surface to the user with a pointer to the Vertex AI service-agents doc.
-- **Scene Extension v2 duration auto-override** — `video_generate.py` auto-overrides `--duration` to `7` when `--video-input` routes to Vertex (matches the auto-720p-downgrade pattern v3.5.0 added).
-- **`backend` field in output JSON** — every successful generation now reports which backend produced it (`"backend": "gemini-api"` or `"backend": "vertex-ai"`).
+- **Service-agent provisioning auto-retry** - the first Scene Extension v2 call against a fresh Vertex project returns a transient `"Service agents are being provisioned"` error (gRPC code 9) that auto-resolves in ~60-90 s. `video_generate.py` detects this specific error and retries once after a 90-second sleep, with a clear progress event explaining the wait. Subsequent failures surface to the user with a pointer to the Vertex AI service-agents doc.
+- **Scene Extension v2 duration auto-override** - `video_generate.py` auto-overrides `--duration` to `7` when `--video-input` routes to Vertex (matches the auto-720p-downgrade pattern v3.5.0 added).
+- **`backend` field in output JSON** - every successful generation now reports which backend produced it (`"backend": "gemini-api"` or `"backend": "vertex-ai"`).
 
 ### Changed
 - **`--quality-tier draft` re-pointed from Fast to Lite** in `video_sequence.py`. The v3.5.0 stopgap mapped `draft` to Fast ($0.15/sec, 2.7× cheaper than Standard) because Lite was unreachable. v3.6.0 restores the original mapping to Lite ($0.05/sec, **8× cheaper**). On a 4-shot 30-second sequence, the draft pass cost drops from $4.80 to $1.60.
 - **`video_extend.py --method` default flipped from `keyframe` back to `video`** (Scene Extension v2). The legacy keyframe path remains available via `--method keyframe` for users who need 1080p extension.
-- **`download_expires_at` is now backend-scoped** — only emitted on the Gemini API path (where the 48-hour URI expiry actually applies). The Vertex AI path returns video bytes inline in the poll response, so there's no URI and no expiry. The stderr 48-hour warning is also Gemini-only.
+- **`download_expires_at` is now backend-scoped** - only emitted on the Gemini API path (where the 48-hour URI expiry actually applies). The Vertex AI path returns video bytes inline in the poll response, so there's no URI and no expiry. The stderr 48-hour warning is also Gemini-only.
 - **`_submit_operation`, `_poll_operation`, `_save_video`** in `video_generate.py` are now backend-aware dispatchers. The Gemini API code paths are preserved byte-identical for backward compat; the Vertex paths call into the new `_vertex_backend` module.
 
 ### Docs
-- **Full rewrite of `skills/video/references/veo-models.md`** Backend Availability section. Removes the v3.5.0 "Vertex AI only — gated" warnings, documents the 3-minute auth setup, explains why API-key auth works for Vertex (bound-to-service-account keys carry a service account principal), corrects the Lite duration and aspect ratio claims, lists the canonical protobuf type names from the REST reference (`VideoGenerationModelInstance`, `VideoGenerationModelParams`, `cloud.ai.large_models.vision.GenerateVideoResponse`), and explains that video retention only applies to the Gemini API path.
-- **`skills/video/references/video-sequences.md` draft-then-final cost table** restored to the 8× story. The v3.5.0 "Gemini API today vs Vertex AI later" two-table workaround is gone — there's now one cost comparison and Lite is the default draft tier.
-- **`skills/video/SKILL.md` Model Routing table** is back to 5 rows (draft / quick social / standard / hero / image-to-video / legacy) with a Backend column showing where each routes. The "Vertex AI only — gated" callout is gone.
+- **Full rewrite of `skills/video/references/veo-models.md`** Backend Availability section. Removes the v3.5.0 "Vertex AI only - gated" warnings, documents the 3-minute auth setup, explains why API-key auth works for Vertex (bound-to-service-account keys carry a service account principal), corrects the Lite duration and aspect ratio claims, lists the canonical protobuf type names from the REST reference (`VideoGenerationModelInstance`, `VideoGenerationModelParams`, `cloud.ai.large_models.vision.GenerateVideoResponse`), and explains that video retention only applies to the Gemini API path.
+- **`skills/video/references/video-sequences.md` draft-then-final cost table** restored to the 8× story. The v3.5.0 "Gemini API today vs Vertex AI later" two-table workaround is gone - there's now one cost comparison and Lite is the default draft tier.
+- **`skills/video/SKILL.md` Model Routing table** is back to 5 rows (draft / quick social / standard / hero / image-to-video / legacy) with a Backend column showing where each routes. The "Vertex AI only - gated" callout is gone.
 - **README "What's New" section** rewritten with the v3.6.0 backend story.
 - **CLAUDE.md** updated with the new helper script in the file responsibilities table and a new key-constraint about Vertex resolution case (`4k` lowercase) vs Gemini convention (`4K` uppercase).
 - **ROADMAP** marks v3.6.0 as shipped, removes the "Vertex AI backend" line from the top, and promotes the deferred sequence production improvements to v3.6.1.
@@ -934,22 +934,22 @@ Everything else in the original v3.6.1 deferred bucket: plan hash tracking with 
 Real-API verification during the v3.5.0 release surfaced a critical distinction: **VEO 3.1 is split across two backends**. The plugin uses the Gemini API (`generativelanguage.googleapis.com`, API-key auth), while Lite, Legacy 3.0, GA `-001` IDs for Standard/Fast, and Scene Extension v2 (`--video-input`) are **Vertex AI only** (`*-aiplatform.googleapis.com`, OAuth/service-account auth). The Gemini API returns HTTP 404 for every `-001` ID and rejects `--video-input` with "inlineData isn't supported by this model." Until the Vertex AI backend ships in v3.6.0, the plugin gates these features with clear error messages and remaps `--quality-tier draft` to Fast instead of Lite. See `skills/video/references/veo-models.md` → Backend Availability for full details. Vertex AI support is now tracked as the top v3.6.0 roadmap item.
 
 ### Fixed
-- **VEO Lite model ID** — the plugin previously shipped `veo-3.1-generate-lite-preview` which does not exist as a real API endpoint. v3.5.0 ships the correct GA ID `veo-3.1-lite-generate-001` for users running against Vertex AI directly, and documents it for the Gemini API path with a clear error pointing at the v3.6.0 Vertex AI backend.
-- **VEO pricing** — the cost tracker's Standard rate was incorrectly set to $0.15/sec. Corrected to the official $0.40/sec ($3.20 per 8s clip) matching Google Cloud Vertex AI pricing. Fast ($0.15/sec) and Lite ($0.05/sec) tiers are now listed separately rather than conflated.
+- **VEO Lite model ID** - the plugin previously shipped `veo-3.1-generate-lite-preview` which does not exist as a real API endpoint. v3.5.0 ships the correct GA ID `veo-3.1-lite-generate-001` for users running against Vertex AI directly, and documents it for the Gemini API path with a clear error pointing at the v3.6.0 Vertex AI backend.
+- **VEO pricing** - the cost tracker's Standard rate was incorrectly set to $0.15/sec. Corrected to the official $0.40/sec ($3.20 per 8s clip) matching Google Cloud Vertex AI pricing. Fast ($0.15/sec) and Lite ($0.05/sec) tiers are now listed separately rather than conflated.
 
 ### Added
-- **VEO 3.1 model variants** in `video_generate.py` — Fast tier (`veo-3.1-fast-generate-preview` / `-001`), Lite tier (`veo-3.1-lite-generate-001`), and Legacy 3.0 (`veo-3.0-generate-001`). Both preview and GA (`-001`) IDs are accepted for Standard and Fast.
-- **Model-aware parameter validation** — Lite supports 5–60 s durations and 1:1 square aspect ratio; Standard/Fast reject those. 4K is rejected on Lite and Legacy 3.0.
+- **VEO 3.1 model variants** in `video_generate.py` - Fast tier (`veo-3.1-fast-generate-preview` / `-001`), Lite tier (`veo-3.1-lite-generate-001`), and Legacy 3.0 (`veo-3.0-generate-001`). Both preview and GA (`-001`) IDs are accepted for Standard and Fast.
+- **Model-aware parameter validation** - Lite supports 5-60 s durations and 1:1 square aspect ratio; Standard/Fast reject those. 4K is rejected on Lite and Legacy 3.0.
 - **`--negative-prompt`** flag on `video_generate.py` with Google's official guidance (describe what you want; use negatives only for known failure modes).
 - **`--seed`** flag on `video_generate.py` for reproducible generations.
-- **`--video-input`** flag on `video_generate.py` — Scene Extension v2 mode, mutually exclusive with image inputs, forces 720p.
-- **`--quality-tier {draft,fast,standard,lite,legacy}`** flag on `video_sequence.py generate` and `estimate` — enables the draft-then-final workflow. `draft` currently maps to Fast ($0.15/sec, 2.7× cheaper than Standard) on the Gemini API; `lite` and `legacy` fail fast with a clear pointer to the v3.6.0 Vertex AI backend. A 4-shot 30-second sequence costs $4.80 at Fast draft vs $12.80 at Standard.
+- **`--video-input`** flag on `video_generate.py` - Scene Extension v2 mode, mutually exclusive with image inputs, forces 720p.
+- **`--quality-tier {draft,fast,standard,lite,legacy}`** flag on `video_sequence.py generate` and `estimate` - enables the draft-then-final workflow. `draft` currently maps to Fast ($0.15/sec, 2.7× cheaper than Standard) on the Gemini API; `lite` and `legacy` fail fast with a clear pointer to the v3.6.0 Vertex AI backend. A 4-shot 30-second sequence costs $4.80 at Fast draft vs $12.80 at Standard.
 - **Per-shot and sequence-level `model`/`resolution` fields** in the plan.json schema, with a 3-level cascade (CLI override → shot → plan → default) and graceful fallback for old plans.
 - **`--method {video,keyframe}`** flag on `video_extend.py`. Default is `video` (Scene Extension v2: passes previous clip directly, preserves audio continuity at 720p). `keyframe` retains the legacy last-frame extraction path at any resolution.
 - **`--model` flag on `video_extend.py`** with per-hop cost estimation using the selected model's actual rate.
-- **Token-limit prompt validation** in `video_generate.py` — warns at ~950 tokens (3,800 chars), hard-rejects at ~1,125 tokens (4,500 chars) to prevent confusing API-layer failures.
+- **Token-limit prompt validation** in `video_generate.py` - warns at ~950 tokens (3,800 chars), hard-rejects at ~1,125 tokens (4,500 chars) to prevent confusing API-layer failures.
 - **`download_expires_at` timestamp** in `video_generate.py` JSON output and a stderr warning about Google's 48-hour video retention window.
-- **New `_veo_cost(model, duration_seconds)` helper** in `cost_tracker.py` with per-second fallback for Lite's extended 5–60 s range.
+- **New `_veo_cost(model, duration_seconds)` helper** in `cost_tracker.py` with per-second fallback for Lite's extended 5-60 s range.
 - **README: "VEO 3.1 Model Variants & Draft Workflow (v3.5.0)"** section.
 
 ### Changed
@@ -959,8 +959,8 @@ Real-API verification during the v3.5.0 release surfaced a critical distinction:
 
 ### Docs
 - **Full rewrite of `skills/video/references/veo-models.md`** with the VEO release timeline, 3-tier comparison table, GA vs preview IDs, 4K-is-AI-upscaled clarification, capability matrix, known limitations (character drift, text rendering, 8 s ceiling, silent output failures), 48-hour video retention, regional availability (EEA/Swiss/UK), rate limits, competitive context (Arena Elo 1381), and audio quality comparison.
-- **`skills/video/references/video-sequences.md`** — new draft-then-final workflow section with cost comparison table, Gemini + VEO as Google's officially recommended pattern, timestamp prompting as a cost-reduction technique, and character drift mitigation framing.
-- **`skills/video/references/video-prompt-engineering.md`** — new sections for timestamp prompting (`[00:00-00:02]` syntax), lens focal length guidance (16 mm / 35 mm / 50 mm / 85 mm table), dialogue timing (words-per-clip by duration), recommended negative prompt boilerplate, text rendering warning, and 100–200 word prompt-length target.
+- **`skills/video/references/video-sequences.md`** - new draft-then-final workflow section with cost comparison table, Gemini + VEO as Google's officially recommended pattern, timestamp prompting as a cost-reduction technique, and character drift mitigation framing.
+- **`skills/video/references/video-prompt-engineering.md`** - new sections for timestamp prompting (`[00:00-00:02]` syntax), lens focal length guidance (16 mm / 35 mm / 50 mm / 85 mm table), dialogue timing (words-per-clip by duration), recommended negative prompt boilerplate, text rendering warning, and 100-200 word prompt-length target.
 - **README** version badge bumped, model comparison table updated with all four VEO variants and per-second pricing.
 
 ## [3.4.1] - 2026-04-09
@@ -975,7 +975,7 @@ Real-API verification during the v3.5.0 release surfaced a critical distinction:
 
 ### Added
 - **8 new feature images** in README: video pipeline, video domain modes, sequence production, storyboard workflow, A/B testing, deck builder, analytics dashboard, content pipeline
-- **2 sample video clips** in README: product reveal (6s/1080p) and banana spinning (4s/720p) — actual VEO 3.1 outputs
+- **2 sample video clips** in README: product reveal (6s/1080p) and banana spinning (4s/720p) - actual VEO 3.1 outputs
 
 ## [3.4.0] - 2026-04-09
 
@@ -1087,15 +1087,15 @@ Real-API verification during the v3.5.0 release surfaced a critical distinction:
 ## [2.1.0] - 2026-04-09
 
 ### Changed
-- **Renamed project** from `banana-claude` to `nano-banana-studio` — new independent identity
-- **Detached from GitHub fork network** — `gh` CLI now resolves correctly to this repo
+- **Renamed project** from `banana-claude` to `nano-banana-studio` - new independent identity
+- **Detached from GitHub fork network** - `gh` CLI now resolves correctly to this repo
 - Updated all repo URLs, plugin name, and documentation references
 - Updated CITATION.cff title and repository URL
 - Updated install.sh with pre-flight check for conflicting banana-claude installation
 
 ### Added
-- **Migration guide** in README — instructions for users switching from banana-claude
-- **Conflict detection** in install.sh — warns if banana-claude plugin is already installed
+- **Migration guide** in README - instructions for users switching from banana-claude
+- **Conflict detection** in install.sh - warns if banana-claude plugin is already installed
 
 ## [2.0.1] - 2026-04-09
 

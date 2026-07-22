@@ -22,7 +22,7 @@ Std should replace VEO 3.1 as the plugin's default video model:
   11 mascot). VEO 3.1 Fast won 0.
 - **7.5× cheaper per 8s clip** than VEO Fast ($0.16 vs $1.20) and 20× cheaper
   than VEO Standard ($0.16 vs $3.20).
-- **Native 1:1 aspect ratio support** — VEO does not support 1:1, which
+- **Native 1:1 aspect ratio support** - VEO does not support 1:1, which
   blocked Instagram-square workflows on the old plugin default.
 - **Coherent extended workflows**: Kling's `multi_prompt` produces coherent
   30-second narratives in a single call. VEO's extended workflow (Scene
@@ -38,7 +38,7 @@ Full spike findings:
 |---|---|
 | Resolution | 720p (`mode: "standard"`) or 1080p (`mode: "pro"`) |
 | Aspect ratios | 16:9, 9:16, **1:1** (VEO does not support 1:1) |
-| Duration | **3–15 seconds** per call (integer seconds) |
+| Duration | **3-15 seconds** per call (integer seconds) |
 | Audio | Native, generated with video. **English and Chinese only** per model card |
 | Multi-shot | `multi_prompt` JSON array string, up to **6 shots** per call |
 | Negative prompts | Supported via `negative_prompt` |
@@ -88,7 +88,7 @@ Example for a 15-second 3-shot narrative:
 Constraints:
 - **Max 6 shots** per call
 - **Min 1 second per shot**
-- **Sum of shot durations must equal the top-level `duration`** — the plugin
+- **Sum of shot durations must equal the top-level `duration`** - the plugin
   validates this client-side via `_replicate_backend.validate_kling_params()`
   before submitting
 
@@ -137,9 +137,9 @@ set, so users aren't surprised.
 ## Wall time expectations
 
 Kling v3 Std typical wall time per call:
-- **Single prompt 8s**: 3–5 minutes
-- **Single prompt 15s**: 4–6 minutes
-- **Multi-prompt 15s**: 5–7 minutes (3–6 shots)
+- **Single prompt 8s**: 3-5 minutes
+- **Single prompt 15s**: 4-6 minutes
+- **Multi-prompt 15s**: 5-7 minutes (3-6 shots)
 
 This is notably longer than VEO 3.1 Lite (~2 minutes per call). Users who
 chain many shots in a sequence should expect overall wait times proportional
@@ -154,14 +154,14 @@ spike 5 quality trade-off (glitches in multi-shot workflows).
 Per the Kling v3 Std model card's "Limitations" section, verbatim:
 
 - **Maximum 15 seconds per generation** (use shot-list pipeline for longer)
-- **Audio works best in English and Chinese** — other languages are unverified
-- **Character appearance can vary across separate generations** — important
+- **Audio works best in English and Chinese** - other languages are unverified
+- **Character appearance can vary across separate generations** - important
   for extended workflows where continuity matters across multiple Kling calls.
   **v3.8.2 solution**: use the same `start_image` across sibling calls WITH
-  a character-matching prompt — see §Character Consistency via start_image
+  a character-matching prompt - see §Character Consistency via start_image
   below. When the prompt describes the same character as the start image,
   identity is preserved at full resolution. DreamActor M2.0 is an alternative
-  for real-footage-to-avatar workflows only — see the same section for the
+  for real-footage-to-avatar workflows only - see the same section for the
   decision matrix
 - **Complex physics interactions may not look fully natural**
 - **For longer videos, generate multiple clips and stitch them together**
@@ -172,7 +172,7 @@ Per the Kling v3 Std model card's "Limitations" section, verbatim:
 <!-- verified: 2026-04-16 via 6-run spike in session 19 -->
 
 Kling v3 Std's `start_image` serves as a **character identity lock** when
-used with a **character-matching prompt** — a prompt whose character
+used with a **character-matching prompt** - a prompt whose character
 description (age, hair, clothing, setting) matches the start image. This
 closes the "character variation across separate generations" limitation
 for the most common use case: brand spokesperson doing different actions.
@@ -181,7 +181,7 @@ for the most common use case: brand spokesperson doing different actions.
 the start image. If the prompt describes a different person (different
 gender, age, ethnicity, or clothing), Kling will morph completely toward
 the prompted character within 5 seconds, abandoning the start image's
-identity. The start image is NOT an unconditional identity lock — it is
+identity. The start image is NOT an unconditional identity lock - it is
 conditional on prompt cooperation.
 
 ### Empirical evidence (session 19 spike, 2026-04-16)
@@ -191,8 +191,8 @@ conditional on prompt cooperation.
 
 | Test | Prompt matches image? | Identity at frame 0 | Identity at frame 5s | Result |
 |---|---|---|---|---|
-| Kling + mismatched prompt (described a man) | No | Preserved | **Lost** — became the prompted man | FAILED |
-| Kling + mismatched prompt (described a different woman) | No | Preserved | **Lost** — became the prompted woman | FAILED |
+| Kling + mismatched prompt (described a man) | No | Preserved | **Lost** - became the prompted man | FAILED |
+| Kling + mismatched prompt (described a different woman) | No | Preserved | **Lost** - became the prompted woman | FAILED |
 | Kling + matched prompt (gentle motion) | **Yes** | Preserved | **Preserved** | PASSED |
 | Kling + matched prompt (enthusiastic gestures) | **Yes** | Preserved | **Preserved** | PASSED |
 | DreamActor M2.0 + man driving video | N/A (no prompt) | Preserved | **Preserved** | PASSED |
@@ -203,7 +203,7 @@ conditional on prompt cooperation.
 | Metric | Kling + matched prompt | DreamActor M2.0 |
 |---|---|---|
 | Output resolution | **1072×1928** | 694×1242 |
-| Output bitrate | **7–8 MB / 5s** | 876 KB–1.05 MB / 5s |
+| Output bitrate | **7-8 MB / 5s** | 876 KB - 1.05 MB / 5s |
 | Cost per second | **$0.02/s** | $0.05/s |
 | Creative control | Full text prompt | None (motion from video) |
 | Identity mechanism | Conditional (prompt must match) | Unconditional (image is anchor) |
@@ -232,7 +232,7 @@ the right tool when:
   there is no risk of prompt-vs-image conflict.
 
 DreamActor integration is queued for v3.9.x as a `/create-video animate-character`
-subcommand — not a priority for v3.9.0.
+subcommand - not a priority for v3.9.0.
 
 ## When NOT to use Kling
 
@@ -243,8 +243,8 @@ subcommand — not a priority for v3.9.0.
 - If the user needs video editing mode (not supported by Kling v3 Std; Kling
   v3 Omni has it but was deferred from spike 5 Phase 1 for 25+ min wall time)
 - If the user needs VEO-style multi-reference-image-guided generation (Kling
-  v3 Std has `start_image` for single-image character consistency — see
-  §Character Consistency above — but does not support VEO 3.1's
+  v3 Std has `start_image` for single-image character consistency - see
+  §Character Consistency above - but does not support VEO 3.1's
   `referenceImages` array for multiple reference sources at the instance level)
 - If the user needs Scene Extension v2 on an existing MP4 (Kling has no
   direct equivalent; use `video_extend.py --acknowledge-veo-limitations` only
@@ -260,32 +260,32 @@ to see if the filter behaved differently:
 
 | Test | Subject | Result | Failure code |
 |---|---|---|---|
-| `test_02_talking_head` | Woman in home office | **FAILED** (5.5s wall) | `E005 — input/output flagged as sensitive` |
-| `test_06_action_sports` | Woman athlete doing kettlebell swing | **FAILED** (8.8s wall) | `E005 — input/output flagged as sensitive` |
-| `test_11_brand_mascot` | Cartoon robot | **SUCCESS** ($0.14, 123s wall) | — |
+| `test_02_talking_head` | Woman in home office | **FAILED** (5.5s wall) | `E005 - input/output flagged as sensitive` |
+| `test_06_action_sports` | Woman athlete doing kettlebell swing | **FAILED** (8.8s wall) | `E005 - input/output flagged as sensitive` |
+| `test_11_brand_mascot` | Cartoon robot | **SUCCESS** ($0.14, 123s wall) | - |
 
 **Pattern**: the E005 filter is consistent across Phase 1 and Phase 2 for
-**any human subject** — bearded man, woman in home office, female athlete
+**any human subject** - bearded man, woman in home office, female athlete
 all triggered it. Only the non-human cartoon robot mascot passed.
 
 **Implication for the plugin**: Seedance is NOT usable for the plugin's
 primary workflows (product demos, talking heads, social creator content)
 because those workflows overwhelmingly involve human subjects. A model
-that works on "1 out of 3" diverse subjects — and specifically fails on
-the most common subject type — can't be a reliable default or even a
+that works on "1 out of 3" diverse subjects - and specifically fails on
+the most common subject type - can't be a reliable default or even a
 reliable backup.
 
 **Decision**: Seedance 2.0 is **NOT wired into the plugin** (neither as a
 default, backup, nor tertiary provider). v3.8.0's decision to go with
 Kling (primary) + VEO (opt-in backup) stands. If a user has a
 specifically non-human workflow (brand mascots, animated characters,
-CGI props), they can call Seedance directly via Replicate's SDK — but
+CGI props), they can call Seedance directly via Replicate's SDK - but
 the plugin doesn't provide a first-class path.
 
 **Retest spend**: $0.14 (1 successful generation) + $0.48 (12 anchor
 images generated for the retest matrix). Total: $0.62. The spike harness
 idempotent skip + reservation logic prevented any wasted generation
-on the 2 failed cells — ledger correctly released the reservations.
+on the 2 failed cells - ledger correctly released the reservations.
 
 **What would change the verdict**: ByteDance relaxing the E005 filter
 specifically for human subjects. No timeline or public roadmap for this.

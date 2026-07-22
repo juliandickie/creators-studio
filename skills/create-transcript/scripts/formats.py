@@ -2,7 +2,7 @@
 
 Every function here is a PURE function of the parsed response dict. No network,
 no filesystem, no global state. This is what makes the skill's core testable
-offline and what makes re-rendering (speaker renames, added formats) free — the
+offline and what makes re-rendering (speaker renames, added formats) free - the
 API is called once, its JSON cached, and every human format is a render of that
 cache.
 
@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import textwrap
 
-# Subtitle segmentation defaults — tuned for comfortable reading speed, not turns.
+# Subtitle segmentation defaults - tuned for comfortable reading speed, not turns.
 DEFAULT_CUE_MAX_DUR = 7.0     # seconds
 DEFAULT_CUE_MAX_CHARS = 42    # characters per cue
 DEFAULT_CHAPTER_MIN_GAP = 2.0  # seconds of silence that starts a new chapter
@@ -41,7 +41,7 @@ DEFAULT_CHAPTER_MIN_GAP = 2.0  # seconds of silence that starts a new chapter
 def fmt_time(seconds: float, style: str = "clock") -> str:
     """Format a timestamp.
 
-    clock : "M:SS" or "H:MM:SS" (no leading zero on the largest unit) — markdown,
+    clock : "M:SS" or "H:MM:SS" (no leading zero on the largest unit) - markdown,
             chapters. Floors to whole seconds.
     hms   : "HH:MM:SS" zero-padded.
     srt   : "HH:MM:SS,mmm" (comma millis).
@@ -102,7 +102,7 @@ def _clean(text: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Turn grouping (markdown, chapters) — folds contiguous same-speaker runs
+# Turn grouping (markdown, chapters) - folds contiguous same-speaker runs
 # --------------------------------------------------------------------------- #
 def group_turns(words: list[dict], speaker_names: dict | None = None) -> list[dict]:
     """Fold the flat word stream into contiguous same-speaker turns.
@@ -135,14 +135,14 @@ def group_turns(words: list[dict], speaker_names: dict | None = None) -> list[di
 
 
 # --------------------------------------------------------------------------- #
-# Cue segmentation (SRT, VTT) — independent of speaker, serves reading speed
+# Cue segmentation (SRT, VTT) - independent of speaker, serves reading speed
 # --------------------------------------------------------------------------- #
 def segment_cues(words: list[dict],
                  max_dur: float = DEFAULT_CUE_MAX_DUR,
                  max_chars: int = DEFAULT_CUE_MAX_CHARS) -> list[dict]:
     """Group words into subtitle cues bounded by duration and line length.
 
-    Returns [{index, start, end, text}]. Speaker changes do NOT force a break —
+    Returns [{index, start, end, text}]. Speaker changes do NOT force a break -
     subtitle timing is about reading speed, not conversation structure.
     """
     cues: list[dict] = []

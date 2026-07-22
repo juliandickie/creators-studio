@@ -18,7 +18,7 @@ Usage:
     social.py info ig-feed
     social.py info instagram
 
-Default mode is "complete" (v4.1.2+) — prompts that imply text (social posts,
+Default mode is "complete" (v4.1.2+) - prompts that imply text (social posts,
 ads with CTAs) render it naturally. Opt into text-free output with
 --mode image-only, which appends explicit text-suppression to the prompt.
 """
@@ -44,7 +44,7 @@ API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 # Platform definitions
 # ---------------------------------------------------------------------------
 
-# PLATFORMS dict — 16 platforms, 87 placements, SOP max-quality specs (v4.1.2+)
+# PLATFORMS dict - 16 platforms, 87 placements, SOP max-quality specs (v4.1.2+)
 #
 # Restored Pinterest / Threads / Snapchat / Google Ads / Spotify from v4.1.1's
 # 6-platform scope, then added Telegram / Signal / WhatsApp / ManyChat / BlueSky
@@ -53,7 +53,7 @@ API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 #
 # All pixel specs at SOP-recommended MAX-QUALITY values. Authoritative source:
 # dev-docs/SOP Graphic Sizes - Social Media Image and Video Specifications Guide.md
-# (January 2026 update). BlueSky specs are best-guess since not in SOP — verify
+# (January 2026 update). BlueSky specs are best-guess since not in SOP - verify
 # against official BlueSky docs before relying on them.
 #
 # Non-standard target ratios (placements whose true aspect isn't in Gemini's
@@ -81,7 +81,7 @@ PLATFORMS = {
     "fb-profile":           {"name": "Facebook Profile Picture",        "pixels": (720, 720),   "ratio": "1:1",  "resolution": "4K", "notes": "SOP quality spec 720x720 (displays 176x176 desktop, 196x196 mobile)."},
     "fb-cover":             {"name": "Facebook Cover Photo",            "pixels": (851, 315),   "ratio": "21:9", "resolution": "4K", "notes": "Design-size 851x315; true aspect ~2.7:1. Generates at 21:9 (closest supported), ~10% vertical trim. Safe zone center 640x312."},
     "fb-feed":              {"name": "Facebook Feed Square",            "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "Organic square post."},
-    "fb-landscape":         {"name": "Facebook Feed Landscape",         "pixels": (1200, 630),  "ratio": "16:9", "resolution": "4K", "notes": "1.91:1 — link preview crops tighter."},
+    "fb-landscape":         {"name": "Facebook Feed Landscape",         "pixels": (1200, 630),  "ratio": "16:9", "resolution": "4K", "notes": "1.91:1 - link preview crops tighter."},
     "fb-portrait":          {"name": "Facebook Feed Portrait",          "pixels": (1080, 1350), "ratio": "4:5",  "resolution": "4K", "notes": "Truncated in feed with See More."},
     "fb-story":             {"name": "Facebook Story",                  "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Top 14% profile bar; bottom 20% CTA."},
     "fb-reel":              {"name": "Facebook Reel Cover",             "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Reels cover spec; safe zones top 14%, bottom 35%, sides 6%."},
@@ -116,7 +116,7 @@ PLATFORMS = {
     "x-video-ad-frame":     {"name": "Twitter/X Video Ad Still",        "pixels": (1920, 1080), "ratio": "16:9", "resolution": "4K", "notes": "Video ad thumbnail / still frame at 1080p."},
     "x-amplify-preroll":    {"name": "Twitter/X Amplify Pre-roll Frame", "pixels": (1200, 1200), "ratio": "1:1",  "resolution": "4K", "notes": "Amplify Pre-roll video ad frame."},
 
-    # ═══ TikTok (2 placements — TikTok is a video-first platform) ════════════
+    # ═══ TikTok (2 placements - TikTok is a video-first platform) ════════════
     "tt-profile":           {"name": "TikTok Profile Picture",          "pixels": (720, 720),   "ratio": "1:1",  "resolution": "4K", "notes": "Displays at 200x200 but upload at 720x720 for quality."},
     "tt-hashtag-banner":    {"name": "TikTok Branded Hashtag Banner",   "pixels": (1440, 288),  "ratio": "4:1",  "resolution": "4K", "notes": "True aspect 5:1; generates at 4:1 (closer than 8:1 for this target), ~10% vertical trim."},
 
@@ -140,7 +140,7 @@ PLATFORMS = {
     "snap-story-ad-tile":   {"name": "Snapchat Story Ad Tile",          "pixels": (360, 600),   "ratio": "2:3",  "resolution": "4K", "notes": "PNG required, max 2MB. True aspect 1:1.67; generates at 2:3 (1:1.5), ~10% vertical trim."},
 
     # ═══ Google Ads (10 placements) ══════════════════════════════════════════
-    "gads-resp-landscape":  {"name": "Google Ads Responsive Landscape", "pixels": (1200, 628),  "ratio": "16:9", "resolution": "4K", "notes": "1.91:1 — Google may auto-crop further across placements."},
+    "gads-resp-landscape":  {"name": "Google Ads Responsive Landscape", "pixels": (1200, 628),  "ratio": "16:9", "resolution": "4K", "notes": "1.91:1 - Google may auto-crop further across placements."},
     "gads-resp-square":     {"name": "Google Ads Responsive Square",    "pixels": (1200, 1200), "ratio": "1:1",  "resolution": "4K", "notes": "Ad text overlaid below."},
     "gads-logo":            {"name": "Google Ads Logo",                 "pixels": (1200, 1200), "ratio": "1:1",  "resolution": "4K", "notes": "Optional logo asset (max 5MB per image)."},
     "gads-leaderboard":     {"name": "Google Ads Leaderboard",          "pixels": (728, 90),    "ratio": "8:1",  "resolution": "4K", "notes": "True aspect 8.09:1; generates at 8:1 (near-exact). Max 150KB file size."},
@@ -163,7 +163,7 @@ PLATFORMS = {
     "tg-message-image":     {"name": "Telegram Message Image",          "pixels": (1280, 1280), "ratio": "1:1",  "resolution": "4K", "notes": "Telegram auto-compresses messages to 1280x1280; send as file to avoid compression."},
     "tg-ad":                {"name": "Telegram Ad Image",               "pixels": (1280, 720),  "ratio": "16:9", "resolution": "4K", "notes": "Telegram Ads require 16:9, min 640px width, max 5MB."},
 
-    # ═══ Signal (1 placement — minimal broadcast surface) ════════════════════
+    # ═══ Signal (1 placement - minimal broadcast surface) ════════════════════
     "sg-profile":           {"name": "Signal Profile Picture",          "pixels": (500, 500),   "ratio": "1:1",  "resolution": "4K", "notes": "Signal applies aggressive compression; upload source at 500x500 for best preserved quality. Minimum is 160x160."},
 
     # ═══ WhatsApp (6 placements) ═════════════════════════════════════════════
@@ -174,11 +174,11 @@ PLATFORMS = {
     "wa-ctwa-square":       {"name": "WhatsApp Click-to-WhatsApp Ad",   "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "Managed through Facebook/Instagram Ads Manager."},
     "wa-ctwa-story":        {"name": "WhatsApp CTWA Story Ad",          "pixels": (1080, 1920), "ratio": "9:16", "resolution": "4K", "notes": "Vertical CTWA placement for Stories."},
 
-    # ═══ ManyChat (2 placements — native blocks) ═════════════════════════════
+    # ═══ ManyChat (2 placements - native blocks) ═════════════════════════════
     "mc-gallery-card":      {"name": "ManyChat Gallery/Card Image",     "pixels": (909, 476),   "ratio": "16:9", "resolution": "4K", "notes": "Messenger gallery card spec. True aspect 1.91:1; generates at 16:9 (1.78:1), ~3% vertical trim. Max 8MB."},
     "mc-image-block":       {"name": "ManyChat Image Block",            "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "SOP-recommended 900x900 rounded up to 1080x1080 for quality. 1:1 appears larger in chat."},
 
-    # ═══ BlueSky (4 placements — specs unverified against official docs) ═════
+    # ═══ BlueSky (4 placements - specs unverified against official docs) ═════
     "bsky-profile":         {"name": "BlueSky Profile Picture",         "pixels": (400, 400),   "ratio": "1:1",  "resolution": "4K", "notes": "v4.1.2: best-guess spec; not in SOP. Displays circular. Verify against BlueSky official docs before production use."},
     "bsky-banner":          {"name": "BlueSky Profile Banner",          "pixels": (3000, 1000), "ratio": "21:9", "resolution": "4K", "notes": "v4.1.2: best-guess spec. True target 3:1 (3.0:1); generates at 21:9 (2.33:1, closest supported), ~11% vertical trim. Verify against BlueSky docs."},
     "bsky-feed-square":     {"name": "BlueSky Feed Square",             "pixels": (1080, 1080), "ratio": "1:1",  "resolution": "4K", "notes": "v4.1.2: best-guess spec. BlueSky allows up to 4 images per post at common social ratios."},
@@ -187,7 +187,7 @@ PLATFORMS = {
 
 # Group shorthands expand to multiple platform keys (v4.1.2: 16 platforms)
 GROUPS = {
-    # Per-platform groups — the main placements for that platform's feed
+    # Per-platform groups - the main placements for that platform's feed
     "instagram":    ["ig-feed", "ig-square", "ig-story", "ig-reel-cover"],
     "facebook":     ["fb-feed", "fb-landscape", "fb-portrait", "fb-story", "fb-reel"],
     "youtube":      ["yt-thumb", "yt-banner", "yt-shorts"],
@@ -205,7 +205,7 @@ GROUPS = {
     "manychat":     ["mc-gallery-card", "mc-image-block"],
     "bluesky":      ["bsky-profile", "bsky-banner", "bsky-feed-square"],
 
-    # Cross-platform family groups — useful for multi-channel campaigns
+    # Cross-platform family groups - useful for multi-channel campaigns
     "all-feeds":    ["ig-feed", "fb-portrait", "li-portrait", "x-landscape", "threads-portrait", "bsky-feed-portrait"],
     "all-squares":  ["ig-square", "fb-feed", "li-square", "x-square", "threads-square", "bsky-feed-square"],
     "all-stories":  ["ig-story", "fb-story", "snap-story", "wa-status"],
@@ -371,7 +371,7 @@ def generate_image(prompt, model, aspect_ratio, resolution, api_key, image_only=
 
 
 # ---------------------------------------------------------------------------
-# Platform-exact resize + crop (v4.1.0 — inspect source, resize to ratio, crop to spec)
+# Platform-exact resize + crop (v4.1.0 - inspect source, resize to ratio, crop to spec)
 # ---------------------------------------------------------------------------
 
 def inspect_dimensions(path):
@@ -424,7 +424,7 @@ def resize_for_platform(input_path, output_path, target_w, target_h):
     Pipeline:
       1. Inspect source dimensions
       2. Compare source ratio to target ratio
-      3. If ratio matches (within 0.5%): pure downscale (sips or magick — both work)
+      3. If ratio matches (within 0.5%): pure downscale (sips or magick - both work)
       4. If ratio differs: resize-to-cover + center-crop (ImageMagick required)
       5. If no suitable tool for step 4: copy + emit missing_tool warning
 
@@ -442,7 +442,7 @@ def resize_for_platform(input_path, output_path, target_w, target_h):
     src_dims = inspect_dimensions(input_path)
     magick = shutil.which("magick") or shutil.which("convert")
 
-    # Path A — ImageMagick available: handles both pure-resize and resize+crop
+    # Path A - ImageMagick available: handles both pure-resize and resize+crop
     if magick:
         cmd = [
             magick, str(input_path),
@@ -458,7 +458,7 @@ def resize_for_platform(input_path, output_path, target_w, target_h):
             if src_dims:
                 src_ratio = src_dims[0] / src_dims[1]
                 if abs(src_ratio - target_ratio) < 0.005:
-                    method = "resize_only"  # ratio matched — 0 pixels cropped
+                    method = "resize_only"  # ratio matched - 0 pixels cropped
             return {
                 "success": True,
                 "method": method,
@@ -470,7 +470,7 @@ def resize_for_platform(input_path, output_path, target_w, target_h):
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
             pass  # fall through to sips attempt
 
-    # Path B — no magick, but ratio matches and sips is available: pure downscale
+    # Path B - no magick, but ratio matches and sips is available: pure downscale
     sips = shutil.which("sips")
     if sips and src_dims:
         src_ratio = src_dims[0] / src_dims[1]
@@ -492,7 +492,7 @@ def resize_for_platform(input_path, output_path, target_w, target_h):
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
                 pass
 
-    # Path C — full fallback: copy unchanged, emit structured missing-tool warning
+    # Path C - full fallback: copy unchanged, emit structured missing-tool warning
     shutil.copy2(input_path, output_path)
     src_ratio_str = f" (source ratio ≠ target ratio)" if (
         src_dims and abs((src_dims[0] / src_dims[1]) - target_ratio) >= 0.005
@@ -557,7 +557,7 @@ def cmd_generate(args):
 
     print(f"Generating for {len(platform_keys)} platform(s) across {len(ratio_groups)} unique ratio(s)...")
     print(f"  Model: {model}")
-    print(f"  Mode: {'Image Only (text suppressed)' if image_only else 'Complete (text allowed — default in v4.1.2+)'}")
+    print(f"  Mode: {'Image Only (text suppressed)' if image_only else 'Complete (text allowed - default in v4.1.2+)'}")
     print(f"  Output: {output_dir}")
     print()
 
@@ -606,7 +606,7 @@ def cmd_generate(args):
             method_label = {
                 "resize_only":     f"resized {src_dims_str} → {out_dims_str} via {sizing['tool']}",
                 "resize_and_crop": f"resized+cropped {src_dims_str} → {out_dims_str} via {sizing['tool']}",
-                "copy_fallback":   f"COPIED UNCHANGED ({src_dims_str}) — missing_tool",
+                "copy_fallback":   f"COPIED UNCHANGED ({src_dims_str}) - missing_tool",
             }.get(sizing["method"], sizing["method"])
             print(f"    -> {k}: target {target_w}x{target_h} ({method_label})")
             if sizing["warning"]:
@@ -764,7 +764,7 @@ def main():
                        help="Comma-separated platform keys, group names, or 'all'")
     p_gen.add_argument("--output", default=None, help="Output directory")
     p_gen.add_argument("--mode", choices=["complete", "image-only"], default="complete",
-                       help="Output mode: complete (text allowed, DEFAULT in v4.1.2+) or image-only (explicitly suppresses text/logos/typography in the prompt). Social posts typically have text — the v4.1.1 image-only default was backwards.")
+                       help="Output mode: complete (text allowed, DEFAULT in v4.1.2+) or image-only (explicitly suppresses text/logos/typography in the prompt). Social posts typically have text - the v4.1.1 image-only default was backwards.")
     p_gen.add_argument("--model", default=None, help=f"Model ID (default: {DEFAULT_MODEL})")
     p_gen.add_argument("--api-key", default=None, help="Google AI API key")
 

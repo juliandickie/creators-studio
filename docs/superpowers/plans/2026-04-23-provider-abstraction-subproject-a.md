@@ -1,8 +1,8 @@
-# Provider-Agnostic Architecture — Sub-Project A Implementation Plan
+# Provider-Agnostic Architecture - Sub-Project A Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement sub-project A from the provider-agnostic architecture spec — the foundation layer that turns "add a new marketplace" into a one-file task.
+**Goal:** Implement sub-project A from the provider-agnostic architecture spec - the foundation layer that turns "add a new marketplace" into a one-file task.
 
 **Architecture:** Introduce a `ProviderBackend` ABC + canonical task schema + model registry. Refactor the existing `_replicate_backend.py` (already ~75% correctly shaped) to implement the new interface. No new concrete backends ship in A; that's sub-projects C (Kie.ai) and D (HF Inference Providers). Zero behavior change for end users.
 
@@ -22,13 +22,13 @@ The plugin is `creators-studio`, a Claude Code plugin for AI image + video + aud
 - **Vertex AI** for VEO video + Lyria music (via `skills/create-video/scripts/_vertex_backend.py`)
 - **Replicate** for Kling video, Fabric lip-sync, DreamActor, Recraft Vectorize, and Nano Banana 2 fallback (via `skills/create-video/scripts/_replicate_backend.py` + `skills/create-image/scripts/replicate_generate.py`)
 
-Users have asked to bring their own marketplace — some pay Kie.ai, some pay Hugging Face Inference Providers, some want fal.ai. Adding each one today means a refactor of every script that calls a provider. This plan builds the abstraction so adding the Nth marketplace is a ~new-file task.
+Users have asked to bring their own marketplace - some pay Kie.ai, some pay Hugging Face Inference Providers, some want fal.ai. Adding each one today means a refactor of every script that calls a provider. This plan builds the abstraction so adding the Nth marketplace is a ~new-file task.
 
 **Key plugin rules (from `CLAUDE.md`):**
 
 1. **Stdlib-only for runtime scripts.** `urllib.request`, `json`, `base64` only. Never add `google-genai`, `requests`, or `replicate`.
-2. **`~/.banana/` config directory is frozen.** v4.0.0 rebrand rule — don't rename user state even though product is now `creators-studio`.
-3. **SKILL.md files stay lean** — orchestration lives there, detail lives in references. Under 500 lines.
+2. **`~/.banana/` config directory is frozen.** v4.0.0 rebrand rule - don't rename user state even though product is now `creators-studio`.
+3. **SKILL.md files stay lean** - orchestration lives there, detail lives in references. Under 500 lines.
 4. **Fallback chain is: MCP primary → direct Gemini API → Replicate.** This ordering survives the refactor.
 5. **`kwaivgi/kling-v3-video` is the current default video model** (per v3.8.0 bakeoff). Do not change default behavior.
 6. **Vertex AI's VEO is NOT getting retired in this plan.** That's sub-project B. Vertex stays a backend in A; its model registry entries will be added later when B ships.
@@ -56,55 +56,55 @@ creators-studio/
 
 ## File structure (every file created or modified)
 
-### New files (plugin root — new directory `scripts/` at plugin root level, not per-skill)
+### New files (plugin root - new directory `scripts/` at plugin root level, not per-skill)
 
-- `scripts/__init__.py` — empty, makes it a package
-- `scripts/backends/__init__.py` — empty
-- `scripts/backends/_base.py` — `ProviderBackend` ABC + canonical types + exceptions
-- `scripts/backends/_canonical.py` — canonical image normalizer + constraint validator
-- `scripts/backends/_replicate.py` — moved and refactored from `skills/create-video/scripts/_replicate_backend.py`
-- `scripts/registry/__init__.py` — empty
-- `scripts/registry/models.json` — model registry data (JSON, not Python, for easy edits)
-- `scripts/registry/registry.py` — load, validate, query
-- `scripts/routing.py` — model + provider resolution
-- `references/providers/replicate.md` — Replicate auth, polling, Cloudflare quirks, pricing
-- `references/providers/gemini-direct.md` — Gemini direct API reference (no code refactor in A — doc placeholder)
-- `references/models/kling-v3.md` — split from current `kling-models.md`
-- `references/models/kling-v3-omni.md` — new (was not a first-class entry before)
-- `references/models/veo-3.1.md` — placeholder, content comes in sub-project B
-- `references/models/nano-banana-2.md` — split from current `gemini-models.md`
-- `references/models/fabric-1.0.md` — migrated from `skills/create-video/references/lipsync.md`
-- `references/models/dreamactor-m2.0.md` — new
-- `references/models/recraft-vectorize.md` — migrated from `skills/create-image/references/vectorize.md`
-- `tests/__init__.py` — empty
-- `tests/test_base.py` — unittest for `_base.py` types
-- `tests/test_canonical.py` — unittest for `_canonical.py` validator + normalizer
-- `tests/test_registry.py` — unittest for registry load + query
-- `tests/test_routing.py` — unittest for routing resolution
-- `tests/test_replicate_backend.py` — unittest for the refactored `_replicate.py`
-- `tests/fixtures/replicate_kling_submit.json` — frozen sample response
-- `tests/fixtures/replicate_kling_poll_success.json` — frozen sample response
-- `tests/fixtures/replicate_kling_poll_failed.json` — frozen sample response
-- `tests/fixtures/replicate_fabric_submit.json` — frozen sample response
+- `scripts/__init__.py` - empty, makes it a package
+- `scripts/backends/__init__.py` - empty
+- `scripts/backends/_base.py` - `ProviderBackend` ABC + canonical types + exceptions
+- `scripts/backends/_canonical.py` - canonical image normalizer + constraint validator
+- `scripts/backends/_replicate.py` - moved and refactored from `skills/create-video/scripts/_replicate_backend.py`
+- `scripts/registry/__init__.py` - empty
+- `scripts/registry/models.json` - model registry data (JSON, not Python, for easy edits)
+- `scripts/registry/registry.py` - load, validate, query
+- `scripts/routing.py` - model + provider resolution
+- `references/providers/replicate.md` - Replicate auth, polling, Cloudflare quirks, pricing
+- `references/providers/gemini-direct.md` - Gemini direct API reference (no code refactor in A - doc placeholder)
+- `references/models/kling-v3.md` - split from current `kling-models.md`
+- `references/models/kling-v3-omni.md` - new (was not a first-class entry before)
+- `references/models/veo-3.1.md` - placeholder, content comes in sub-project B
+- `references/models/nano-banana-2.md` - split from current `gemini-models.md`
+- `references/models/fabric-1.0.md` - migrated from `skills/create-video/references/lipsync.md`
+- `references/models/dreamactor-m2.0.md` - new
+- `references/models/recraft-vectorize.md` - migrated from `skills/create-image/references/vectorize.md`
+- `tests/__init__.py` - empty
+- `tests/test_base.py` - unittest for `_base.py` types
+- `tests/test_canonical.py` - unittest for `_canonical.py` validator + normalizer
+- `tests/test_registry.py` - unittest for registry load + query
+- `tests/test_routing.py` - unittest for routing resolution
+- `tests/test_replicate_backend.py` - unittest for the refactored `_replicate.py`
+- `tests/fixtures/replicate_kling_submit.json` - frozen sample response
+- `tests/fixtures/replicate_kling_poll_success.json` - frozen sample response
+- `tests/fixtures/replicate_kling_poll_failed.json` - frozen sample response
+- `tests/fixtures/replicate_fabric_submit.json` - frozen sample response
 
 ### Modified files
 
-- `skills/create-image/scripts/vectorize.py` — update sys.path shim to import from new plugin-root location
-- `skills/create-image/scripts/setup_mcp.py` — add new schema writer + migration shim for old flat keys
-- `skills/create-video/scripts/video_generate.py` — call new backend interface instead of `_replicate_backend` directly
-- `skills/create-video/scripts/video_lipsync.py` — call new backend interface
-- `skills/create-video/scripts/video_sequence.py` — call new backend interface
-- `CLAUDE.md` — update file responsibilities table, add new architecture constraints
-- `PROGRESS.md` — add session entry for v4.2.0
-- `ROADMAP.md` — mark sub-project A done, reference spec for B/C/D
-- `CHANGELOG.md` — add v4.2.0 entry
-- `README.md` — What's New in This Fork entry, architecture diagram update, commands table (no new commands but --provider flag is new)
-- `.claude-plugin/plugin.json` — version bump to 4.2.0
-- `CITATION.cff` — version + date-released
+- `skills/create-image/scripts/vectorize.py` - update sys.path shim to import from new plugin-root location
+- `skills/create-image/scripts/setup_mcp.py` - add new schema writer + migration shim for old flat keys
+- `skills/create-video/scripts/video_generate.py` - call new backend interface instead of `_replicate_backend` directly
+- `skills/create-video/scripts/video_lipsync.py` - call new backend interface
+- `skills/create-video/scripts/video_sequence.py` - call new backend interface
+- `CLAUDE.md` - update file responsibilities table, add new architecture constraints
+- `PROGRESS.md` - add session entry for v4.2.0
+- `ROADMAP.md` - mark sub-project A done, reference spec for B/C/D
+- `CHANGELOG.md` - add v4.2.0 entry
+- `README.md` - What's New in This Fork entry, architecture diagram update, commands table (no new commands but --provider flag is new)
+- `.claude-plugin/plugin.json` - version bump to 4.2.0
+- `CITATION.cff` - version + date-released
 
 ### Deleted files
 
-- `skills/create-video/scripts/_replicate_backend.py` — moved to plugin-root `scripts/backends/_replicate.py`. The deletion + new file happen in the same commit so git recognizes it as a move.
+- `skills/create-video/scripts/_replicate_backend.py` - moved to plugin-root `scripts/backends/_replicate.py`. The deletion + new file happen in the same commit so git recognizes it as a move.
 
 ---
 
@@ -112,7 +112,7 @@ creators-studio/
 
 ### Task 0: Create feature branch
 
-**Files:** (none — git metadata only)
+**Files:** (none - git metadata only)
 
 - [ ] **Step 1: Create and switch to feature branch**
 
@@ -134,7 +134,7 @@ Expected: file exists (it was committed to main at `b983b61` before branching).
 
 ---
 
-## Phase 1 — Foundation types (`_base.py`)
+## Phase 1 - Foundation types (`_base.py`)
 
 ### Task 1: Create empty package directories + test infrastructure scaffolding
 
@@ -267,7 +267,7 @@ Expected: `ModuleNotFoundError: No module named 'scripts.backends._base'` OR `Im
 Write `scripts/backends/_base.py`:
 
 ```python
-"""Creators Studio — Provider backend abstraction.
+"""Creators Studio - Provider backend abstraction.
 
 This module defines the canonical types and abstract base class that every
 provider backend must implement. It is the contract layer between the skill
@@ -308,11 +308,11 @@ class JobStatus:
     """Canonical job state, unified across provider-specific enums.
 
     Canonical states (5 values):
-      pending   — submitted but not yet started (e.g., queued)
-      running   — actively generating
-      succeeded — finished, output is available
-      failed    — finished with an error (including timeouts, content filter)
-      canceled  — explicitly canceled by the caller or the platform
+      pending - submitted but not yet started (e.g., queued)
+      running - actively generating
+      succeeded - finished, output is available
+      failed - finished with an error (including timeouts, content filter)
+      canceled - explicitly canceled by the caller or the platform
 
     Provider-specific states map to one of these. Example: Replicate's
     6-value enum (starting | processing | succeeded | failed | canceled |
@@ -371,7 +371,7 @@ class ProviderHTTPError(ProviderError):
 
 
 class ProviderAuthError(ProviderError):
-    """401/403 — the configured API key is missing, invalid, or lacks permission."""
+    """401/403 - the configured API key is missing, invalid, or lacks permission."""
 
 
 # ─── Provider backend ABC ────────────────────────────────────────────────
@@ -409,10 +409,10 @@ class ProviderBackend(ABC):
         provider's submit endpoint, return a JobRef.
 
         Raises:
-            ProviderValidationError — canonical_params fail validation
+            ProviderValidationError - canonical_params fail validation
                 BEFORE any HTTP call. No budget burned.
-            ProviderAuthError — 401/403 from provider.
-            ProviderHTTPError — other HTTP-level failures.
+            ProviderAuthError - 401/403 from provider.
+            ProviderHTTPError - other HTTP-level failures.
         """
 
     @abstractmethod
@@ -429,8 +429,8 @@ class ProviderBackend(ABC):
         download_to, compute or look up cost, return canonical TaskResult.
 
         Raises:
-            ProviderError — if called with a non-succeeded job_status.
-            ProviderHTTPError — if download fails.
+            ProviderError - if called with a non-succeeded job_status.
+            ProviderHTTPError - if download fails.
         """
 ```
 
@@ -451,7 +451,7 @@ git commit -m "feat: add ProviderBackend ABC and canonical types"
 
 ---
 
-## Phase 2 — Model registry
+## Phase 2 - Model registry
 
 ### Task 4: Seed `models.json` with currently-used models
 
@@ -716,7 +716,7 @@ if __name__ == "__main__":
 python3 -m unittest tests.test_registry -v
 ```
 
-Expected: `ImportError: cannot import name 'registry'` — registry.py doesn't exist yet.
+Expected: `ImportError: cannot import name 'registry'` - registry.py doesn't exist yet.
 
 ### Task 6: Implement `registry.py`
 
@@ -728,7 +728,7 @@ Expected: `ImportError: cannot import name 'registry'` — registry.py doesn't e
 Write `scripts/registry/registry.py`:
 
 ```python
-"""Creators Studio — Model registry loader and query API.
+"""Creators Studio - Model registry loader and query API.
 
 Loads the JSON registry at scripts/registry/models.json and exposes a typed
 query API. The registry is the single source of truth for canonical model
@@ -849,7 +849,7 @@ git commit -m "feat: add registry loader with validation and query API"
 
 ---
 
-## Phase 3 — Canonical enforcement (`_canonical.py`)
+## Phase 3 - Canonical enforcement (`_canonical.py`)
 
 ### Task 7: Write failing test for `CanonicalImage` normalizer
 
@@ -989,7 +989,7 @@ Expected: all tests fail on import of `_canonical`.
 Write `scripts/backends/_canonical.py`:
 
 ```python
-"""Creators Studio — Canonical param validation and image normalization.
+"""Creators Studio - Canonical param validation and image normalization.
 
 Sits between the orchestrator and backend: validates canonical_params
 against a model's canonical_constraints BEFORE any HTTP call, and
@@ -1036,10 +1036,10 @@ def normalize_image_to_data_uri(img: Union[Path, str, bytes]) -> str:
     """Convert any CanonicalImage form to a data URI.
 
     Accepts:
-      - Path — read bytes, sniff MIME, encode
-      - bytes — sniff MIME, encode
-      - str starting with 'data:' — pass through
-      - str starting with 'http://' or 'https://' — RAISES (different function)
+      - Path - read bytes, sniff MIME, encode
+      - bytes - sniff MIME, encode
+      - str starting with 'data:' - pass through
+      - str starting with 'http://' or 'https://' - RAISES (different function)
     """
     if isinstance(img, Path):
         data = img.read_bytes()
@@ -1068,7 +1068,7 @@ def normalize_image_to_url(img: Union[Path, str, bytes]) -> str:
 
     Pass-through for HTTP URLs. Data URIs pass through too (most backends
     accept them where they accept URLs). Path/bytes would require an
-    uploader, which this function doesn't do — it raises to signal the
+    uploader, which this function doesn't do - it raises to signal the
     backend should use the data-URI path instead.
     """
     if isinstance(img, str) and img.startswith(("http://", "https://", "data:")):
@@ -1088,13 +1088,13 @@ def validate_canonical_params(
     """Validate params against constraints. Raises CanonicalValidationError.
 
     Constraint keys recognized:
-      duration_s          — {min, max, integer?}
-      aspect_ratio        — list of allowed strings
-      resolutions         — list of allowed strings, checked against 'resolution' param
-      prompt_max_chars    — int, checked against 'prompt' param
-      max_input_bytes     — int, checked against source_image byte length
-      max_input_pixels    — int, NOT validated here (requires PIL — deferred)
-      input_dim_range     — {min_px, max_px}, NOT validated here (requires PIL — deferred)
+      duration_s - {min, max, integer?}
+      aspect_ratio - list of allowed strings
+      resolutions - list of allowed strings, checked against 'resolution' param
+      prompt_max_chars - int, checked against 'prompt' param
+      max_input_bytes - int, checked against source_image byte length
+      max_input_pixels - int, NOT validated here (requires PIL - deferred)
+      input_dim_range - {min_px, max_px}, NOT validated here (requires PIL - deferred)
 
     Unknown constraint keys are silently ignored (forward-compatible).
     Missing params are skipped (the constraint doesn't apply).
@@ -1151,7 +1151,7 @@ def validate_canonical_params(
         elif isinstance(img, bytes):
             size = len(img)
         else:
-            return  # URL/data-URI — skip byte-size check
+            return  # URL/data-URI - skip byte-size check
         if size > c:
             raise CanonicalValidationError(
                 f"source_image size {size} exceeds maximum {c}"
@@ -1175,7 +1175,7 @@ git commit -m "feat: add canonical image normalizer and constraint validator"
 
 ---
 
-## Phase 4 — Routing (`routing.py`)
+## Phase 4 - Routing (`routing.py`)
 
 ### Task 9: Write failing test for model + provider routing
 
@@ -1319,7 +1319,7 @@ Expected: fails on import of `routing`.
 Write `scripts/routing.py`:
 
 ```python
-"""Creators Studio — Model + provider routing resolution.
+"""Creators Studio - Model + provider routing resolution.
 
 Given the registry, user flags, and user config, resolve which model and
 which provider to use. Two independent resolutions: model first, then
@@ -1395,7 +1395,7 @@ def resolve_provider(
         if info.get("api_key")
     }
 
-    # 1. Explicit flag wins — but only if provider hosts the model.
+    # 1. Explicit flag wins - but only if provider hosts the model.
     if explicit_provider is not None:
         if explicit_provider not in hosts:
             raise RoutingError(
@@ -1450,13 +1450,13 @@ git commit -m "feat: add model + provider routing resolution"
 
 ---
 
-## Phase 5 — Replicate backend refactor
+## Phase 5 - Replicate backend refactor
 
 ### Task 11: Copy `_replicate_backend.py` to new location (verbatim)
 
 **Files:**
 - Create: `scripts/backends/_replicate.py` (content copied from existing file)
-- (existing `skills/create-video/scripts/_replicate_backend.py` stays in place for now — will be deleted in Task 15)
+- (existing `skills/create-video/scripts/_replicate_backend.py` stays in place for now - will be deleted in Task 15)
 
 - [ ] **Step 1: Copy the file**
 
@@ -1470,11 +1470,11 @@ Edit the docstring at the top of `scripts/backends/_replicate.py`. Replace lines
 
 ```python
 #!/usr/bin/env python3
-"""Creators Studio — Replicate provider backend.
+"""Creators Studio - Replicate provider backend.
 
 Implements the ProviderBackend interface for Replicate (api.replicate.com).
 Hosts model registry entries for Kling v3, Kling v3 Omni, Fabric 1.0,
-DreamActor M2.0, and Recraft Vectorize — every Replicate-hosted model the
+DreamActor M2.0, and Recraft Vectorize - every Replicate-hosted model the
 plugin currently uses.
 
 Pure data-translation layer. No global state. Stdlib only (urllib.request,
@@ -1506,7 +1506,7 @@ python3 -c "import ast; ast.parse(open('scripts/backends/_replicate.py').read())
 
 Expected: `syntax ok`
 
-- [ ] **Step 4: Commit (interim — verbatim move)**
+- [ ] **Step 4: Commit (interim - verbatim move)**
 
 ```bash
 git add scripts/backends/_replicate.py
@@ -1572,7 +1572,7 @@ Write `tests/fixtures/replicate_kling_poll_success.json`:
 Write `tests/test_replicate_backend.py`:
 
 ```python
-"""Tests for scripts/backends/_replicate.py — the ReplicateBackend class.
+"""Tests for scripts/backends/_replicate.py - the ReplicateBackend class.
 
 HTTP calls are mocked via urllib.request.urlopen so tests run offline.
 """
@@ -1754,7 +1754,7 @@ Open `scripts/backends/_replicate.py` and APPEND to the end of the file (leaving
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# ProviderBackend implementation (new interface — adapts existing helpers)
+# ProviderBackend implementation (new interface - adapts existing helpers)
 # ═══════════════════════════════════════════════════════════════════════
 
 from scripts.backends._base import (
@@ -1821,7 +1821,7 @@ def _replicate_state_to_canonical(provider_state: str) -> str:
         return "canceled"
     if provider_state in ("failed", "aborted"):
         return "failed"
-    # Unknown provider state — treat as running so poll loop continues
+    # Unknown provider state - treat as running so poll loop continues
     return "running"
 
 
@@ -1843,7 +1843,7 @@ class ReplicateBackend(ProviderBackend):
     def _api_key(self, config: dict) -> str:
         key = (
             config.get("providers", {}).get("replicate", {}).get("api_key")
-            # Migration shim — old flat key
+            # Migration shim - old flat key
             or config.get("replicate_api_token")
         )
         if not key:
@@ -2041,14 +2041,14 @@ git commit -m "feat: add ReplicateBackend class implementing ProviderBackend con
 
 ---
 
-## Phase 6 — Call-site integration (rewire existing scripts)
+## Phase 6 - Call-site integration (rewire existing scripts)
 
 ### Task 13: Update `video_generate.py` to use the new backend
 
 **Files:**
 - Modify: `skills/create-video/scripts/video_generate.py`
 
-**Context:** Currently imports `_replicate_backend` relative. Needs to (1) update import path, (2) call `ReplicateBackend` class instance methods instead of module-level helpers. The goal is zero behavior change — every current CLI invocation produces the same output.
+**Context:** Currently imports `_replicate_backend` relative. Needs to (1) update import path, (2) call `ReplicateBackend` class instance methods instead of module-level helpers. The goal is zero behavior change - every current CLI invocation produces the same output.
 
 - [ ] **Step 1: Read the current import block and routing logic in video_generate.py**
 
@@ -2056,7 +2056,7 @@ git commit -m "feat: add ReplicateBackend class implementing ProviderBackend con
 grep -n "_replicate_backend\|_vertex_backend" skills/create-video/scripts/video_generate.py
 ```
 
-Note the line numbers of every reference — these are the call sites that need updating.
+Note the line numbers of every reference - these are the call sites that need updating.
 
 - [ ] **Step 2: Add sys.path shim and new backend import at the top of video_generate.py**
 
@@ -2072,7 +2072,7 @@ from scripts.registry import registry as _registry
 from scripts import routing as _routing
 ```
 
-Leave the existing `from _replicate_backend import ...` line in place — we're adding, not replacing, in this task.
+Leave the existing `from _replicate_backend import ...` line in place - we're adding, not replacing, in this task.
 
 - [ ] **Step 3: Add a helper that bridges old-style calls to new backend**
 
@@ -2102,7 +2102,7 @@ def _backend_submit_via_new_interface(
 
 Find the primary Kling submit path (the one used by `--backend replicate` in the existing flow). Replace that one call with `_backend_submit_via_new_interface(...)`. Build the `canonical_params` dict from the user's CLI flags (duration, aspect_ratio, resolution, prompt).
 
-Example — if the current code looks like:
+Example - if the current code looks like:
 
 ```python
 pred = submit_kling_prediction(
@@ -2140,7 +2140,7 @@ pred = {"id": job_ref.external_id, "urls": {"get": job_ref.poll_url}}  # adapter
 python3 skills/create-video/scripts/video_generate.py --help 2>&1 | head -30
 ```
 
-Expected: help text prints without import errors. If there's an `ImportError` or `ModuleNotFoundError`, fix the sys.path shim (the path math assumes 4 levels up from the script — adjust if the tree differs).
+Expected: help text prints without import errors. If there's an `ImportError` or `ModuleNotFoundError`, fix the sys.path shim (the path math assumes 4 levels up from the script - adjust if the tree differs).
 
 - [ ] **Step 6: Commit**
 
@@ -2173,7 +2173,7 @@ _sys.path.insert(0, str(_P(__file__).resolve().parent.parent.parent.parent))
 from scripts.backends._replicate import ReplicateBackend as _ReplicateBackend
 ```
 
-- [ ] **Step 3: video_lipsync.py — switch the Fabric submit call**
+- [ ] **Step 3: video_lipsync.py - switch the Fabric submit call**
 
 Find the code that currently submits the Fabric prediction. Replace it with:
 
@@ -2194,7 +2194,7 @@ job_ref = backend.submit(
 
 Update the polling path to use `backend.poll(job_ref, config)` and the download to use `backend.parse_result(job_status, download_to=Path(args.output))`.
 
-- [ ] **Step 4: video_sequence.py — switch every Kling submit call**
+- [ ] **Step 4: video_sequence.py - switch every Kling submit call**
 
 The multi-shot pipeline submits multiple Kling predictions sequentially (one per shot). For each submit site, switch to the new backend (same pattern as Task 13's Step 4). If there is a single helper that multiple paths call, update the helper once.
 
@@ -2288,7 +2288,7 @@ git commit -m "refactor: delete skills/create-video/scripts/_replicate_backend.p
 
 ---
 
-## Phase 7 — Config schema + migration
+## Phase 7 - Config schema + migration
 
 ### Task 16: Write failing test for config migration
 
@@ -2457,7 +2457,7 @@ with open(CONFIG_PATH) as f:
 config = migrate_config_to_v4_2_0(config)
 ```
 
-And find where config is written — after writing, the config is already in new shape (no conversion needed on write).
+And find where config is written - after writing, the config is already in new shape (no conversion needed on write).
 
 - [ ] **Step 4: Commit**
 
@@ -2468,7 +2468,7 @@ git commit -m "feat: add v4.2.0 config migration shim for provider-scoped schema
 
 ---
 
-## Phase 8 — Documentation
+## Phase 8 - Documentation
 
 ### Task 18: Write `references/providers/replicate.md`
 
@@ -2515,7 +2515,7 @@ Replicate's `Prediction.status` has **6 values**; the plugin's canonical enum ha
 | `canceled` | `canceled` |
 | `aborted` | `failed` |
 
-`aborted` is terminated before `predict()` is called (e.g., queue eviction, deadline exceeded). It signals terminal failure — do not treat as retryable.
+`aborted` is terminated before `predict()` is called (e.g., queue eviction, deadline exceeded). It signals terminal failure - do not treat as retryable.
 
 ## Cloudflare / User-Agent rule
 
@@ -2525,30 +2525,30 @@ Replicate's `Prediction.status` has **6 values**; the plugin's canonical enum ha
 User-Agent: creators-studio/<version> (+https://github.com/juliandickie/creators-studio)
 ```
 
-This header is set on every Replicate request (submit, poll, download, auth check) — not just `/account`.
+This header is set on every Replicate request (submit, poll, download, auth check) - not just `/account`.
 
 ## Sync vs async submit
 
 Replicate's OpenAPI documents a `Prefer: wait=N` header for synchronous inline completion (N in [1, 60]). The plugin **omits** `Prefer` entirely for async-first semantics, since Kling wall times are 3-6 minutes. Polling is the canonical path.
 
-**Do not use `Prefer: wait=0`** — it's non-spec-compliant (Replicate's regex is `^wait(=([1-9]|[1-9][0-9]|60))?$`) and only works by accident.
+**Do not use `Prefer: wait=0`** - it's non-spec-compliant (Replicate's regex is `^wait(=([1-9]|[1-9][0-9]|60))?$`) and only works by accident.
 
 ## Pricing modes (for `cost_tracker.py`)
 
 Replicate's pricing varies by model. The registry's `providers.replicate.pricing.mode` is one of:
 
-- `per_second` — Kling ($0.02/s), Fabric ($0.15/s), DreamActor ($0.05/s), VEO tiers (varies)
-- `per_call` — Recraft Vectorize ($0.01 flat)
-- `by_resolution` — Nano Banana 2 (keyed by 512/1K/2K/4K)
+- `per_second` - Kling ($0.02/s), Fabric ($0.15/s), DreamActor ($0.05/s), VEO tiers (varies)
+- `per_call` - Recraft Vectorize ($0.01 flat)
+- `by_resolution` - Nano Banana 2 (keyed by 512/1K/2K/4K)
 
-`/v1/predictions/{id}` responses include `metrics.predict_time` and `metrics.video_output_duration_seconds` but NO `metrics.cost_usd` — the plugin computes cost client-side from the pricing mode + output duration.
+`/v1/predictions/{id}` responses include `metrics.predict_time` and `metrics.video_output_duration_seconds` but NO `metrics.cost_usd` - the plugin computes cost client-side from the pricing mode + output duration.
 
 ## Known quirks
 
 - **Kling `aspect_ratio` is ignored when `start_image` is provided.** The output uses the start image's native aspect. The backend logs a WARNING but does not raise.
 - **Multi-prompt sum must equal top-level duration.** `sum(shot.duration for shot in multi_prompt) == duration`. Enforced client-side in the Kling-specific validator.
 - **Fabric pricing is on output duration, not wall time.** A cold start (~36s) does not increase cost.
-- **Seedance rejects any human subject** with error `E005 — input/output flagged as sensitive`. Seedance is NOT registered in the plugin as a default (see spec §11).
+- **Seedance rejects any human subject** with error `E005 - input/output flagged as sensitive`. Seedance is NOT registered in the plugin as a default (see spec §11).
 
 ## Diagnose command
 
@@ -2566,7 +2566,7 @@ git add references/providers/replicate.md
 git commit -m "docs: add Replicate provider reference (auth, polling, Cloudflare, pricing)"
 ```
 
-### Task 19: Write `references/providers/gemini-direct.md` (placeholder — backend refactor deferred)
+### Task 19: Write `references/providers/gemini-direct.md` (placeholder - backend refactor deferred)
 
 **Files:**
 - Create: `references/providers/gemini-direct.md`
@@ -2582,8 +2582,8 @@ Write `references/providers/gemini-direct.md`:
 
 **Source files (current, pre-refactor):**
 
-- `skills/create-image/scripts/generate.py` — text-to-image
-- `skills/create-image/scripts/edit.py` — image-to-image editing
+- `skills/create-image/scripts/generate.py` - text-to-image
+- `skills/create-image/scripts/edit.py` - image-to-image editing
 
 **Refactor status:** In sub-project A, Gemini direct remains wired through the legacy scripts. A future follow-up migrates these into `scripts/backends/_gemini_direct.py` implementing the `ProviderBackend` interface. The legacy code paths continue working unchanged until then.
 
@@ -2606,8 +2606,8 @@ Write `references/providers/gemini-direct.md`:
 - No negative prompt parameter. Use semantic reframing in the prompt instead.
 - `responseModalities` MUST explicitly include `"IMAGE"` or the API returns text only.
 - **Describe the scene, don't list keywords.** Gemini 3.1's strength is narrative understanding.
-- **Don't name publication formats in prompts** ("Vanity Fair magazine cover") — the model renders a literal magazine cover.
-- NEVER mention "logo" in Presentation mode prompts — generates unwanted logo artifacts. Say "clean negative space" instead.
+- **Don't name publication formats in prompts** ("Vanity Fair magazine cover") - the model renders a literal magazine cover.
+- NEVER mention "logo" in Presentation mode prompts - generates unwanted logo artifacts. Say "clean negative space" instead.
 
 See `skills/create-image/references/prompt-engineering.md` for the full prompt construction system.
 
@@ -2630,7 +2630,7 @@ git commit -m "docs: add Gemini direct provider reference placeholder (backend r
 **Files:**
 - Create: `references/models/kling-v3.md`
 - Create: `references/models/kling-v3-omni.md`
-- (Leave `skills/create-video/references/kling-models.md` in place — the old path is still referenced by legacy call sites. It will be deprecated in a future cleanup pass.)
+- (Leave `skills/create-video/references/kling-models.md` in place - the old path is still referenced by legacy call sites. It will be deprecated in a future cleanup pass.)
 
 - [ ] **Step 1: Read the current `kling-models.md`**
 
@@ -2677,7 +2677,7 @@ Write `references/models/kling-v3.md`:
 **Conditional identity lock** (empirically verified session 19, 2026-04-16):
 
 - When `start_image` AND prompt describe the SAME character (matching age, gender, hair, clothing, setting), Kling preserves character identity through the full clip at 1072×1928 pro mode.
-- When the prompt describes a DIFFERENT character, Kling morphs completely toward the prompted character within 5 seconds — the `start_image` only affects frame 0.
+- When the prompt describes a DIFFERENT character, Kling morphs completely toward the prompted character within 5 seconds - the `start_image` only affects frame 0.
 - **Prompt engineering is the critical variable for cross-clip character consistency.** Describe the character precisely in every shot's prompt when using start_image.
 - Works for both human and non-human subjects.
 
@@ -2708,7 +2708,7 @@ provider_opts={
 
 ## Authoritative source
 
-`dev-docs/kwaivgi-kling-v3-video-llms.md` — model card from Replicate.
+`dev-docs/kwaivgi-kling-v3-video-llms.md` - model card from Replicate.
 ```
 
 - [ ] **Step 3: Write `references/models/kling-v3-omni.md`**
@@ -2724,8 +2724,8 @@ Write `references/models/kling-v3-omni.md`:
 
 ## Capabilities (in addition to all Kling v3 capabilities)
 
-- **Reference images** — multimodal conditioning via `reference_images` array
-- **Video editing** — takes an input video and applies natural-language edits (camera, style, subject swaps) while preserving motion and timing
+- **Reference images** - multimodal conditioning via `reference_images` array
+- **Video editing** - takes an input video and applies natural-language edits (camera, style, subject swaps) while preserving motion and timing
 - Everything Kling v3 does (text-to-video, image-to-video, multi-shot, native audio)
 
 ## When to use v3-omni vs v3
@@ -2743,7 +2743,7 @@ Same canonical constraints as Kling v3 (see `kling-v3.md`).
 
 ## Authoritative source
 
-`dev-docs/kwaivgi-kling-v3-omni-video-llms.md` — model card from Replicate.
+`dev-docs/kwaivgi-kling-v3-omni-video-llms.md` - model card from Replicate.
 ```
 
 - [ ] **Step 4: Commit**
@@ -2762,7 +2762,7 @@ git commit -m "docs: split kling-models.md into per-model references"
 - Create: `references/models/recraft-vectorize.md`
 - Create: `references/models/veo-3.1.md`
 
-- [ ] **Step 1: Write `references/models/nano-banana-2.md`** (summary — detailed prompt engineering stays in `skills/create-image/references/prompt-engineering.md`)
+- [ ] **Step 1: Write `references/models/nano-banana-2.md`** (summary - detailed prompt engineering stays in `skills/create-image/references/prompt-engineering.md`)
 
 ```markdown
 # Google Nano Banana 2 (canonical model ID: `nano-banana-2`)
@@ -2771,8 +2771,8 @@ git commit -m "docs: split kling-models.md into per-model references"
 
 **Hosting providers:**
 
-- `gemini-direct` — slug `gemini-3.1-flash-image-preview`, via Google AI Studio API (primary)
-- `replicate` — slug `google/nano-banana-2` (fallback)
+- `gemini-direct` - slug `gemini-3.1-flash-image-preview`, via Google AI Studio API (primary)
+- `replicate` - slug `google/nano-banana-2` (fallback)
 
 **Registry entry:** `scripts/registry/models.json` → `models.nano-banana-2`
 
@@ -2786,24 +2786,24 @@ git commit -m "docs: split kling-models.md into per-model references"
 
 ## Pricing
 
-- **Gemini direct:** `by_resolution` — $0.0005 (512) / $0.002 (1K) / $0.008 (2K) / $0.032 (4K) per call
-- **Replicate:** `by_resolution` — $0.003 (1K)
+- **Gemini direct:** `by_resolution` - $0.0005 (512) / $0.002 (1K) / $0.008 (2K) / $0.032 (4K) per call
+- **Replicate:** `by_resolution` - $0.003 (1K)
 
 ## Prompt engineering
 
-See `skills/create-image/references/prompt-engineering.md` — 5-component formula, 11 domain modes, PEEL strategy, brand guide integration. All prompt engineering applies to this model whether it's served via Gemini direct or Replicate.
+See `skills/create-image/references/prompt-engineering.md` - 5-component formula, 11 domain modes, PEEL strategy, brand guide integration. All prompt engineering applies to this model whether it's served via Gemini direct or Replicate.
 
 ## Critical parameter rules
 
 - `imageSize` values UPPERCASE on Gemini: `"1K"`, `"2K"`, `"4K"`
 - ONE image per API call (no batch)
 - `responseModalities` must include `"IMAGE"`
-- No negative prompt — use semantic reframing
+- No negative prompt - use semantic reframing
 
 ## Authoritative sources
 
-- `dev-docs/nano-banana-image-generation.md` — Google's official Gemini 3.1 Flash Image prompting guide
-- `dev-docs/google-nano-banana-2-llms.md` — Replicate model card
+- `dev-docs/nano-banana-image-generation.md` - Google's official Gemini 3.1 Flash Image prompting guide
+- `dev-docs/google-nano-banana-2-llms.md` - Replicate model card
 ```
 
 - [ ] **Step 2: Write `references/models/fabric-1.0.md`** (migrated content from `skills/create-video/references/lipsync.md`)
@@ -2817,7 +2817,7 @@ See `skills/create-image/references/prompt-engineering.md` — 5-component formu
 
 ## What it does
 
-Audio-driven lip-sync. Input: one image + one audio file. Output: the image's face lip-synced to the audio. Mouth region ONLY — no body animation, no camera movement, no emotional direction beyond audio prosody.
+Audio-driven lip-sync. Input: one image + one audio file. Output: the image's face lip-synced to the audio. Mouth region ONLY - no body animation, no camera movement, no emotional direction beyond audio prosody.
 
 ## Why the plugin has it
 
@@ -2878,7 +2878,7 @@ Motion transfer / character animation. Input: one image + a driving video. Outpu
 
 **Use DreamActor for:** real-footage-to-avatar workflows (mapping a generated character onto filmed human motion).
 
-**Don't use DreamActor for:** cross-clip character consistency in text-to-video — Kling v3 with `start_image` + matched prompts does this at higher resolution (1072×1928 vs 694×1242) and 2.5× lower cost ($0.02/s vs $0.05/s). Session 19 spike (2026-04-16) confirmed this.
+**Don't use DreamActor for:** cross-clip character consistency in text-to-video - Kling v3 with `start_image` + matched prompts does this at higher resolution (1072×1928 vs 694×1242) and 2.5× lower cost ($0.02/s vs $0.05/s). Session 19 spike (2026-04-16) confirmed this.
 
 ## Authoritative source
 
@@ -2914,7 +2914,7 @@ Raster (PNG/JPG/WebP) → SVG vectorization. Used by `/create-image vectorize`.
 `dev-docs/recraft-ai-recraft-vectorize-llms.md`
 ```
 
-- [ ] **Step 5: Write `references/models/veo-3.1.md`** (placeholder — detailed content comes with sub-project B)
+- [ ] **Step 5: Write `references/models/veo-3.1.md`** (placeholder - detailed content comes with sub-project B)
 
 ```markdown
 # Google VEO 3.1 (canonical model ID: `veo-3.1-lite` / `veo-3.1-fast` / `veo-3.1`)
@@ -2927,11 +2927,11 @@ Raster (PNG/JPG/WebP) → SVG vectorization. Used by `/create-image vectorize`.
 
 ## Status in sub-project A
 
-VEO entries are NOT seeded in `models.json` during sub-project A — that migration is done in sub-project B (Vertex retirement). Users who currently call VEO via the `_vertex_backend.py` flow continue working via the legacy path.
+VEO entries are NOT seeded in `models.json` during sub-project A - that migration is done in sub-project B (Vertex retirement). Users who currently call VEO via the `_vertex_backend.py` flow continue working via the legacy path.
 
 ## Authoritative sources
 
-- `skills/create-video/references/veo-models.md` (existing — migrated content destination)
+- `skills/create-video/references/veo-models.md` (existing - migrated content destination)
 - Sub-project B spec: follow-up plan covering VEO via Replicate
 ```
 
@@ -2944,7 +2944,7 @@ git commit -m "docs: add per-model references for nano-banana-2, fabric, dreamac
 
 ---
 
-## Phase 9 — Meta-documentation updates
+## Phase 9 - Meta-documentation updates
 
 ### Task 22: Update `CLAUDE.md` with new architecture notes
 
@@ -2976,7 +2976,7 @@ In the `## File responsibilities` table, add the following rows in the appropria
 
 Find existing entries for deleted/renamed files and remove or update them:
 
-- Remove: `skills/create-video/scripts/_replicate_backend.py` row — file deleted.
+- Remove: `skills/create-video/scripts/_replicate_backend.py` row - file deleted.
 - Update `skills/create-video/references/kling-models.md` row to note content migrated to `references/models/kling-v3.md` + `kling-v3-omni.md`.
 
 - [ ] **Step 3: Add new key constraints to the `## Key constraints` section**
@@ -2986,7 +2986,7 @@ At the bottom of the Key constraints list, append:
 ```markdown
 - **v4.2.0 Provider abstraction rule.** Skill orchestrator code (SKILL.md + `scripts/*.py`) MUST NOT reference provider-specific field names (`start_image`, `multi_prompt`, `image_url`, etc.). Orchestrators pass canonical params only; backends translate. If a new feature needs a provider-unique field, either extend the canonical schema (discuss first) or use `provider_opts` as the escape hatch.
 
-- **v4.2.0 Adding a new model.** Add an entry to `scripts/registry/models.json`. Add `references/models/<id>.md`. If a novel canonical capability is needed, extend `scripts/backends/_base.py` task schema and the enforcement in `scripts/backends/_canonical.py`. That's the PR — no orchestrator changes.
+- **v4.2.0 Adding a new model.** Add an entry to `scripts/registry/models.json`. Add `references/models/<id>.md`. If a novel canonical capability is needed, extend `scripts/backends/_base.py` task schema and the enforcement in `scripts/backends/_canonical.py`. That's the PR - no orchestrator changes.
 
 - **v4.2.0 Adding a new provider.** New file `scripts/backends/_<provider>.py` implementing `ProviderBackend`. Add `references/providers/<provider>.md`. Add `providers.<name>` entries to relevant models in `models.json`. Add a key prompt to `setup_mcp.py`. Add pricing lookup to `cost_tracker.py` if the provider has a novel pricing mode. That's the PR.
 
@@ -3014,22 +3014,22 @@ git commit -m "docs: update CLAUDE.md with v4.2.0 architecture constraints"
 Find the most recent session entry. Above it (PROGRESS.md is typically chronological with newest first), add:
 
 ```markdown
-## Session YY — v4.2.0 Provider Abstraction Foundation (2026-04-23 to YYYY-MM-DD)
+## Session YY - v4.2.0 Provider Abstraction Foundation (2026-04-23 to YYYY-MM-DD)
 
 **Status:** Complete. Sub-project A of the provider-agnostic architecture plan.
 
 **Shipped:**
-1. `scripts/backends/_base.py` — `ProviderBackend` ABC + canonical types + exception hierarchy
-2. `scripts/backends/_canonical.py` — image normalizer + constraint validator
-3. `scripts/registry/models.json` + `registry.py` — canonical model registry with 6 seeded models (kling-v3, kling-v3-omni, fabric-1.0, dreamactor-m2.0, recraft-vectorize, nano-banana-2)
-4. `scripts/routing.py` — two-stage model + provider resolution
-5. `scripts/backends/_replicate.py` — Replicate backend refactored from the old `_replicate_backend.py`, now implementing the new interface
+1. `scripts/backends/_base.py` - `ProviderBackend` ABC + canonical types + exception hierarchy
+2. `scripts/backends/_canonical.py` - image normalizer + constraint validator
+3. `scripts/registry/models.json` + `registry.py` - canonical model registry with 6 seeded models (kling-v3, kling-v3-omni, fabric-1.0, dreamactor-m2.0, recraft-vectorize, nano-banana-2)
+4. `scripts/routing.py` - two-stage model + provider resolution
+5. `scripts/backends/_replicate.py` - Replicate backend refactored from the old `_replicate_backend.py`, now implementing the new interface
 6. Call sites migrated: `video_generate.py`, `video_lipsync.py`, `video_sequence.py`, `vectorize.py`
-7. Config migration shim in `setup_mcp.py` — old flat keys readable, new writes use provider-scoped schema
+7. Config migration shim in `setup_mcp.py` - old flat keys readable, new writes use provider-scoped schema
 8. Test suite introduced: `tests/test_*.py` (stdlib unittest, zero pip deps)
 9. Per-model and per-provider references created under `references/models/` and `references/providers/`
 
-**Zero behavior change** for end users — all existing commands produce identical output.
+**Zero behavior change** for end users - all existing commands produce identical output.
 
 **Follow-ups:**
 - Sub-project B: retire `_vertex_backend.py`, route VEO + Lyria via Replicate (separate plan)
@@ -3063,19 +3063,19 @@ Find the most recent session entry. Above it (PROGRESS.md is typically chronolog
 - `skills/create-video/scripts/_replicate_backend.py` (moved to plugin-root `scripts/backends/_replicate.py`)
 ```
 
-- [ ] **Step 2: Update ROADMAP.md — mark sub-project A done**
+- [ ] **Step 2: Update ROADMAP.md - mark sub-project A done**
 
 Open `ROADMAP.md`. Find any line referencing the provider abstraction, multi-provider support, or Kie.ai integration. Add or update to reflect:
 
 ```markdown
-### v4.2.0 (2026-04-XX) — Provider Abstraction Foundation
+### v4.2.0 (2026-04-XX) - Provider Abstraction Foundation
 
 **Shipped:** Sub-project A of the provider-agnostic architecture. `ProviderBackend` ABC + model registry + routing. Zero behavior change; sets up the abstraction for Kie.ai, HF Inference Providers, and future marketplaces to land as single-file additions.
 
 **Next (planned):**
-- **v4.2.1 — Sub-project B: Vertex retirement via Replicate** — route VEO 3.1 (all tiers) and Lyria 3 through `_replicate.py`; delete `_vertex_backend.py`.
-- **v4.3.0 — Sub-project C: Kie.ai backend** — adds Suno music as a new capability. `--provider kie` option for users who pay Kie.
-- **v4.4.0 — Sub-project D: Hugging Face Inference Providers backend** — one backend unlocks 17 underlying inference providers for text-to-image and text-to-video.
+- **v4.2.1 - Sub-project B: Vertex retirement via Replicate** - route VEO 3.1 (all tiers) and Lyria 3 through `_replicate.py`; delete `_vertex_backend.py`.
+- **v4.3.0 - Sub-project C: Kie.ai backend** - adds Suno music as a new capability. `--provider kie` option for users who pay Kie.
+- **v4.4.0 - Sub-project D: Hugging Face Inference Providers backend** - one backend unlocks 17 underlying inference providers for text-to-image and text-to-video.
 ```
 
 - [ ] **Step 3: Commit**
@@ -3087,7 +3087,7 @@ git commit -m "docs: update PROGRESS.md and ROADMAP.md for v4.2.0 sub-project A"
 
 ---
 
-## Phase 10 — Version bump and release
+## Phase 10 - Version bump and release
 
 ### Task 24: Version bump + CHANGELOG
 
@@ -3125,7 +3125,7 @@ date-released: 2026-04-XX
 Open `CHANGELOG.md`. Add at the top (under the intro):
 
 ```markdown
-## [4.2.0] — 2026-04-XX
+## [4.2.0] - 2026-04-XX
 
 ### Added
 - Provider-agnostic architecture foundation (sub-project A of the multi-marketplace roadmap). New `scripts/backends/_base.py` defines a `ProviderBackend` ABC that every provider implements; canonical task types live there too.
@@ -3133,7 +3133,7 @@ Open `CHANGELOG.md`. Add at the top (under the intro):
 - Canonical image normalizer (`scripts/backends/_canonical.py`): `Path` / `bytes` / URL / data-URI all accepted by backends; each backend normalizes internally.
 - Two-stage routing resolution (`scripts/routing.py`): model first (explicit flag > config default > registry default), provider second (explicit flag > family default > global default > first-with-key).
 - Config schema `providers.<name>.api_key`; migration shim reads old flat keys (`replicate_api_token`, `google_api_key`, `elevenlabs_api_key`, `vertex_*`).
-- Per-provider references under `references/providers/` and per-model references under `references/models/` — two independent catalogs, each changing on its own cycle.
+- Per-provider references under `references/providers/` and per-model references under `references/models/` - two independent catalogs, each changing on its own cycle.
 - Test suite under `tests/` (stdlib `unittest`, no new dependencies). Run via `python3 -m unittest discover tests`.
 
 ### Changed
@@ -3145,13 +3145,13 @@ Open `CHANGELOG.md`. Add at the top (under the intro):
 
 ### Preserved (deliberately)
 - `~/.banana/` config directory (v4.0.0 user-state-boundary rule).
-- Zero behavior change for end users — all existing commands produce identical output.
+- Zero behavior change for end users - all existing commands produce identical output.
 - Fallback chain: MCP → Direct Gemini API → Replicate.
 
 ### Not in this release (separate plans)
-- Sub-project B — Vertex retirement via Replicate (planned v4.2.1).
-- Sub-project C — Kie.ai backend + Suno music capability (planned v4.3.0).
-- Sub-project D — Hugging Face Inference Providers backend (planned v4.4.0).
+- Sub-project B - Vertex retirement via Replicate (planned v4.2.1).
+- Sub-project C - Kie.ai backend + Suno music capability (planned v4.3.0).
+- Sub-project D - Hugging Face Inference Providers backend (planned v4.4.0).
 
 [4.2.0]: https://github.com/juliandickie/creators-studio/compare/v4.1.3...v4.2.0
 ```
@@ -3163,10 +3163,10 @@ Find the `## What's New in This Fork` section in `README.md`. Add at the top (ne
 ```markdown
 ### Provider Abstraction Foundation (v4.2.0)
 
-The plugin is now marketplace-agnostic. Bring your own API key for Replicate today, and the architecture makes adding Kie.ai, Hugging Face Inference Providers, or any future marketplace a one-file change. Same commands, same behavior — but now the plumbing scales to the Nth provider.
+The plugin is now marketplace-agnostic. Bring your own API key for Replicate today, and the architecture makes adding Kie.ai, Hugging Face Inference Providers, or any future marketplace a one-file change. Same commands, same behavior - but now the plumbing scales to the Nth provider.
 ```
 
-Under 3 sentences — follows the CLAUDE.md "What's New" rule.
+Under 3 sentences - follows the CLAUDE.md "What's New" rule.
 
 - [ ] **Step 6: Commit version bump**
 
@@ -3175,9 +3175,9 @@ git add .claude-plugin/plugin.json README.md CITATION.cff CHANGELOG.md
 git commit -m "chore: bump version to 4.2.0"
 ```
 
-### Task 25: Final validation — Feature Completion Checklist
+### Task 25: Final validation - Feature Completion Checklist
 
-**Files:** (no changes — verification only)
+**Files:** (no changes - verification only)
 
 - [ ] **Step 1: Run the full test suite one more time**
 
@@ -3230,7 +3230,7 @@ Expected: `4.2.0` appears consistently in plugin.json (JSON), README.md (badge),
 - [ ] **Step 6: Run `claude plugin validate .` if available**
 
 ```bash
-claude plugin validate . 2>&1 || echo "claude CLI not available in this env — skip"
+claude plugin validate . 2>&1 || echo "claude CLI not available in this env - skip"
 ```
 
 Expected: either `valid` or the "skip" fallback.
@@ -3268,7 +3268,7 @@ Proceed with merge to main + tag v4.2.0 + push + zip/release?
 
 Wait for user approval. If changes are requested, make them before continuing.
 
-- [ ] **Step 3: After user approves — merge to main**
+- [ ] **Step 3: After user approves - merge to main**
 
 ```bash
 git checkout main
@@ -3278,7 +3278,7 @@ git merge --no-ff feature/provider-abstraction-v4.2.0 -m "Merge feature/provider
 - [ ] **Step 4: Tag the release**
 
 ```bash
-git tag -a v4.2.0 -m "v4.2.0 — Provider abstraction foundation (sub-project A)"
+git tag -a v4.2.0 -m "v4.2.0 - Provider abstraction foundation (sub-project A)"
 ```
 
 - [ ] **Step 5: Push main and the tag**
@@ -3303,7 +3303,7 @@ zip -r ../creators-studio-v4.2.0.zip . -x ".git/*" ".DS_Store" "*/.DS_Store" \
 ```bash
 gh release create v4.2.0 \
   ../creators-studio-v4.2.0.zip \
-  --title "v4.2.0 — Provider Abstraction Foundation" \
+  --title "v4.2.0 - Provider Abstraction Foundation" \
   --notes "See CHANGELOG.md for details. Sub-project A of the multi-marketplace roadmap."
 ```
 
@@ -3330,8 +3330,8 @@ git push origin --delete feature/provider-abstraction-v4.2.0 2>/dev/null || true
 | §4.3 provider_opts escape hatch | Tasks 12 (merge semantics), test at Task 12 Step 2 |
 | §4.4 TaskResult canonical response | Tasks 2-3 |
 | §5 model registry entry shape | Task 4 |
-| §5.2 adding a new model — tested implicitly by seed entries | Task 4 |
-| §5.3 multiple image models first-class — nano-banana-2 in seed | Task 4 |
+| §5.2 adding a new model - tested implicitly by seed entries | Task 4 |
+| §5.3 multiple image models first-class - nano-banana-2 in seed | Task 4 |
 | §6 ProviderBackend ABC | Task 3 |
 | §7 routing (two-stage resolution) | Tasks 9-10 |
 | §8 config schema + migration | Tasks 16-17 |

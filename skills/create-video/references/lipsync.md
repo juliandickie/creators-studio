@@ -9,13 +9,13 @@
 Before v3.8.1, the plugin had a concrete UX gap:
 
 - **VEO 3.1** generates speech internally from prompts. You can't feed it a
-  pre-recorded audio file or a custom-designed ElevenLabs voice — VEO decides
+  pre-recorded audio file or a custom-designed ElevenLabs voice - VEO decides
   what the speaker sounds like.
 - **Kling v3 Std** (v3.8.0 default) doesn't accept audio input at all. Its
   `generate_audio` flag produces emergent audio from the prompt, not from
   user-supplied voice files.
 - **audio_pipeline.py narrate** (v3.7.1) generates high-quality ElevenLabs
-  TTS narrations using custom-designed or cloned voices — but there was no
+  TTS narrations using custom-designed or cloned voices - but there was no
   way to attach those narrations to a visible character's face in a video.
 
 **VEED Fabric 1.0** (via Replicate) closes the gap. It's a specialized
@@ -48,13 +48,13 @@ Kling or VEO with a narrative prompt instead.
 ## Canonical 2-step workflow
 
 ```bash
-# Step 1 — generate the narration with your custom voice
+# Step 1 - generate the narration with your custom voice
 python3 audio_pipeline.py narrate \
     --text "Hey everyone, welcome to our product demo. Today I'll show you what makes our approach different." \
     --voice narrator \
     --out /tmp/narration.mp3
 
-# Step 2 — lip-sync a face image to the narration
+# Step 2 - lip-sync a face image to the narration
 python3 video_lipsync.py \
     --image face.png \
     --audio /tmp/narration.mp3 \
@@ -71,12 +71,12 @@ any pre-recorded voice-over, not just audio_pipeline.py output.
 
 | Use case | Recommended path |
 |---|---|
-| **Custom-designed voice speaks from a visible face** | `/create-video lipsync` (Fabric) — the reason this subcommand exists |
-| Real human's recorded voice-over + face photo | `/create-video lipsync` — Fabric accepts any audio file |
+| **Custom-designed voice speaks from a visible face** | `/create-video lipsync` (Fabric) - the reason this subcommand exists |
+| Real human's recorded voice-over + face photo | `/create-video lipsync` - Fabric accepts any audio file |
 | Simple talking-head from text with any voice VEO picks | `/create-video generate --provider veo` with dialogue in the prompt |
 | Multi-shot narrative with motion beyond lip-sync | `/create-video generate --provider kling` (default) or `/create-video sequence` |
-| Character animating through a full scene (not just face) | Not available in v3.8.1 — queued for potential v3.9.x DreamActor M2.0 integration |
-| Background music + narration + video | `audio_pipeline.py pipeline` — generates a full stitched A/V track |
+| Character animating through a full scene (not just face) | Not available in v3.8.1 - queued for potential v3.9.x DreamActor M2.0 integration |
+| Background music + narration + video | `audio_pipeline.py pipeline` - generates a full stitched A/V track |
 
 ## Example: ElevenLabs custom voice + Banana face + Fabric lip-sync
 
@@ -110,30 +110,30 @@ python3 skills/create-video/scripts/video_lipsync.py \
 
 Total cost at 720p: ~$0.08 (face image) + **~$1.05** (Fabric lip-sync at $0.15/s × 7s)
 + ElevenLabs subscription ≈ **$1.13**. Total cost at 480p: ~$0.08 + **~$0.56**
-(Fabric at $0.08/s × 7s) ≈ **$0.64** — about half the 720p cost. Wall time:
-~2-3 minutes for all 3 steps. The Fabric component is the dominant cost — see
+(Fabric at $0.08/s × 7s) ≈ **$0.64** - about half the 720p cost. Wall time:
+~2-3 minutes for all 3 steps. The Fabric component is the dominant cost - see
 §Empirical verification for the per-second pricing formula and the $9.00 cost
 ceiling at 60s output.
 
 ## Known limitations (from the Fabric model card)
 
-- **Max 60 seconds per call** — driven by audio length. For longer content,
+- **Max 60 seconds per call** - driven by audio length. For longer content,
   split the narration into ≤60s chunks and stitch the resulting lip-sync
   clips with `video_stitch.py` (or the FFmpeg concat demuxer).
-- **480p / 720p only** — no 1080p or 4K. For higher-resolution talking heads,
+- **480p / 720p only** - no 1080p or 4K. For higher-resolution talking heads,
   no current plugin path exists. Upscaling post-hoc via an image model is
   possible but unsupported in v3.8.1.
-- **Face quality depends on the input image** — Fabric preserves the input
+- **Face quality depends on the input image** - Fabric preserves the input
   image's style, lighting, and framing. Garbage in = garbage out. A
   Banana-generated face gives more control than a real photo for
   brand-consistent workflows.
-- **No emotional direction beyond the audio** — Fabric infers expression
+- **No emotional direction beyond the audio** - Fabric infers expression
   from the audio's prosody. You can't prompt "happy" or "serious"
   explicitly; bake emotion into the narration via audio_pipeline.py tags
   (`[warm]`, `[reverent]`, etc.) and Fabric will pick up the delivery.
-- **No camera movement** — the camera is locked to the input image's frame.
+- **No camera movement** - the camera is locked to the input image's frame.
   Everything outside the face stays static.
-- **Mouth region only** — Fabric animates the mouth and face area. Body,
+- **Mouth region only** - Fabric animates the mouth and face area. Body,
   hands, and background are not animated. For full-body motion, no current
   plugin path exists.
 
@@ -150,35 +150,35 @@ Fabric's input shape is fundamentally different from Kling and VEO.
 Folding Fabric into `video_generate.py` would have polluted the argparse
 surface with flags that only apply to one path. The standalone script
 reuses `_replicate_backend.py` for HTTP plumbing (zero duplication on the
-Replicate side — same auth, same polling, same output handling) but keeps
+Replicate side - same auth, same polling, same output handling) but keeps
 its own narrow CLI that matches what Fabric actually accepts.
 
 This is the same pattern as `video_sequence.py`, `video_extend.py`, and
-`audio_pipeline.py` — each subcommand with a distinct input shape gets
+`audio_pipeline.py` - each subcommand with a distinct input shape gets
 its own script; the `_*_backend.py` helpers are shared.
 
 ## Cost compared to alternatives
 
 | Workflow | Approx cost | Notes |
 |---|---|---|
-| `/create-video lipsync` (Fabric, **480p**, 7s audio) | **$0.56** | `$0.08`/s output. Cheapest tier — drafts, social previews, internal review. |
-| `/create-video lipsync` (Fabric, **480p**, 60s max) | **$4.80** | 480p cost ceiling — about half the 720p ceiling. |
+| `/create-video lipsync` (Fabric, **480p**, 7s audio) | **$0.56** | `$0.08`/s output. Cheapest tier - drafts, social previews, internal review. |
+| `/create-video lipsync` (Fabric, **480p**, 60s max) | **$4.80** | 480p cost ceiling - about half the 720p ceiling. |
 | `/create-video lipsync` (Fabric, **720p**, 7s audio) | **$1.05** | `$0.15`/s output. Standard tier for shipped social/web content. |
 | `/create-video lipsync` (Fabric, **720p**, 8s audio) | **$1.20** | Same `$0.15`/s rate; cold-start adds wall time but not cost. |
 | `/create-video lipsync` (Fabric, **720p**, 60s max) | **$9.00** | 720p cost ceiling. Split longer narrations across multiple clips if cost matters. |
 | `/create-video generate --provider kling` (8s, 1080p) | $0.16 | Full motion + native audio, but no custom voice |
 | `/create-video generate --provider veo --tier lite` (8s) | $0.40 | Full motion + VEO-generated voice, no custom voice |
 | `audio_pipeline.py pipeline` (8s) | ~$0.06-0.10 | Audio only, no visual |
-| Kling + Fabric (compose separately) | ~$1.21 ($0.16 + $1.05) | Motion from Kling, lip-sync overlay from Fabric — manual workflow, no auto-compose. |
+| Kling + Fabric (compose separately) | ~$1.21 ($0.16 + $1.05) | Motion from Kling, lip-sync overlay from Fabric - manual workflow, no auto-compose. |
 
 **Fabric at $1.05-$1.20 per 7-8s clip is ~2-3× MORE expensive than VEO Lite**
-($0.40/8s) — the reverse of what session 18's first draft of this doc claimed.
+($0.40/8s) - the reverse of what session 18's first draft of this doc claimed.
 Fabric is still the only path to pair a custom-designed ElevenLabs voice with
-a visible face — VEO generates speech internally (no external audio input)
+a visible face - VEO generates speech internally (no external audio input)
 and Kling doesn't accept audio input at all. **The trade-off is voice-control
 for cost**, not voice-control plus savings. For cost-sensitive workflows where
 the voice identity doesn't have to match a specific brand voice, use `/create-video
-generate --provider veo --tier lite` with dialogue in the prompt instead —
+generate --provider veo --tier lite` with dialogue in the prompt instead -
 it's roughly one-third the cost.
 
 ## Empirical verification (v3.8.1)
@@ -186,7 +186,7 @@ it's roughly one-third the cost.
 `/create-video lipsync` was verified end-to-end via three successful Replicate
 predictions on 2026-04-15 using a Banana-generated portrait + an ElevenLabs
 custom voice (the `narrator_female` voice designed specifically for this test
-during session 18 — see `~/.creators-studio/config.json` `custom_voices.narrator_female`).
+during session 18 - see `~/.creators-studio/config.json` `custom_voices.narrator_female`).
 
 | Metric | Cold start (run 1) | Warm (run 2) | Warm (run 3) |
 |---|---|---|---|
@@ -204,14 +204,14 @@ during session 18 — see `~/.creators-studio/config.json` `custom_voices.narrat
   settle at ~125s. For interactive use the default `--max-wait 600` has
   plenty of headroom, but if you're queuing a large batch expect the first
   call to be the slowest.
-- **Output duration matches audio duration.** Fabric does not pad or trim —
+- **Output duration matches audio duration.** Fabric does not pad or trim -
   a 7s audio input produces a 7s video output.
 - **End-to-end submission + poll + download works.** All three runs completed
   with `data_removed: False`, valid MP4 outputs, zero errors. This was the
   first time `video_lipsync.py` was exercised against the real Replicate API
   beyond the validation-layer unit tests that shipped with v3.8.1.
 
-**Cost per prediction (720p)** — authoritative, extracted from the Replicate
+**Cost per prediction (720p)** - authoritative, extracted from the Replicate
 predictions dashboard at `replicate.com/predictions` on 2026-04-15:
 
 | Run | Output duration | Resolution | Wall time | Approximate cost | Implied rate |
@@ -222,19 +222,19 @@ predictions dashboard at `replicate.com/predictions` on 2026-04-15:
 
 **720p Fabric pricing is linear at ~$0.15 per second of output video.** The
 cold-start penalty (~36s extra wall time on the first call of a batch) adds
-latency but does NOT increase cost — Replicate bills Fabric on output
+latency but does NOT increase cost - Replicate bills Fabric on output
 duration, not on GPU wall time. At 720p, the formula is
 `cost ≈ $0.15 × output_duration_seconds`, so a 5s clip ≈ $0.75, a 10s clip ≈
 $1.50, and the 60s maximum ≈ **$9.00**.
 
 **480p is ~47% cheaper at $0.08/s** (added 2026-04-27 from Replicate's
-official Fabric 1.0 model card — the v3.8.1 empirical figures above were
+official Fabric 1.0 model card - the v3.8.1 empirical figures above were
 720p only and 480p was previously assumed equal). At 480p, the formula is
 `cost ≈ $0.08 × output_duration_seconds`, so a 5s clip ≈ $0.40, a 10s clip ≈
 $0.80, and the 60s maximum ≈ **$4.80**. **For drafts, social-feed previews,
 and internal review reels, 480p halves the spend** with no workflow change
 beyond passing `--resolution 480p`. Empirical 480p verification runs are a
-useful follow-up but not blocking — the rate is authoritative from Replicate's
+useful follow-up but not blocking - the rate is authoritative from Replicate's
 own model card.
 
 **Why this isn't in the Replicate API**: `/v1/predictions/<id>` returns
@@ -249,11 +249,11 @@ match it within rounding.
 
 **Superseded claim**: session 18's first draft of this doc estimated
 Fabric at `~$0.30/call` and concluded "Fabric is cheaper than VEO Lite".
-Both parts were wrong — the estimate was ~3.5× too low, and Fabric at 720p
+Both parts were wrong - the estimate was ~3.5× too low, and Fabric at 720p
 is actually ~2-3× more expensive per clip than VEO Lite. Fabric is still the
 only viable path for custom-voice-to-visible-face, but the cost comparison
 is now a premium, not a discount. (At 480p the gap narrows but does not
-close — VEO Lite at $0.40 / 8s ≈ $0.05/s is still cheaper than 480p Fabric
+close - VEO Lite at $0.40 / 8s ≈ $0.05/s is still cheaper than 480p Fabric
 at $0.08/s.)
 
 **Cost tracker integration (v3.8.x → live)**: as of the 2026-04-27 Fabric

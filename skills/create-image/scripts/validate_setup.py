@@ -45,8 +45,8 @@ def _print_migration_status() -> int:
     state_label = {
         "migrated":  "[OK]    Migration complete",
         "new_only":  "[OK]    Fresh v4.2.2+ install (no migration needed)",
-        "old_only":  "[INFO]  Pre-v4.2.2 install — next plugin command will migrate",
-        "none":      "[NEW]   First-ever install — run /create-image setup to begin",
+        "old_only":  "[INFO]  Pre-v4.2.2 install - next plugin command will migrate",
+        "none":      "[NEW]   First-ever install - run /create-image setup to begin",
     }[status["state"]]
     print(f"State:           {state_label}")
     print(f"New path:        {status['new_path']}    (exists: {status['new_exists']})")
@@ -64,7 +64,7 @@ def _print_migration_status() -> int:
     print("    safely run: rm -rf ~/.banana/")
     print("  * Migration is COPY (not move). Both directories may exist")
     print("    simultaneously during the transition period without divergence")
-    print("    risk — all v4.2.2+ writes go to the new path.")
+    print("    risk - all v4.2.2+ writes go to the new path.")
     return 0
 
 
@@ -156,7 +156,7 @@ def main() -> int:
         except OSError as e:
             results.append(check("Output directory writable", False, str(e)))
 
-    # 10. Optional tool checks (v4.1.0+) — do NOT fail validation; inform user
+    # 10. Optional tool checks (v4.1.0+) - do NOT fail validation; inform user
     # which features are available given what's installed.
     print()
     print("Optional tools (not required for generation, unlock specific features):")
@@ -188,7 +188,7 @@ def main() -> int:
         if any("cwebp" in t for t in missing_tools):
             print("    brew install webp")
 
-    # 11. ElevenLabs + Replicate + Vertex config (optional) — informational only.
+    # 11. ElevenLabs + Replicate + Vertex config (optional) - informational only.
     config_path = _csd() / "config.json"
     if config_path.exists():
         try:

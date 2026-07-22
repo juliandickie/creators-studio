@@ -14,7 +14,7 @@ spike 5 (94 generations, ~$53 spend) proved:
    per 8s clip.
 3. **VEO extended workflows** (Scene Extension v2 and keyframe fallback at
    30 seconds) produced "glitches, inconsistent actors, audio seam
-   discontinuities — horrible, do not use" per user verdict 2026-04-15.
+   discontinuities - horrible, do not use" per user verdict 2026-04-15.
 4. **Kling supports 1:1 aspect ratio** for Instagram-square workflows; VEO
    does not.
 
@@ -55,7 +55,7 @@ here so future sessions don't re-discover them:
 4. **`--method keyframe` as the Scene Extension v2 fallback** loses audio
    continuity at every seam (each hop is a fresh generation seeded only by
    the previous last frame) AND produces inconsistent actors in narrative
-   workflows — user verdict: "horrible, do not use" for extended narrative.
+   workflows - user verdict: "horrible, do not use" for extended narrative.
 
 5. **VEO duration is {4, 6, 8}** for all tiers. Scene Extension v2 hops are
    fixed at 7 s. 5-second requests are rejected with
@@ -97,14 +97,14 @@ model coverage**. The plugin supports both, with `--backend auto`
 
 | Backend | Auth | Plugin support | Available models |
 |---|---|---|---|
-| **Gemini API** (`generativelanguage.googleapis.com`) | `google_ai_api_key` in `~/.creators-studio/config.json` | ✅ Since v3.0.0 | Standard preview (`veo-3.1-generate-preview`), Fast preview (`veo-3.1-fast-generate-preview`) — text-to-video only |
+| **Gemini API** (`generativelanguage.googleapis.com`) | `google_ai_api_key` in `~/.creators-studio/config.json` | ✅ Since v3.0.0 | Standard preview (`veo-3.1-generate-preview`), Fast preview (`veo-3.1-fast-generate-preview`) - text-to-video only |
 | **Vertex AI** (`*-aiplatform.googleapis.com`) | `vertex_api_key` (bound to a service account) + `vertex_project_id` + `vertex_location` in `~/.creators-studio/config.json` | ✅ **Since v3.6.0** | All of the above **plus** Lite (`veo-3.1-lite-generate-001`), Legacy 3.0 (`veo-3.0-generate-001`), GA `-001` IDs for Standard/Fast, image-to-video (first-frame, last-frame, reference images), and Scene Extension v2 (`--video-input`) |
 
 **What this means in practice:**
 
 - **Text-to-video on Standard or Fast preview** stays on the Gemini API path. No new credentials needed if you already had the plugin working in v3.4.x.
 - **Everything else** (Lite, GA IDs, image-to-video, Scene Extension v2) auto-routes through Vertex AI. Requires Vertex credentials in `~/.creators-studio/config.json` (see "Auth setup" below).
-- **`--quality-tier draft`** in `video_sequence.py` maps to Lite via the Vertex backend — **8× cheaper than Standard**.
+- **`--quality-tier draft`** in `video_sequence.py` maps to Lite via the Vertex backend - **8× cheaper than Standard**.
 
 ### Auth setup (3 minutes, one-time)
 
@@ -119,9 +119,9 @@ model coverage**. The plugin supports both, with `--backend auto`
      "vertex_location": "us-central1"
    }
    ```
-5. Verify with `python3 skills/create-video/scripts/_vertex_backend.py diagnose` — runs a free Gemini text-gen sanity check against the same auth path.
+5. Verify with `python3 skills/create-video/scripts/_vertex_backend.py diagnose` - runs a free Gemini text-gen sanity check against the same auth path.
 
-**Why API key auth works for Vertex AI** (despite many older docs saying it doesn't): bound-to-service-account API keys carry a service account principal as their identity, so they pass Vertex's `roles/aiplatform.user` IAM check. Anonymous API keys do not. This was an undocumented capability when v3.6.0 shipped — confirmed empirically and per Google's own docs convention that omits the "Authorization scopes" section on methods that accept API keys.
+**Why API key auth works for Vertex AI** (despite many older docs saying it doesn't): bound-to-service-account API keys carry a service account principal as their identity, so they pass Vertex's `roles/aiplatform.user` IAM check. Anonymous API keys do not. This was an undocumented capability when v3.6.0 shipped - confirmed empirically and per Google's own docs convention that omits the "Authorization scopes" section on methods that accept API keys.
 
 ### Architectural history
 
@@ -155,14 +155,14 @@ plugin; use GA IDs for new work.
 | **Audio** | 48 kHz stereo, AAC 192 kbps | 48 kHz stereo (lower bitrate) | 48 kHz stereo (lower bitrate) |
 | **Price / sec** | **$0.40** | **$0.15** | **$0.05** |
 | **Price / 8 s** | $3.20 | $1.20 | $0.40 |
-| **Typical latency** | 30–90 s | 15–45 s | 25–40 s |
+| **Typical latency** | 30-90 s | 15-45 s | 25-40 s |
 | **Best for** | Hero shots, brand film, 4K | Social, quick turns | Drafts, iteration, draft-then-final |
 
 **Doc corrections from v3.5.0 → v3.6.0** (real-API testing surfaced these):
 
-- **Lite duration is 4, 6, or 8 s** — same as Standard and Fast. v3.5.0 documented 5–60 s based on unverified docs; the API explicitly rejects 5-second Lite requests with `"supported durations are [8,4,6] for feature text_to_video"`.
-- **Aspect ratio is 16:9 or 9:16 only — no 1:1.** v3.5.0 claimed Lite supported 1:1 but the Vertex docs and the SDK enum both list only the two landscape/portrait ratios. The plugin now rejects 1:1 for all tiers.
-- **Lite latency is ~25–40 s** (not 10–30 s as v3.5.0 estimated) per real-API smoke tests on us-central1.
+- **Lite duration is 4, 6, or 8 s** - same as Standard and Fast. v3.5.0 documented 5-60 s based on unverified docs; the API explicitly rejects 5-second Lite requests with `"supported durations are [8,4,6] for feature text_to_video"`.
+- **Aspect ratio is 16:9 or 9:16 only - no 1:1.** v3.5.0 claimed Lite supported 1:1 but the Vertex docs and the SDK enum both list only the two landscape/portrait ratios. The plugin now rejects 1:1 for all tiers.
+- **Lite latency is ~25-40 s** (not 10-30 s as v3.5.0 estimated) per real-API smoke tests on us-central1.
 
 ### Legacy: VEO 3.0
 
@@ -196,7 +196,7 @@ Lite/Fast.
 
 **No free tier.** Every API call is billed. Google Cloud's $300 new-user
 credit can offset initial costs. The 7-second column applies to Scene
-Extension v2 hops (`video_extend.py --method video`) — Vertex AI's
+Extension v2 hops (`video_extend.py --method video`) - Vertex AI's
 `feature=video_extension` accepts only `durationSeconds=7`.
 
 ## Cost Comparison: Image vs Video
@@ -229,7 +229,7 @@ Lite as a $1.60 review pass before committing to the final render.
 | Reference images (up to 3) | ✅ Vertex (v3.6.1+) | ✅ Vertex (v3.6.1+) | ❌ (not supported by model) | ❌ |
 | Scene Extension v2 (video input) | ✅ Vertex (720p, 7 s) | ✅ Vertex (720p, 7 s) | ✅ Vertex (720p, 7 s) | ✅ Vertex (720p, 7 s) |
 | Native audio | ✅ 192 kbps | ✅ (lower) | ✅ (lower) | ✅ |
-| Object insertion | planned | planned | planned | — |
+| Object insertion | planned | planned | planned | - |
 
 **Why image-to-video and Scene Extension v2 are Vertex-only:** the
 Gemini API surface (`generativelanguage.googleapis.com`) used to accept
@@ -267,7 +267,7 @@ or `video_extend.py --method video` (the v3.6.0 default).
   `video-prompt-engineering.md`.
 - **Text rendering is unreliable.** Signs, shirts, posters, storefronts,
   and UI elements render as plausible-looking gibberish. Never rely on
-  the model for readable text — describe the area as "blank" or "out of
+  the model for readable text - describe the area as "blank" or "out of
   frame" and composite text in post-production.
 - **8-second clip ceiling** for all VEO 3.1 tiers. Longer cuts require
   extension via `video_extend.py` (max 148 s total).
@@ -275,7 +275,7 @@ or `video_extend.py --method video` (the v3.6.0 default).
   return without audio. Retry with a new seed or a slightly rephrased
   prompt.
 - **48-hour retention** on Gemini API download URIs (Vertex AI returns
-  inline bytes — no expiry).
+  inline bytes - no expiry).
 
 ## Video Retention
 
@@ -288,7 +288,7 @@ manifest includes a `download_expires_at` timestamp so downstream tools
 can warn users trying to act on an expired URI.
 
 **Vertex AI path:** the API returns video bytes inline as base64 in the
-poll response — there is no URI, no separate download, and no expiry.
+poll response - there is no URI, no separate download, and no expiry.
 Output manifests for Vertex generations omit the `download_expires_at`
 field entirely. Long-lived workflows benefit from this automatically;
 no GCS bucket setup is required.
@@ -300,7 +300,7 @@ no GCS bucket setup is required.
 | Requests per minute (GA) | 50 RPM |
 | Requests per minute (preview) | 10 RPM |
 | Concurrent operations per project | 10 |
-| Videos per request (`number_of_videos`) | 1–4 (plugin hardcodes 1) |
+| Videos per request (`number_of_videos`) | 1-4 (plugin hardcodes 1) |
 
 The plugin's single-clip-at-a-time pattern is well within these limits.
 `--num-videos` batching is deferred to v3.6.0 (see ROADMAP).

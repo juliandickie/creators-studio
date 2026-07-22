@@ -32,7 +32,7 @@ VALID_RESOLUTIONS = {"512", "1K", "2K", "4K"}
 # v3.6.3: MIME type detection for --reference-image inputs. Gemini
 # image generation accepts PNG/JPEG/WebP/GIF reference images as
 # inlineData parts alongside the text prompt. Three images is the
-# practical limit — more than that confuses the model about which
+# practical limit - more than that confuses the model about which
 # reference to prioritize.
 MAX_REFERENCE_IMAGES = 3
 REFERENCE_MIME_MAP = {
@@ -77,7 +77,7 @@ def generate_image(prompt, model, aspect_ratio, resolution, api_key,
     v3.6.3: `reference_images` accepts a list of image file paths (up
     to MAX_REFERENCE_IMAGES). Each reference is attached to the request
     as an inlineData part alongside the text prompt. Gemini uses these
-    as soft style/content guidance — they're not a strict composition
+    as soft style/content guidance - they're not a strict composition
     lock (use /create-image edit for that), they're a "generate a new image
     informed by these references" nudge. The primary use case is
     cross-shot character/product continuity in video sequences:
@@ -232,7 +232,7 @@ def main():
             "cross-shot character continuity (e.g. regenerate a "
             "frame that matches a previous storyboard shot's "
             "character and wardrobe). This is different from "
-            "/create-image edit — use edit.py when you want to modify an "
+            "/create-image edit - use edit.py when you want to modify an "
             "existing image; use --reference-image when you want to "
             "generate a fresh image informed by references. Note: "
             "reference-guided generation returns ~1K-ish output "

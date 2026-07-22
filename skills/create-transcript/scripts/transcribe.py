@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""creators-studio — /create-transcript speech-to-text runner.
+"""creators-studio - /create-transcript speech-to-text runner.
 
 Transcribes audio/video via ElevenLabs Scribe v2 (batch), caches the raw JSON,
 and renders every requested human format from that cache. The API is called
@@ -52,12 +52,12 @@ KEYTERM_SURCHARGE_NOTE = "keyterms add a documented +20% surcharge on base trans
 KEYTERM_MIN_BILL_NOTE = ">100 keyterms forces a 20s minimum billable duration per request"
 
 # Small, empty-safe shipped default. Julian's standing vocabulary lives in
-# ~/.creators-studio/config.json (transcription.keyterms) — see keyterms.md.
+# ~/.creators-studio/config.json (transcription.keyterms) - see keyterms.md.
 DEFAULT_KEYTERMS: list[str] = []
 
 
 class NoAudioStreamError(Exception):
-    """Raised when a source file has no audio to transcribe — fail loud."""
+    """Raised when a source file has no audio to transcribe - fail loud."""
 
 
 # --------------------------------------------------------------------------- #
@@ -84,7 +84,7 @@ def load_config() -> dict:
 
 
 def get_api_key(cli_key: str | None, config: dict, environ: dict) -> str:
-    """Resolve the ElevenLabs key. Pure — inject environ/config for testing."""
+    """Resolve the ElevenLabs key. Pure - inject environ/config for testing."""
     if cli_key:
         return cli_key
     for var in ("ELEVENLABS_API_KEY", "XI_API_KEY"):
@@ -100,7 +100,7 @@ def get_api_key(cli_key: str | None, config: dict, environ: dict) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Keyterms — three-tier merge + sanitisation (pure)
+# Keyterms - three-tier merge + sanitisation (pure)
 # --------------------------------------------------------------------------- #
 def sanitize_keyterms(terms: list[str]) -> tuple[list[str], list[str]]:
     """Enforce the documented Scribe keyterm rules. Returns (kept, dropped)."""
@@ -170,7 +170,7 @@ def parse_speakers(spec: str | None) -> dict[str, str]:
 def build_multipart(fields: dict, files: list[tuple[str, str, bytes]]) -> tuple[str, bytes]:
     """Build a multipart/form-data body. A list-valued field is emitted as
     repeated parts (how Scribe expects the `keyterms` array). Returns
-    (content_type, body_bytes). Pure — unit-testable without a socket."""
+    (content_type, body_bytes). Pure - unit-testable without a socket."""
     boundary = "----creatorsstudio" + uuid.uuid4().hex
     buf = bytearray()
 
@@ -240,7 +240,7 @@ def probe_media(path: str) -> tuple[float, bool]:
 
 
 def extract_audio(path: str, workdir: Path) -> Path:
-    """Demux to mono 16 kHz MP3 — lossless for Scribe (it resamples to 16 kHz),
+    """Demux to mono 16 kHz MP3 - lossless for Scribe (it resamples to 16 kHz),
     ~20x smaller upload than shipping a video container."""
     out = workdir / (Path(path).stem + ".mp3")
     cmd = ["ffmpeg", "-v", "error", "-y", "-i", path,
@@ -307,7 +307,7 @@ def transcribe_file(path: str, *, api_key: str, keyterms: list[str], language: s
                     diarize: bool, out_dir: Path, fmts, speaker_names: dict | None) -> dict:
     duration, has_audio = probe_media(path)
     if not has_audio:
-        raise NoAudioStreamError(f"{path} has no audio stream — nothing to transcribe")
+        raise NoAudioStreamError(f"{path} has no audio stream - nothing to transcribe")
 
     with tempfile.TemporaryDirectory(prefix="cs-stt-") as tmp:
         audio = extract_audio(path, Path(tmp))
@@ -391,20 +391,20 @@ def cmd_transcribe(args) -> int:
     for i, m in enumerate(media, 1):
         label = f"[{i}/{len(media)}] {m.name}"
         try:
-            print(f"{label} — transcribing…")
+            print(f"{label} - transcribing…")
             res = transcribe_file(
                 str(m), api_key=api_key, keyterms=keyterms, language=args.language,
                 diarize=not args.no_diarize, out_dir=out_dir, fmts=fmts,
                 speaker_names=speaker_names,
             )
             results.append(res)
-            print(f"{label} — ok ({res['speakers']} speaker(s), "
+            print(f"{label} - ok ({res['speakers']} speaker(s), "
                   f"{formats.fmt_time(res['duration_secs'], 'clock')}, "
                   f"{len(res['formats'])} files)")
         except (NoAudioStreamError, RuntimeError, urllib.error.HTTPError,
                 urllib.error.URLError) as e:
             results.append({"source": str(m), "status": "fail", "error": str(e)})
-            print(f"{label} — FAILED: {e}", file=sys.stderr)
+            print(f"{label} - FAILED: {e}", file=sys.stderr)
 
     return _summarize(results, out_dir)
 
@@ -435,7 +435,7 @@ def cmd_rename(args) -> int:
           f"({', '.join(f'{k}={v}' for k, v in speaker_names.items())}):")
     for p in written:
         print(f"  {p}")
-    print("No API call made — regenerated from cached JSON.")
+    print("No API call made - regenerated from cached JSON.")
     return 0
 
 
@@ -516,9 +516,9 @@ def _summarize(results: list[dict], out_dir: Path) -> int:
               f"{formats.fmt_time(r['duration_secs'], 'clock')}  "
               f"{r['speakers']} spk  [{', '.join(r['formats'])}]")
     for r in fail:
-        print(f"  ✗ {Path(r['source']).name}  — {r['error']}")
+        print(f"  ✗ {Path(r['source']).name} - {r['error']}")
     if fail:
-        print(f"\n{len(fail)} file(s) FAILED — see errors above.")
+        print(f"\n{len(fail)} file(s) FAILED - see errors above.")
         return 1
     return 0
 

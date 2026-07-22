@@ -1,4 +1,4 @@
-"""Tests for scripts/backends/_replicate.py — the ReplicateBackend class.
+"""Tests for scripts/backends/_replicate.py - the ReplicateBackend class.
 
 HTTP calls are mocked via urllib.request.urlopen so tests run offline.
 """
@@ -417,7 +417,7 @@ class TestPixverseValidateParams(unittest.TestCase):
             _replicate.validate_pixverse_params(
                 duration=5, resolution="720p",
                 last_frame_image="https://example.com/last.jpg",
-                # image not provided — should fail
+                # image not provided - should fail
             )
 
     def test_multi_shot_in_transition_mode_rejected(self):

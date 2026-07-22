@@ -1,10 +1,10 @@
-"""Tests for skills/create-transcript/scripts/formats.py — the pure renderers.
+"""Tests for skills/create-transcript/scripts/formats.py - the pure renderers.
 
 No network, no filesystem writes. Every renderer is a pure function of a parsed
 Scribe v2 response dict. Fixtures are trimmed real responses captured 2026-07-23:
 
-  scribe_single_speaker.json  — StoryBrand clip, one speaker, no audio events.
-  scribe_two_speaker.json     — Perell/Harry Dry interview opening, two speakers,
+  scribe_single_speaker.json - StoryBrand clip, one speaker, no audio events.
+  scribe_two_speaker.json - Perell/Harry Dry interview opening, two speakers,
                                 includes a [laughs] audio_event.
 
 Both fixtures carry the real response's extra keys (transcription_id,
@@ -54,7 +54,7 @@ class TestGroupTurns(unittest.TestCase):
         self.assertEqual(turns[0]["speaker_id"], "speaker_0")
         self.assertEqual(turns[0]["label"], "Speaker 0")
         self.assertIn("One of the problems", turns[0]["text"])
-        # Turn text is clean — no double spaces from the spacing tokens.
+        # Turn text is clean - no double spaces from the spacing tokens.
         self.assertNotIn("  ", turns[0]["text"])
 
     def test_two_speaker_alternates_and_inlines_audio_event(self):
@@ -78,7 +78,7 @@ class TestGroupTurns(unittest.TestCase):
         self.assertNotIn("Speaker 0", labels)
 
     def test_speaker_names_accept_prefixed_keys(self):
-        # Accept both "1" and "speaker_1" as keys — orchestrator may pass either.
+        # Accept both "1" and "speaker_1" as keys - orchestrator may pass either.
         names = {"speaker_0": "A", "speaker_1": "B"}
         turns = formats.group_turns(load("scribe_two_speaker")["words"], speaker_names=names)
         self.assertIn("A", {t["label"] for t in turns})

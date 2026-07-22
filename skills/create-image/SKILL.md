@@ -122,7 +122,7 @@ If needed, use ImageMagick for cropping, format conversion, background removal. 
 
 ### Step 9.5: Handle missing-tool warnings (v4.1.0+)
 
-Scripts may return results with `method: "copy_fallback"` or a top-level `warning` field pointing at a missing optional tool (ImageMagick, ffmpeg, cwebp, etc.). These are NOT hard errors — the API call succeeded — but they signal feature degradation.
+Scripts may return results with `method: "copy_fallback"` or a top-level `warning` field pointing at a missing optional tool (ImageMagick, ffmpeg, cwebp, etc.). These are NOT hard errors - the API call succeeded - but they signal feature degradation.
 
 **Before running a command that will degrade, OR after seeing a `copy_fallback` result, present the user with a 3-option choice:**
 
@@ -134,11 +134,11 @@ Scripts may return results with `method: "copy_fallback"` or a top-level `warnin
 >
 > *Which would you prefer?"*
 
-**When to check proactively** (before the call): `/create-image social` with platforms that have aggressive ratio shifts (9:16, 21:9, 4:1, etc.) — without ImageMagick, the dimensions won't be exact. Shell out to `which magick` first; if missing, prompt before generating.
+**When to check proactively** (before the call): `/create-image social` with platforms that have aggressive ratio shifts (9:16, 21:9, 4:1, etc.) - without ImageMagick, the dimensions won't be exact. Shell out to `which magick` first; if missing, prompt before generating.
 
 **When to check reactively** (after the call): when a script's JSON result includes `method: "copy_fallback"` or `warning` is non-null. Surface the warning verbatim and then present the choice.
 
-Never silently accept a `copy_fallback` result — always communicate what happened. See `scripts/validate_setup.py` for the canonical list of optional tools and what each unlocks.
+Never silently accept a `copy_fallback` result - always communicate what happened. See `scripts/validate_setup.py` for the canonical list of optional tools and what each unlocks.
 
 ### Step 10: Log Cost + History
 
@@ -196,9 +196,9 @@ Analyze an image and extract the prompt that would recreate it. See `references/
 
 ## /create-image social
 
-Generate platform-native images at correct ratios for **87 sizes across 16 platforms** (Instagram, Facebook, YouTube, LinkedIn, Twitter/X, TikTok, Pinterest, Threads, Snapchat, Google Ads, Spotify, Telegram, Signal, WhatsApp, ManyChat, BlueSky) — at max-quality upload specs, not platform minimums (v4.1.2+). See `references/social-platforms.md` for the full spec table. Script: `python3 ${CLAUDE_SKILL_DIR}/scripts/social.py generate --prompt "..." --platforms ig-feed,yt-thumb`
+Generate platform-native images at correct ratios for **87 sizes across 16 platforms** (Instagram, Facebook, YouTube, LinkedIn, Twitter/X, TikTok, Pinterest, Threads, Snapchat, Google Ads, Spotify, Telegram, Signal, WhatsApp, ManyChat, BlueSky) - at max-quality upload specs, not platform minimums (v4.1.2+). See `references/social-platforms.md` for the full spec table. Script: `python3 ${CLAUDE_SKILL_DIR}/scripts/social.py generate --prompt "..." --platforms ig-feed,yt-thumb`
 
-**Default mode is `--mode complete`** (v4.1.2+) — text-rendering is allowed. Prompts that imply text (social posts with CTAs, ads, slide titles) will render it naturally. Pass `--mode image-only` only when the user explicitly wants a text-free background plate — that flag appends an explicit text-suppression clause to the prompt.
+**Default mode is `--mode complete`** (v4.1.2+) - text-rendering is allowed. Prompts that imply text (social posts with CTAs, ads, slide titles) will render it naturally. Pass `--mode image-only` only when the user explicitly wants a text-free background plate - that flag appends an explicit text-suppression clause to the prompt.
 
 For cross-channel campaigns, use group shorthands: `instagram`, `facebook`, `all-feeds`, `all-stories`, `all-ads`, `all-profiles`, `all-messaging` (Telegram+Signal+WhatsApp+ManyChat).
 

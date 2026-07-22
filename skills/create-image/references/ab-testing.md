@@ -36,11 +36,11 @@ Each style adds a prefix and style hint to the base prompt, keeping the core sub
 ## Rating System
 
 After reviewing the generated variations, rate each on a 1-5 scale:
-- **5** — Perfect, would use as-is
-- **4** — Strong, minor tweaks needed
-- **3** — Acceptable, significant refinement needed
-- **2** — Wrong direction
-- **1** — Completely off
+- **5** - Perfect, would use as-is
+- **4** - Strong, minor tweaks needed
+- **3** - Acceptable, significant refinement needed
+- **2** - Wrong direction
+- **1** - Completely off
 
 Ratings are format: `"variation_index:score"` (e.g., `"1:4,2:5,3:3"`).
 

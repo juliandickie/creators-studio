@@ -1,6 +1,6 @@
 # Google Lyria 3 Pro (canonical model ID: `lyria-3-pro`)
 
-**Status:** Registered for opt-in and auto-routed use. NOT the default — ElevenLabs Music is the overall music default; Lyria 3 Clip is the within-Lyria default. Pro is auto-selected when user passes `--music-source lyria` with a prompt containing song-structure markers, AND confirms via `--confirm-upgrade` flag.
+**Status:** Registered for opt-in and auto-routed use. NOT the default - ElevenLabs Music is the overall music default; Lyria 3 Clip is the within-Lyria default. Pro is auto-selected when user passes `--music-source lyria` with a prompt containing song-structure markers, AND confirms via `--confirm-upgrade` flag.
 
 **Hosting providers:** Replicate (`google/lyria-3-pro`).
 
@@ -20,12 +20,12 @@ A full-song generator, not just a clip. Produces structured tracks up to ~3 minu
 
 ## Canonical constraints
 
-- `duration_max_s: 180` — aspirational; Google's model card says duration is "influenced by prompting" rather than strictly controlled.
+- `duration_max_s: 180` - aspirational; Google's model card says duration is "influenced by prompting" rather than strictly controlled.
 
 ## Supported canonical params
 
 - `prompt` (required; contains the song structure, lyrics, and tempo/style direction)
-- `reference_images` (0–10 images)
+- `reference_images` (0-10 images)
 
 **NOT supported:** `negative_prompt`, `seed`
 
@@ -43,7 +43,7 @@ Without `--confirm-upgrade`, the auto-detection raises `LyriaUpgradeGateError` w
 
 ## Pricing
 
-`per_call` mode, $0.08 per file (up to ~3 min). Effective per-second rate for a full 3-minute song: ~$0.00044/s — dramatically cheaper than Lyria 3 Clip at per-second rates, but per-file pricing means short songs don't get a discount.
+`per_call` mode, $0.08 per file (up to ~3 min). Effective per-second rate for a full 3-minute song: ~$0.00044/s - dramatically cheaper than Lyria 3 Clip at per-second rates, but per-file pricing means short songs don't get a discount.
 
 ## Prompting tips (from the Google model card)
 

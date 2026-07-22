@@ -35,9 +35,9 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/analytics.py report --format json --output ~
 ## Data Sources
 
 The dashboard aggregates from three existing data files (no new logging needed):
-- `~/.creators-studio/costs.json` — created by cost_tracker.py
-- `~/.creators-studio/history/*.json` — created by history.py
-- `~/.creators-studio/ab_preferences.json` — created by abtester.py
+- `~/.creators-studio/costs.json` - created by cost_tracker.py
+- `~/.creators-studio/history/*.json` - created by history.py
+- `~/.creators-studio/ab_preferences.json` - created by abtester.py
 
 ## Time Range
 
@@ -45,4 +45,4 @@ Default: last 30 days. Adjust with `--days N`. The dashboard shows data within t
 
 ## Output
 
-The HTML dashboard is self-contained — no external JavaScript or CSS dependencies. Opens in any browser. Can be printed to PDF.
+The HTML dashboard is self-contained - no external JavaScript or CSS dependencies. Opens in any browser. Can be printed to PDF.

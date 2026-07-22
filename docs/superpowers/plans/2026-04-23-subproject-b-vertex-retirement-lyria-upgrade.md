@@ -1,10 +1,10 @@
-# Sub-Project B: Vertex Retirement + Lyria 3 Upgrade — Implementation Plan
+# Sub-Project B: Vertex Retirement + Lyria 3 Upgrade - Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Retire Vertex AI entirely from the plugin (delete `_vertex_backend.py`, remove inline Vertex calls from `audio_pipeline.py`), route VEO 3.1 via Replicate's `ReplicateBackend`, upgrade Lyria 2 → Lyria 3 as the within-Lyria default while keeping Lyria 2 and registering Lyria 3 Pro.
 
-**Architecture:** Apply the v4.2.0 provider abstraction to the two remaining Vertex surfaces. Extend `_TASK_PARAM_MAPS` with `music-generation`, add three new pricing modes to `cost_tracker.py`, extend `_canonical.py` with a `duration_s.enum` validator. No new backend file — all routing goes through the existing `ReplicateBackend`. Zero behavior change for users who never touched `--provider veo` or `--music-source lyria`.
+**Architecture:** Apply the v4.2.0 provider abstraction to the two remaining Vertex surfaces. Extend `_TASK_PARAM_MAPS` with `music-generation`, add three new pricing modes to `cost_tracker.py`, extend `_canonical.py` with a `duration_s.enum` validator. No new backend file - all routing goes through the existing `ReplicateBackend`. Zero behavior change for users who never touched `--provider veo` or `--music-source lyria`.
 
 **Spec:** [docs/superpowers/specs/2026-04-23-subproject-b-vertex-retirement-lyria-upgrade-design.md](../specs/2026-04-23-subproject-b-vertex-retirement-lyria-upgrade-design.md)
 
@@ -20,27 +20,27 @@ The plugin is `creators-studio` at v4.2.0. The v4.2.0 release shipped the provid
 
 Two Vertex AI surfaces still exist:
 
-1. **`skills/create-video/scripts/_vertex_backend.py`** (958 lines) — used by `video_generate.py` for VEO 3.1 Lite/Fast/Standard video generation. Imported as `import _vertex_backend as vertex`.
+1. **`skills/create-video/scripts/_vertex_backend.py`** (958 lines) - used by `video_generate.py` for VEO 3.1 Lite/Fast/Standard video generation. Imported as `import _vertex_backend as vertex`.
 
-2. **Inline Vertex calls inside `skills/create-video/scripts/audio_pipeline.py`** — constructs `{location}-aiplatform.googleapis.com` URLs directly for Lyria 2 (`lyria-002`) music generation. Does NOT import `_vertex_backend.py`.
+2. **Inline Vertex calls inside `skills/create-video/scripts/audio_pipeline.py`** - constructs `{location}-aiplatform.googleapis.com` URLs directly for Lyria 2 (`lyria-002`) music generation. Does NOT import `_vertex_backend.py`.
 
 Both surfaces have confirmed Replicate equivalents:
 
 - VEO 3.1 Lite/Fast/Standard → `google/veo-3.1-lite`, `google/veo-3.1-fast`, `google/veo-3.1`
 - Lyria 2 → `google/lyria-2` (same capabilities + same 30s clip length as Vertex Lyria 2)
-- Lyria 3 → `google/lyria-3` (NEW — 30s clips, adds `images` input, adds vocal generation, $0.04/file vs Lyria 2's $0.06)
-- Lyria 3 Pro → `google/lyria-3-pro` (NEW capability — full-length songs up to 3 min with structure tags, custom lyrics, timestamp control, $0.08/file)
+- Lyria 3 → `google/lyria-3` (NEW - 30s clips, adds `images` input, adds vocal generation, $0.04/file vs Lyria 2's $0.06)
+- Lyria 3 Pro → `google/lyria-3-pro` (NEW capability - full-length songs up to 3 min with structure tags, custom lyrics, timestamp control, $0.08/file)
 
 **Authoritative source docs** (read these during implementation; do not re-verify from scratch):
-- `dev-docs/google-veo-3.1-lite-llms.md` — VEO Lite spec + pricing
-- `dev-docs/google-veo-3.1-fast-llms.md` — VEO Fast spec + pricing
-- `dev-docs/google-veo-3.1-llms.md` — VEO Standard spec + pricing
-- `dev-docs/google-lyria-2-llms.md` — Lyria 2 spec
-- `dev-docs/google-lyria-3-llms.md` — Lyria 3 spec
-- `dev-docs/google-lyria-3-pro-llms.md` — Lyria 3 Pro spec
-- `dev-docs/elevenlabs-music.md` — ElevenLabs Music capability reference
-- `dev-docs/kwaivgi-kling-v3-video-llms.md` — Kling v3 Video (for pricing correction)
-- `dev-docs/kwaivgi-kling-v3-omni-video-llms.md` — Kling v3 Omni (for pricing correction)
+- `dev-docs/google-veo-3.1-lite-llms.md` - VEO Lite spec + pricing
+- `dev-docs/google-veo-3.1-fast-llms.md` - VEO Fast spec + pricing
+- `dev-docs/google-veo-3.1-llms.md` - VEO Standard spec + pricing
+- `dev-docs/google-lyria-2-llms.md` - Lyria 2 spec
+- `dev-docs/google-lyria-3-llms.md` - Lyria 3 spec
+- `dev-docs/google-lyria-3-pro-llms.md` - Lyria 3 Pro spec
+- `dev-docs/elevenlabs-music.md` - ElevenLabs Music capability reference
+- `dev-docs/kwaivgi-kling-v3-video-llms.md` - Kling v3 Video (for pricing correction)
+- `dev-docs/kwaivgi-kling-v3-omni-video-llms.md` - Kling v3 Omni (for pricing correction)
 
 **Key plugin rules (carry forward from v4.2.0):**
 
@@ -48,23 +48,23 @@ Both surfaces have confirmed Replicate equivalents:
 2. **`~/.banana/` config directory is frozen.** Do not rename to `.creators-studio`.
 3. **Python 3.12+ floor.** Use PEP 604 unions (`X | None`), built-in generics (`list[int]`), `dataclass(slots=True)`, `match`/`case`, PEP 695 `type` aliases.
 4. **Every family must register ≥2 models** (v4.2.0 multi-model principle).
-5. **Backend code never leaks provider-specific field names into the orchestrator** — translation stays inside the backend class.
+5. **Backend code never leaks provider-specific field names into the orchestrator** - translation stays inside the backend class.
 
 ---
 
-## File structure — every file created, modified, or deleted
+## File structure - every file created, modified, or deleted
 
 ### New files
 
 ```
 references/models/
-  lyria-2.md                       — Lyria 2 capabilities + negative_prompt USP
-  lyria-3.md                       — Lyria 3 Clip + image-input + cheaper
-  lyria-3-pro.md                   — Full-song generation + structure tags
-  elevenlabs-music.md              — ElevenLabs Music (vocals/lyrics/multilingual/finetunes)
+  lyria-2.md - Lyria 2 capabilities + negative_prompt USP
+  lyria-3.md - Lyria 3 Clip + image-input + cheaper
+  lyria-3-pro.md - Full-song generation + structure tags
+  elevenlabs-music.md - ElevenLabs Music (vocals/lyrics/multilingual/finetunes)
 
 tests/
-  test_lyria_migration.py          — Lyria routing + version resolution tests
+  test_lyria_migration.py - Lyria routing + version resolution tests
   fixtures/replicate_veo_submit.json
   fixtures/replicate_veo_poll_success.json
   fixtures/replicate_lyria_submit.json
@@ -75,50 +75,50 @@ tests/
 
 ```
 scripts/backends/
-  _canonical.py                    — add duration_s.enum validator shape
-  _replicate.py                    — extend _TASK_PARAM_MAPS + per-model param filtering
+  _canonical.py - add duration_s.enum validator shape
+  _replicate.py - extend _TASK_PARAM_MAPS + per-model param filtering
 
 scripts/registry/
-  models.json                      — 7 new entries + 2 pricing corrections + family_defaults update
+  models.json - 7 new entries + 2 pricing corrections + family_defaults update
 
 skills/create-image/scripts/
-  cost_tracker.py                  — add 3 new pricing modes
-  setup_mcp.py                     — remove Vertex CLI surface
+  cost_tracker.py - add 3 new pricing modes
+  setup_mcp.py - remove Vertex CLI surface
 
 skills/create-video/scripts/
-  video_generate.py                — remove Vertex import + deprecation warning
-  audio_pipeline.py                — Lyria refactor + lyrics intent detector + flags
+  video_generate.py - remove Vertex import + deprecation warning
+  audio_pipeline.py - Lyria refactor + lyrics intent detector + flags
 
 tests/
-  test_canonical.py                — add duration_s.enum validator tests
-  test_registry.py                 — add new entries + multi-model principle check
-  test_replicate_backend.py        — add music-generation + VEO submit tests
+  test_canonical.py - add duration_s.enum validator tests
+  test_registry.py - add new entries + multi-model principle check
+  test_replicate_backend.py - add music-generation + VEO submit tests
 
 references/models/
-  veo-3.1.md                       — replace placeholder with real content
+  veo-3.1.md - replace placeholder with real content
 
 references/providers/
-  replicate.md                     — add VEO + Lyria to hosted-models list + new pricing modes
+  replicate.md - add VEO + Lyria to hosted-models list + new pricing modes
 
 Top-level docs:
-  CLAUDE.md                        — multi-model principle + VEO-via-Replicate + Lyria auto-route rules
-  PROGRESS.md                      — Session 25 entry
-  ROADMAP.md                       — music bake-off + Kling-vs-VEO re-eval + motion-control registration
-  CHANGELOG.md                     — v4.2.1 entry
-  README.md                        — version badge + What's New entry + architecture diagram
-  .claude-plugin/plugin.json       — version 4.2.0 → 4.2.1
-  CITATION.cff                     — version + date-released
+  CLAUDE.md - multi-model principle + VEO-via-Replicate + Lyria auto-route rules
+  PROGRESS.md - Session 25 entry
+  ROADMAP.md - music bake-off + Kling-vs-VEO re-eval + motion-control registration
+  CHANGELOG.md - v4.2.1 entry
+  README.md - version badge + What's New entry + architecture diagram
+  .claude-plugin/plugin.json - version 4.2.0 → 4.2.1
+  CITATION.cff - version + date-released
 ```
 
 ### Deleted files
 
 ```
-skills/create-video/scripts/_vertex_backend.py     — 958 lines, superseded by Replicate routing
+skills/create-video/scripts/_vertex_backend.py - 958 lines, superseded by Replicate routing
 ```
 
 ---
 
-## Phase 0 — Pre-flight
+## Phase 0 - Pre-flight
 
 ### Task 0: Create feature branch
 
@@ -152,7 +152,7 @@ Expected: `Ran 74 tests in Xs, OK`. If not 74 or not passing, STOP and diagnose 
 
 ---
 
-## Phase 1 — Canonical schema extension (`duration_s.enum`)
+## Phase 1 - Canonical schema extension (`duration_s.enum`)
 
 ### Task 1: Add `duration_s.enum` validator shape
 
@@ -160,7 +160,7 @@ Expected: `Ran 74 tests in Xs, OK`. If not 74 or not passing, STOP and diagnose 
 - Test: `tests/test_canonical.py` (extend)
 - Modify: `scripts/backends/_canonical.py`
 
-**Context:** VEO 3.1 accepts only specific duration values `{4, 6, 8}`, not a range. The current `_canonical.py` validator only handles `duration_s: {min, max, integer}`. This task adds support for `duration_s: {enum: [...]}` as an alternative shape. Kling / Fabric / DreamActor continue using `min/max/integer` — no change to them.
+**Context:** VEO 3.1 accepts only specific duration values `{4, 6, 8}`, not a range. The current `_canonical.py` validator only handles `duration_s: {min, max, integer}`. This task adds support for `duration_s: {enum: [...]}` as an alternative shape. Kling / Fabric / DreamActor continue using `min/max/integer` - no change to them.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -233,7 +233,7 @@ Replace the inner body with:
     if (c := constraints.get("duration_s")) is not None and "duration_s" in params:
         v = params["duration_s"]
         if "enum" in c:
-            # Enum shape: {enum: [4, 6, 8]} — only listed values allowed.
+            # Enum shape: {enum: [4, 6, 8]} - only listed values allowed.
             if v not in c["enum"]:
                 raise CanonicalValidationError(
                     f"duration_s={v} not in allowed values {c['enum']}"
@@ -280,11 +280,11 @@ keep using the range shape unchanged."
 
 ---
 
-## Phase 2 — Cost tracker pricing modes
+## Phase 2 - Cost tracker pricing modes
 
 ### Task 2: Explore `cost_tracker.py` structure
 
-**Files:** (read-only — planning)
+**Files:** (read-only - planning)
 
 - [ ] **Step 1: Find the pricing dispatch function**
 
@@ -316,7 +316,7 @@ def _lookup_cost(family, model, resolution):
 
 The dispatch is keyed on `mode`. To add three new modes (`per_second_by_resolution`, `per_second_by_audio`, `per_second_by_resolution_and_audio`), add three new `elif` branches.
 
-Note: the existing `cost_tracker.py` may also use the model's PRICING dict rather than the registry JSON. The v4.2.1 changes do NOT need to unify these — `cost_tracker.py` can continue using its own PRICING dict, or it can be updated to read from the registry. For this task, we add to the PRICING dict AND keep the registry as the source of truth for the backend path. Future cleanup can unify them.
+Note: the existing `cost_tracker.py` may also use the model's PRICING dict rather than the registry JSON. The v4.2.1 changes do NOT need to unify these - `cost_tracker.py` can continue using its own PRICING dict, or it can be updated to read from the registry. For this task, we add to the PRICING dict AND keep the registry as the source of truth for the backend path. Future cleanup can unify them.
 
 ### Task 3: Add `per_second_by_resolution` pricing mode
 
@@ -347,7 +347,7 @@ In the dispatch chain, add a new `elif` branch (before the fallback `else`):
 ```python
     elif mode == "per_second_by_resolution":
         # resolution param (e.g., "720p") keys the rate; duration_s from resolution
-        # (callers pass duration as the "resolution" field in log call — the
+        # (callers pass duration as the "resolution" field in log call - the
         # caller must ALSO know the pixel resolution separately. For v4.2.1,
         # we accept a compound format like "720p@8s" OR two separate fields.)
         # Convention: for per_second_by_resolution, 'resolution' is the pixel
@@ -378,7 +378,7 @@ def _lookup_cost(
     ...
 ```
 
-Every existing call site keeps working because the new params are keyword-only with defaults. The existing `per_second` (Kling v4.2.0 entry — will be corrected in Task 8) path that passes duration as `resolution="8s"` still works.
+Every existing call site keeps working because the new params are keyword-only with defaults. The existing `per_second` (Kling v4.2.0 entry - will be corrected in Task 8) path that passes duration as `resolution="8s"` still works.
 
 - [ ] **Step 4: Add sanity test**
 
@@ -619,7 +619,7 @@ grep -rn "cost_tracker\|_lookup_cost\|log_cost" skills/create-video/scripts/ --i
 For each match, update the call to include the new kwargs. Example pattern in `video_generate.py`:
 
 ```python
-# OLD (wrong — resolution was passed as "8s" abusing the resolution field)
+# OLD (wrong - resolution was passed as "8s" abusing the resolution field)
 subprocess.run([
     "python3", cost_tracker_path, "log",
     "--family", "video",
@@ -627,7 +627,7 @@ subprocess.run([
     "--resolution", f"{duration}s",
 ], ...)
 
-# NEW (correct — resolution is pixel res, duration and audio passed separately)
+# NEW (correct - resolution is pixel res, duration and audio passed separately)
 subprocess.run([
     "python3", cost_tracker_path, "log",
     "--family", "video",
@@ -686,7 +686,7 @@ git add skills/create-image/scripts/cost_tracker.py tests/test_cost_tracker.py s
 git commit -m "feat: add per_second_by_resolution_and_audio mode + correct Kling pricing
 
 v4.2.0 seeded Kling v3 in the PRICING dict with '{mode: per_second,
-rate: 0.02}' — incorrect; the actual Replicate rate is 10-17x higher.
+rate: 0.02}' - incorrect; the actual Replicate rate is 10-17x higher.
 Corrected from dev-docs model cards:
 
   Kling v3 Video:
@@ -712,7 +712,7 @@ encoding duration as the resolution field.
 
 ---
 
-## Phase 3 — Registry expansion (models.json)
+## Phase 3 - Registry expansion (models.json)
 
 ### Task 6: Add VEO 3.1 entries to registry
 
@@ -809,7 +809,7 @@ Add after the `kling-v3-omni` entry:
             "currency": "USD"
           },
           "availability": "GA",
-          "notes": "Highest-fidelity VEO. Only tier with 4K + video extension. Most expensive in the roster at $0.40/s with audio — use Kling v3 or VEO Lite for cost-sensitive workflows."
+          "notes": "Highest-fidelity VEO. Only tier with 4K + video extension. Most expensive in the roster at $0.40/s with audio - use Kling v3 or VEO Lite for cost-sensitive workflows."
         }
       }
     },
@@ -853,7 +853,7 @@ Expected: all existing registry tests still pass.
           "capabilities": ["negative_prompt", "seed"],
           "pricing": {"mode": "per_call", "rate": 0.06, "currency": "USD"},
           "availability": "GA",
-          "notes": "Kept registered despite Lyria 3 default — uniquely supports negative_prompt exclusion. Auto-selected when --negative-prompt is set."
+          "notes": "Kept registered despite Lyria 3 default - uniquely supports negative_prompt exclusion. Auto-selected when --negative-prompt is set."
         }
       }
     },
@@ -871,7 +871,7 @@ Expected: all existing registry tests still pass.
           "capabilities": ["reference_images", "vocals", "multilingual", "structure_tags"],
           "pricing": {"mode": "per_call", "rate": 0.04, "currency": "USD"},
           "availability": "GA",
-          "notes": "Default within Lyria family. 30s clip only — use lyria-3-pro for full songs. No negative_prompt."
+          "notes": "Default within Lyria family. 30s clip only - use lyria-3-pro for full songs. No negative_prompt."
         }
       }
     },
@@ -907,7 +907,7 @@ Expected: all existing registry tests still pass.
           "capabilities": ["vocals", "lyrics_editing", "multilingual", "music_finetunes", "subscription_billed"],
           "pricing": {"mode": "subscription", "rate": null, "currency": "USD"},
           "availability": "GA",
-          "notes": "Not yet refactored into ProviderBackend — audio_pipeline.py calls ElevenLabs directly. Registered so family_defaults.music is honest and the multi-model principle is upheld."
+          "notes": "Not yet refactored into ProviderBackend - audio_pipeline.py calls ElevenLabs directly. Registered so family_defaults.music is honest and the multi-model principle is upheld."
         }
       }
     }
@@ -1148,7 +1148,7 @@ ProviderBackend in a future sub-project).
 
 ---
 
-## Phase 4 — ReplicateBackend extensions (music-generation + VEO)
+## Phase 4 - ReplicateBackend extensions (music-generation + VEO)
 
 ### Task 11: Add `music-generation` task to `_TASK_PARAM_MAPS`
 
@@ -1566,12 +1566,12 @@ class TestVEOSubmit(unittest.TestCase):
         call_args = mock_urlopen.call_args
         request = call_args[0][0]
         body = json.loads(request.data.decode("utf-8"))
-        # VEO model card uses 'image' for image-to-video input — canonical
+        # VEO model card uses 'image' for image-to-video input - canonical
         # start_image might translate to 'image' for VEO but 'start_image'
         # for Kling. This test captures current behavior; adjust the
         # _TASK_PARAM_MAPS or add a per-model translator if VEO rejects.
         # For now: start_image passes through as 'start_image' (both work
-        # on Replicate VEO per the model card's example using 'image' —
+        # on Replicate VEO per the model card's example using 'image' -
         # verify empirically in Phase 8 smoke test).
         self.assertIn("start_image", body["input"])
 ```
@@ -1602,7 +1602,7 @@ git commit -m "test: add VEO submit fixtures + translation tests
 Two test cases cover text-to-video and image-to-video canonical
 translation for google/veo-3.1-fast. Existing _TASK_PARAM_MAPS
 entries for 'text-to-video' and 'image-to-video' already handle
-VEO without modification — the Kling-specific resolution->mode
+VEO without modification - the Kling-specific resolution->mode
 translation only triggers on kwaivgi/kling-* slugs.
 
 Flagged for Phase 8 smoke test: verify VEO accepts 'start_image'
@@ -1611,7 +1611,7 @@ or requires rename to 'image'. Add per-model rename if needed."
 
 ---
 
-## Phase 5 — audio_pipeline.py Lyria migration
+## Phase 5 - audio_pipeline.py Lyria migration
 
 This phase is the biggest single refactor in sub-project B. It touches `audio_pipeline.py` in three places: (1) add the lyrics intent detector, (2) add the version resolver, (3) replace the Vertex call paths with ReplicateBackend calls.
 
@@ -1774,7 +1774,7 @@ if __name__ == "__main__":
 python3 -m unittest tests.test_lyria_migration -v 2>&1 | tail -10
 ```
 
-Expected: import errors or AttributeErrors — `detect_lyrics_intent`, `resolve_lyria_version`, `LyriaUpgradeGateError` don't exist yet.
+Expected: import errors or AttributeErrors - `detect_lyrics_intent`, `resolve_lyria_version`, `LyriaUpgradeGateError` don't exist yet.
 
 - [ ] **Step 3: Add the helpers to `audio_pipeline.py`**
 
@@ -1814,7 +1814,7 @@ def detect_lyrics_intent(prompt: str) -> bool:
     Clip vs Lyria 3 Pro.
 
     Explicit 'instrumental only' / 'no vocals' / 'no lyrics' markers ALWAYS
-    return False, even in the presence of structure tags — user intent to
+    return False, even in the presence of structure tags - user intent to
     exclude vocals wins.
     """
     lower = prompt.lower()
@@ -1844,14 +1844,14 @@ def resolve_lyria_version(
     """Pick canonical Lyria model ID based on flags + prompt.
 
     Precedence:
-      1. explicit_version ('2', '3', '3-pro') — always wins, no gate.
-      2. has_negative_prompt — auto-route to lyria-2 (the only Lyria that
+      1. explicit_version ('2', '3', '3-pro') - always wins, no gate.
+      2. has_negative_prompt - auto-route to lyria-2 (the only Lyria that
          accepts negative_prompt).
-      3. detect_lyrics_intent(prompt) AND NOT confirm_upgrade — raise
+      3. detect_lyrics_intent(prompt) AND NOT confirm_upgrade - raise
          LyriaUpgradeGateError to prevent silent 2x cost upgrade.
-      4. detect_lyrics_intent(prompt) AND confirm_upgrade — route to
+      4. detect_lyrics_intent(prompt) AND confirm_upgrade - route to
          lyria-3-pro.
-      5. Default — route to lyria-3 (Clip, cheapest).
+      5. Default - route to lyria-3 (Clip, cheapest).
     """
     if explicit_version is not None:
         if explicit_version not in _LYRIA_VERSION_MAP:
@@ -1867,7 +1867,7 @@ def resolve_lyria_version(
     if detect_lyrics_intent(prompt):
         if not confirm_upgrade:
             raise LyriaUpgradeGateError(
-                "Detected song structure in prompt — full-song generation "
+                "Detected song structure in prompt - full-song generation "
                 "requires Lyria 3 Pro ($0.08/file vs Lyria 3 Clip $0.04/file).\n"
                 "  - Pass --confirm-upgrade to proceed with Lyria 3 Pro.\n"
                 "  - Pass --lyria-version 3 to force the cheaper Lyria 3 Clip.\n"
@@ -1969,7 +1969,7 @@ def generate_music_lyria(
     resolve_lyria_version(), then submits through ReplicateBackend.
 
     kwargs swallow legacy arguments (e.g., 'project', 'location') for
-    backward compat during the v4.2.1 transition. They are ignored —
+    backward compat during the v4.2.1 transition. They are ignored -
     Replicate doesn't need Vertex project/location.
     """
     if kwargs:
@@ -1989,14 +1989,14 @@ def generate_music_lyria(
     model = registry.get_model(model_id)
     slug = model.providers["replicate"]["slug"]
 
-    # Build canonical params — backend filters out ones the model doesn't support
+    # Build canonical params - backend filters out ones the model doesn't support
     canonical_params: dict = {"prompt": prompt}
     if negative_prompt is not None:
         canonical_params["negative_prompt"] = negative_prompt
     if seed is not None:
         canonical_params["seed"] = seed
 
-    # Load Replicate config — readable via the v4.2.0 migration shim
+    # Load Replicate config - readable via the v4.2.0 migration shim
     # (providers.replicate.api_key OR legacy replicate_api_token)
     config = _load_banana_config()
 
@@ -2016,7 +2016,7 @@ def generate_music_lyria(
             "Run setup_mcp.py to configure providers.replicate.api_key."
         )
 
-    # Poll loop — reuse the existing polling cadence / timeout pattern
+    # Poll loop - reuse the existing polling cadence / timeout pattern
     _logger.info("Lyria submit accepted: %s (model=%s)", job_ref.external_id, model_id)
     poll_interval_s = 5.0
     max_wait_s = 300.0  # 5 min hard cap for single Lyria clip
@@ -2139,7 +2139,7 @@ def generate_music_lyria_extended(
                 f"Lyria 3 Pro generates up to ~180s. Requested {target_duration_sec}s. "
                 "Reduce target or use --lyria-version 3 for chained 30s clips."
             )
-        # Augment prompt with duration hint — Lyria 3 Pro respects prompt-level duration
+        # Augment prompt with duration hint - Lyria 3 Pro respects prompt-level duration
         duration_hint_prompt = (
             f"{prompt}\n\n(Generate approximately a {int(target_duration_sec)}-second track.)"
         )
@@ -2204,7 +2204,7 @@ def generate_music_lyria_extended(
     }
 ```
 
-(The `_ffmpeg_chain_with_crossfade` helper already exists in `audio_pipeline.py` from the v3.7.4 work — it takes a list of clip paths, an output path, a crossfade duration, and a target duration. Keep using it unchanged.)
+(The `_ffmpeg_chain_with_crossfade` helper already exists in `audio_pipeline.py` from the v3.7.4 work - it takes a list of clip paths, an output path, a crossfade duration, and a target duration. Keep using it unchanged.)
 
 - [ ] **Step 2: Smoke test**
 
@@ -2253,7 +2253,7 @@ grep -n "aiplatform.googleapis.com\|vertex_api_key\|vertex_project_id\|vertex_lo
 ```
 
 Identify the constants + helper functions that are only used by the old Lyria path. Common candidates:
-- `LYRIA_MODEL_ID = "lyria-002"` — no longer used (model ID comes from registry now)
+- `LYRIA_MODEL_ID = "lyria-002"` - no longer used (model ID comes from registry now)
 - Any `_build_vertex_lyria_url()` helper
 - Any `_load_vertex_creds()` helper or inline credential loader
 - Any `_parse_vertex_audio_response()` helper
@@ -2403,7 +2403,7 @@ python3 skills/create-video/scripts/audio_pipeline.py music \
     --out /tmp/test.mp3 2>&1 | head -5
 ```
 
-Expected: no gate error; proceeds to real Replicate call (will fail auth with a placeholder key, but that's a different error — proves the gate was skipped correctly).
+Expected: no gate error; proceeds to real Replicate call (will fail auth with a placeholder key, but that's a different error - proves the gate was skipped correctly).
 
 - [ ] **Step 6: Commit**
 
@@ -2423,14 +2423,14 @@ message to stderr, exiting with code 2. Users in automation can pass
 
 ---
 
-## Phase 6 — video_generate.py VEO migration
+## Phase 6 - video_generate.py VEO migration
 
 ### Task 20: Remove `import _vertex_backend` + `_select_backend` simplification
 
 **Files:**
 - Modify: `skills/create-video/scripts/video_generate.py`
 
-**Context:** `video_generate.py` currently has three backend paths: Gemini API (text-to-video via preview), Vertex AI (VEO + scene extension), Replicate (Kling + now VEO). After B, Vertex is gone — path simplifies to Gemini API + Replicate only.
+**Context:** `video_generate.py` currently has three backend paths: Gemini API (text-to-video via preview), Vertex AI (VEO + scene extension), Replicate (Kling + now VEO). After B, Vertex is gone - path simplifies to Gemini API + Replicate only.
 
 - [ ] **Step 1: Find the Vertex references**
 
@@ -2463,7 +2463,7 @@ Before `_select_backend`, add:
 ```python
 # v4.2.1: Vertex retirement. Map legacy Vertex model IDs to their Replicate
 # equivalents so users passing --backend vertex-ai + Vertex-style model names
-# continue to work (with a deprecation warning). The mapping is empirical —
+# continue to work (with a deprecation warning). The mapping is empirical -
 # Vertex used '-generate-001' suffixes; Replicate uses path-style slugs.
 _VERTEX_TO_REPLICATE_SLUG: dict[str, str] = {
     "veo-3.1-generate-001":         "google/veo-3.1",
@@ -2555,7 +2555,7 @@ import _vertex_backend as vertex  # noqa: E402
 
 (Plus any surrounding comment block explaining why it's imported.)
 
-Delete the line and its comment. The `sys.path.insert` that preceded it can stay — other modules in the same directory may be imported the same way.
+Delete the line and its comment. The `sys.path.insert` that preceded it can stay - other modules in the same directory may be imported the same way.
 
 - [ ] **Step 7: Delete all `vertex.*` call sites**
 
@@ -2699,14 +2699,14 @@ tier balance of cost/quality). Removed in v4.3.0."
 
 ---
 
-## Phase 7 — setup_mcp.py Vertex removal
+## Phase 7 - setup_mcp.py Vertex removal
 
 ### Task 22: Remove Vertex CLI flags from setup_mcp.py
 
 **Files:**
 - Modify: `skills/create-image/scripts/setup_mcp.py`
 
-**Context:** The v4.2.0 config migration shim (`migrate_config_to_v4_2_0`) already reads legacy `vertex_*` keys into `providers.vertex.*`. This shim stays — it ensures users upgrading from v4.1.x don't lose config. What this task removes is the CLI interface for SETTING up Vertex, not reading existing config.
+**Context:** The v4.2.0 config migration shim (`migrate_config_to_v4_2_0`) already reads legacy `vertex_*` keys into `providers.vertex.*`. This shim stays - it ensures users upgrading from v4.1.x don't lose config. What this task removes is the CLI interface for SETTING up Vertex, not reading existing config.
 
 - [ ] **Step 1: Find Vertex CLI arguments and setup function**
 
@@ -2725,7 +2725,7 @@ If there's a `setup_vertex()` or similar function, delete it entirely. It's unre
 
 - [ ] **Step 4: Preserve the migration shim**
 
-`migrate_config_to_v4_2_0()` MUST stay — it's the graceful-upgrade path. It reads the old `vertex_*` keys and copies them to `providers.vertex.*` in the config. Nothing in v4.2.1 consumes `providers.vertex.*` at runtime, but the keys persist harmlessly for users who might roll back.
+`migrate_config_to_v4_2_0()` MUST stay - it's the graceful-upgrade path. It reads the old `vertex_*` keys and copies them to `providers.vertex.*` in the config. Nothing in v4.2.1 consumes `providers.vertex.*` at runtime, but the keys persist harmlessly for users who might roll back.
 
 Verify the migration function is intact:
 
@@ -2749,7 +2749,7 @@ Expected: help prints without `--vertex-*` flags listed.
 python3 -m unittest tests.test_setup_mcp_migration -v 2>&1 | tail -10
 ```
 
-Expected: all 7 migration tests still pass — the shim is unchanged.
+Expected: all 7 migration tests still pass - the shim is unchanged.
 
 - [ ] **Step 7: Commit**
 
@@ -2758,14 +2758,14 @@ git add skills/create-image/scripts/setup_mcp.py
 git commit -m "refactor: remove Vertex CLI flags from setup_mcp.py
 
 Deleted --vertex-api-key, --vertex-project, --vertex-location arguments
-and any setup_vertex() helper. migrate_config_to_v4_2_0() retained —
+and any setup_vertex() helper. migrate_config_to_v4_2_0() retained -
 old vertex_* keys still migrate to providers.vertex.* for graceful
 upgrade. Nothing consumes providers.vertex.* at runtime in v4.2.1+."
 ```
 
 ---
 
-## Phase 8 — Delete `_vertex_backend.py`
+## Phase 8 - Delete `_vertex_backend.py`
 
 ### Task 23: Final grep + delete
 
@@ -2818,7 +2818,7 @@ Expected: every script prints help text. No import errors.
 python3 -m unittest discover tests 2>&1 | tail -3
 ```
 
-Expected: ~109+ tests pass (same count as before — deletion doesn't change test count, but confirms no import breakage).
+Expected: ~109+ tests pass (same count as before - deletion doesn't change test count, but confirms no import breakage).
 
 - [ ] **Step 6: Verify pycache cleanup**
 
@@ -2833,7 +2833,7 @@ Expected: no matches (pycache for the deleted file cleaned up; gitignore keeps t
 
 ```bash
 git add -A
-git commit -m "refactor: delete _vertex_backend.py (958 lines) — Vertex AI retired
+git commit -m "refactor: delete _vertex_backend.py (958 lines) - Vertex AI retired
 
 Every consumer of _vertex_backend.py was migrated to ReplicateBackend
 in prior commits (video_generate.py, audio_pipeline.py). The file is
@@ -2849,7 +2849,7 @@ Vertex AI is entirely removed from the plugin."
 
 ---
 
-## Phase 9 — Reference documentation
+## Phase 9 - Reference documentation
 
 ### Task 24: Replace `references/models/veo-3.1.md` placeholder
 
@@ -2863,7 +2863,7 @@ The v4.2.0 release shipped `references/models/veo-3.1.md` as a placeholder. Repl
 ```markdown
 # Google VEO 3.1 (canonical model IDs: `veo-3.1-lite` / `veo-3.1-fast` / `veo-3.1`)
 
-**Status:** Registered and reachable via Replicate. NOT the default — Kling v3 remains the video family default per the v3.8.0 spike 5 quality verdict. VEO is opt-in backup via `--provider replicate --model veo-3.1-{lite,fast,}`. A post-sub-project-C bake-off will re-evaluate the Kling-vs-VEO default in light of v4.2.1's corrected Kling pricing.
+**Status:** Registered and reachable via Replicate. NOT the default - Kling v3 remains the video family default per the v3.8.0 spike 5 quality verdict. VEO is opt-in backup via `--provider replicate --model veo-3.1-{lite,fast,}`. A post-sub-project-C bake-off will re-evaluate the Kling-vs-VEO default in light of v4.2.1's corrected Kling pricing.
 
 **Hosting providers:** Replicate (all three tiers). Vertex AI retired in v4.2.1.
 
@@ -2878,24 +2878,24 @@ The v4.2.0 release shipped `references/models/veo-3.1.md` as a placeholder. Repl
 ## Canonical constraints (enforced pre-HTTP)
 
 All three tiers:
-- `duration_s` ∈ {4, 6, 8} — enum, not range
-- `aspect_ratio` ∈ {`16:9`, `9:16`} — no 1:1 support
+- `duration_s` ∈ {4, 6, 8} - enum, not range
+- `aspect_ratio` ∈ {`16:9`, `9:16`} - no 1:1 support
 - `resolution` ∈ {`720p`, `1080p`} for Lite/Fast; Standard adds `4K`
 
-**Lite-specific conditional:** `resolution=1080p` requires `duration_s=8`. NOT machine-enforced by `_canonical.py` in v4.2.1 — Replicate's server-side rejection is the safety net. Documented in the registry entry's `canonical_constraints.conditional` field.
+**Lite-specific conditional:** `resolution=1080p` requires `duration_s=8`. NOT machine-enforced by `_canonical.py` in v4.2.1 - Replicate's server-side rejection is the safety net. Documented in the registry entry's `canonical_constraints.conditional` field.
 
 ## Pricing breakdown
 
-**VEO 3.1 Lite** — `per_second_by_resolution` mode:
+**VEO 3.1 Lite** - `per_second_by_resolution` mode:
 - 720p: $0.05/s
 - 1080p: $0.08/s (requires 8s duration)
-- Audio is always on — no without-audio variant
+- Audio is always on - no without-audio variant
 
-**VEO 3.1 Fast** — `per_second_by_audio` mode:
+**VEO 3.1 Fast** - `per_second_by_audio` mode:
 - With audio: $0.15/s
 - Without audio: $0.10/s
 
-**VEO 3.1 Standard** — `per_second_by_audio` mode:
+**VEO 3.1 Standard** - `per_second_by_audio` mode:
 - With audio: $0.40/s
 - Without audio: $0.20/s
 
@@ -2942,7 +2942,7 @@ git commit -m "docs: replace VEO 3.1 placeholder with real content
 Full capability + pricing + constraint documentation for all three
 tiers (Lite / Fast / Standard). Includes the corrected cost
 comparison showing VEO Lite is ~4x cheaper than Kling at 1080p with
-audio — inverting the v3.8.0 narrative. Queues re-evaluation for
+audio - inverting the v3.8.0 narrative. Queues re-evaluation for
 post-sub-project-C bake-off."
 ```
 
@@ -2954,17 +2954,17 @@ post-sub-project-C bake-off."
 ```markdown
 # Google Lyria 2 (canonical model ID: `lyria-2`)
 
-**Status:** Registered for `--music-source lyria --lyria-version 2` and for auto-selection when `--negative-prompt` is provided. NOT the default — Lyria 3 Clip is the within-Lyria default as of v4.2.1 (cheaper + newer).
+**Status:** Registered for `--music-source lyria --lyria-version 2` and for auto-selection when `--negative-prompt` is provided. NOT the default - Lyria 3 Clip is the within-Lyria default as of v4.2.1 (cheaper + newer).
 
 **Hosting providers:** Replicate (`google/lyria-2`). Vertex retired in v4.2.1.
 
 ## What makes it unique
 
-Lyria 2 is the only Lyria variant on Replicate that accepts `negative_prompt`. This was the v3.8.3 justification for keeping Lyria in the plugin after ElevenLabs Music won the 12-genre bake-off — `negative_prompt` is Lyria 2's differentiator vs ElevenLabs Music (which has no equivalent exclusion param).
+Lyria 2 is the only Lyria variant on Replicate that accepts `negative_prompt`. This was the v3.8.3 justification for keeping Lyria in the plugin after ElevenLabs Music won the 12-genre bake-off - `negative_prompt` is Lyria 2's differentiator vs ElevenLabs Music (which has no equivalent exclusion param).
 
 ## Canonical constraints
 
-- `duration_fixed_s: 30` — every Lyria 2 clip is exactly 30 seconds. Use `generate_music_lyria_extended` for longer tracks (chains N clips with FFmpeg crossfade).
+- `duration_fixed_s: 30` - every Lyria 2 clip is exactly 30 seconds. Use `generate_music_lyria_extended` for longer tracks (chains N clips with FFmpeg crossfade).
 
 ## Supported canonical params
 
@@ -2999,7 +2999,7 @@ Users can force Lyria 2 even without `--negative-prompt` via `--lyria-version 2`
 - Create: `references/models/lyria-3.md`
 
 ```markdown
-# Google Lyria 3 — Clip variant (canonical model ID: `lyria-3`)
+# Google Lyria 3 - Clip variant (canonical model ID: `lyria-3`)
 
 **Status:** Default within Lyria family as of v4.2.1. Used when `--music-source lyria` is set and the prompt does NOT trigger auto-routing to Lyria 3 Pro (no song-structure tags) and no `--negative-prompt` is set.
 
@@ -3021,7 +3021,7 @@ Users can force Lyria 2 even without `--negative-prompt` via `--lyria-version 2`
 ## Supported canonical params
 
 - `prompt` (required)
-- `reference_images` (0–10 images; NEW vs Lyria 2)
+- `reference_images` (0-10 images; NEW vs Lyria 2)
 
 **NOT supported:** `negative_prompt`, `seed`
 
@@ -3034,7 +3034,7 @@ Users can force Lyria 2 even without `--negative-prompt` via `--lyria-version 2`
 ## Prompting tips
 
 - Be specific: genre, instruments, BPM, key, mood
-- Use `[Verse]`, `[Chorus]`, `[Bridge]` tags to suggest structure — but note that a 30s clip has limited room for structure, so Pro is better for multi-section songs
+- Use `[Verse]`, `[Chorus]`, `[Bridge]` tags to suggest structure - but note that a 30s clip has limited room for structure, so Pro is better for multi-section songs
 - Explicit "Instrumental only, no vocals" vetoes vocal generation
 
 ## Cost comparison
@@ -3042,9 +3042,9 @@ Users can force Lyria 2 even without `--negative-prompt` via `--lyria-version 2`
 | Variant | Cost | Duration | Best for |
 |---|---|---|---|
 | Lyria 2 | $0.06 | 30s | `negative_prompt` workflows |
-| **Lyria 3 Clip** | **$0.04** | **30s** | **Default — short instrumental music, reference-image workflows** |
+| **Lyria 3 Clip** | **$0.04** | **30s** | **Default - short instrumental music, reference-image workflows** |
 | Lyria 3 Pro | $0.08 | up to 3 min | Full songs with structure / lyrics |
-| ElevenLabs Music | subscription | 3s–5 min | Plugin default (won 12-0 bake-off); vocals + finetunes |
+| ElevenLabs Music | subscription | 3s - 5 min | Plugin default (won 12-0 bake-off); vocals + finetunes |
 
 ## Authoritative source
 
@@ -3061,7 +3061,7 @@ Users can force Lyria 2 even without `--negative-prompt` via `--lyria-version 2`
 ```markdown
 # Google Lyria 3 Pro (canonical model ID: `lyria-3-pro`)
 
-**Status:** Registered for opt-in and auto-routed use. NOT the default — ElevenLabs Music is the overall music default; Lyria 3 Clip is the within-Lyria default. Pro is auto-selected when user passes `--music-source lyria` with a prompt containing song-structure markers, AND confirms via `--confirm-upgrade` flag.
+**Status:** Registered for opt-in and auto-routed use. NOT the default - ElevenLabs Music is the overall music default; Lyria 3 Clip is the within-Lyria default. Pro is auto-selected when user passes `--music-source lyria` with a prompt containing song-structure markers, AND confirms via `--confirm-upgrade` flag.
 
 **Hosting providers:** Replicate (`google/lyria-3-pro`).
 
@@ -3081,12 +3081,12 @@ A full-song generator, not just a clip. Produces structured tracks up to ~3 minu
 
 ## Canonical constraints
 
-- `duration_max_s: 180` — aspirational; Google's model card says duration is "influenced by prompting" rather than strictly controlled.
+- `duration_max_s: 180` - aspirational; Google's model card says duration is "influenced by prompting" rather than strictly controlled.
 
 ## Supported canonical params
 
 - `prompt` (required; contains the song structure, lyrics, and tempo/style direction)
-- `reference_images` (0–10 images)
+- `reference_images` (0-10 images)
 
 **NOT supported:** `negative_prompt`, `seed`
 
@@ -3104,7 +3104,7 @@ Without `--confirm-upgrade`, the auto-detection raises `LyriaUpgradeGateError` w
 
 ## Pricing
 
-`per_call` mode, $0.08 per file (up to ~3 min). Effective per-second rate for a full 3-minute song: ~$0.00044/s — dramatically cheaper than Lyria 3 Clip at per-second rates, but per-file pricing means short songs don't get a discount.
+`per_call` mode, $0.08 per file (up to ~3 min). Effective per-second rate for a full 3-minute song: ~$0.00044/s - dramatically cheaper than Lyria 3 Clip at per-second rates, but per-file pricing means short songs don't get a discount.
 
 ## Prompting tips (from the Google model card)
 
@@ -3145,25 +3145,25 @@ Without `--confirm-upgrade`, the auto-detection raises `LyriaUpgradeGateError` w
 
 **Status:** Overall music default (via `family_defaults.music` in the registry). Won the v3.8.3 12-genre blind A/B bake-off vs Lyria 2 with a 12-0 sweep. Used when user invokes music generation without `--music-source lyria`.
 
-**Hosting providers:** ElevenLabs (`(direct)` sentinel slug). NOT routed through `ReplicateBackend` yet — `audio_pipeline.py` calls the ElevenLabs API directly via the existing helpers. Registered in the model registry so `family_defaults.music` has a target and the multi-model principle is upheld.
+**Hosting providers:** ElevenLabs (`(direct)` sentinel slug). NOT routed through `ReplicateBackend` yet - `audio_pipeline.py` calls the ElevenLabs API directly via the existing helpers. Registered in the model registry so `family_defaults.music` has a target and the multi-model principle is upheld.
 
 ## Capabilities
 
 - Vocals and/or instrumental (toggled via prompt)
 - Lyrics editing per-section or whole-song
 - Multilingual: English, Spanish, German, Japanese, and more
-- Duration 3–5 minutes (wider range than any Lyria variant)
-- **Music Finetunes** — fine-tune the model on your own tracks for brand consistency (Enterprise tier: IP-protected training)
+- Duration 3-5 minutes (wider range than any Lyria variant)
+- **Music Finetunes** - fine-tune the model on your own tracks for brand consistency (Enterprise tier: IP-protected training)
 - Curated Finetunes for global genres (Afro House, more)
-- **Variant generation**: the ElevenLabs web app generates 1–4 variants from a single prompt. API support unconfirmed as of v4.2.1 — flagged for investigation when ElevenLabs is refactored into a `ProviderBackend`.
+- **Variant generation**: the ElevenLabs web app generates 1-4 variants from a single prompt. API support unconfirmed as of v4.2.1 - flagged for investigation when ElevenLabs is refactored into a `ProviderBackend`.
 
 ## Canonical constraints
 
-- `duration_ms: {min: 3000, max: 300000}` — 3 seconds to 5 minutes
+- `duration_ms: {min: 3000, max: 300000}` - 3 seconds to 5 minutes
 
 ## Pricing
 
-`subscription` mode — billed against the user's ElevenLabs subscription, not per-call USD. `cost_tracker.py` logs usage with $0 per-call cost; dollar totals come from the ElevenLabs dashboard.
+`subscription` mode - billed against the user's ElevenLabs subscription, not per-call USD. `cost_tracker.py` logs usage with $0 per-call cost; dollar totals come from the ElevenLabs dashboard.
 
 ## When to use
 
@@ -3204,27 +3204,27 @@ A 4-way listening-test bake-off comparing ElevenLabs Music vs Lyria 3 Clip vs Ly
 Find the "hosted models" section (or "pricing modes" section). Append:
 
 ```markdown
-## v4.2.1 additions — VEO 3.1 + Lyria family
+## v4.2.1 additions - VEO 3.1 + Lyria family
 
 ### VEO 3.1 (all three tiers)
-- `google/veo-3.1-lite` — pricing mode `per_second_by_resolution`; $0.05/s (720p) or $0.08/s (1080p, 8s req'd); audio always on
-- `google/veo-3.1-fast` — pricing mode `per_second_by_audio`; $0.15/s (with audio) or $0.10/s (without)
-- `google/veo-3.1` — pricing mode `per_second_by_audio`; $0.40/s (with audio) or $0.20/s (without); 4K output + video extension
+- `google/veo-3.1-lite` - pricing mode `per_second_by_resolution`; $0.05/s (720p) or $0.08/s (1080p, 8s req'd); audio always on
+- `google/veo-3.1-fast` - pricing mode `per_second_by_audio`; $0.15/s (with audio) or $0.10/s (without)
+- `google/veo-3.1` - pricing mode `per_second_by_audio`; $0.40/s (with audio) or $0.20/s (without); 4K output + video extension
 
 ### Lyria family
-- `google/lyria-2` — `per_call` $0.06; 30s fixed; negative_prompt + seed supported
-- `google/lyria-3` — `per_call` $0.04; 30s fixed; reference_images supported (up to 10)
-- `google/lyria-3-pro` — `per_call` $0.08; up to 3 min; structure tags + custom lyrics + timestamp control
+- `google/lyria-2` - `per_call` $0.06; 30s fixed; negative_prompt + seed supported
+- `google/lyria-3` - `per_call` $0.04; 30s fixed; reference_images supported (up to 10)
+- `google/lyria-3-pro` - `per_call` $0.08; up to 3 min; structure tags + custom lyrics + timestamp control
 
 ## v4.2.1 pricing corrections
 
-Kling v3 Video and Kling v3 Omni were originally seeded with `per_second: $0.02/s` in v4.2.0 — an outdated figure carried forward from `cost_tracker.py`. v4.2.1 corrects both with the verified Replicate rates:
+Kling v3 Video and Kling v3 Omni were originally seeded with `per_second: $0.02/s` in v4.2.0 - an outdated figure carried forward from `cost_tracker.py`. v4.2.1 corrects both with the verified Replicate rates:
 
-- `kwaivgi/kling-v3-video` — `per_second_by_resolution_and_audio`
+- `kwaivgi/kling-v3-video` - `per_second_by_resolution_and_audio`
   - 720p: $0.168/s (no-audio) | $0.252/s (with-audio)
   - 1080p: $0.224/s (no-audio) | $0.336/s (with-audio)
 
-- `kwaivgi/kling-v3-omni-video` — `per_second_by_resolution_and_audio` (slightly cheaper on audio than v3 Video)
+- `kwaivgi/kling-v3-omni-video` - `per_second_by_resolution_and_audio` (slightly cheaper on audio than v3 Video)
   - 720p: $0.168/s (no-audio) | $0.224/s (with-audio)
   - 1080p: $0.224/s (no-audio) | $0.28/s (with-audio)
 
@@ -3256,9 +3256,9 @@ per_second_by_resolution_and_audio)."
 
 ---
 
-## Phase 10 — Meta-documentation updates
+## Phase 10 - Meta-documentation updates
 
-### Task 30: Update `CLAUDE.md` — key constraints + architecture notes
+### Task 30: Update `CLAUDE.md` - key constraints + architecture notes
 
 **Files:**
 - Modify: `CLAUDE.md`
@@ -3268,21 +3268,21 @@ per_second_by_resolution_and_audio)."
 Find the bottom of the `## Key constraints` section. Append:
 
 ```markdown
-- **v4.2.1 Vertex retirement complete.** `skills/create-video/scripts/_vertex_backend.py` is deleted. VEO 3.1 (Lite/Fast/Standard) routes through `ReplicateBackend` via `google/veo-3.1-*` slugs. Lyria 2 → Lyria 3 upgraded as the within-Lyria default, with Lyria 2 and Lyria 3 Pro also registered. Audio_pipeline.py's Lyria code routes through `ReplicateBackend`; ElevenLabs code paths are untouched. The config migration shim in `setup_mcp.py` still reads legacy `vertex_*` keys (harmless — nothing consumes them).
+- **v4.2.1 Vertex retirement complete.** `skills/create-video/scripts/_vertex_backend.py` is deleted. VEO 3.1 (Lite/Fast/Standard) routes through `ReplicateBackend` via `google/veo-3.1-*` slugs. Lyria 2 → Lyria 3 upgraded as the within-Lyria default, with Lyria 2 and Lyria 3 Pro also registered. Audio_pipeline.py's Lyria code routes through `ReplicateBackend`; ElevenLabs code paths are untouched. The config migration shim in `setup_mcp.py` still reads legacy `vertex_*` keys (harmless - nothing consumes them).
 
-- **v4.2.1 multi-model principle codified.** Every model family in the registry MUST register at least 2 models. Rationale: every previous default has been dethroned eventually (v3.8.0 Kling dethroned VEO; v3.8.3 ElevenLabs dethroned Lyria), so pre-registering alternatives means "new default" is a registry-entry change, not a code change. Image family currently has only one text-to-image model (nano-banana-2) — will get a second in sub-project C when Kie.ai brings Imagen/Seedream/Flux.
+- **v4.2.1 multi-model principle codified.** Every model family in the registry MUST register at least 2 models. Rationale: every previous default has been dethroned eventually (v3.8.0 Kling dethroned VEO; v3.8.3 ElevenLabs dethroned Lyria), so pre-registering alternatives means "new default" is a registry-entry change, not a code change. Image family currently has only one text-to-image model (nano-banana-2) - will get a second in sub-project C when Kie.ai brings Imagen/Seedream/Flux.
 
 - **v4.2.1 Lyria auto-routing rule.** Within the Lyria family, `audio_pipeline.py::resolve_lyria_version()` picks Lyria 2 / 3 / 3-Pro based on flags + prompt content. Precedence: explicit `--lyria-version` > `--negative-prompt` (routes to Lyria 2) > `detect_lyrics_intent(prompt)` (routes to Lyria 3 Pro, requires `--confirm-upgrade`) > default Lyria 3 Clip. Auto-upgrade to Pro is HARD-GATED: without `--confirm-upgrade`, the pipeline aborts with a 3-option help message. Prevents silent 2x cost surprises.
 
-- **v4.2.1 Kling pricing correction.** The v4.2.0 registry seeded Kling v3 with `per_second: $0.02/s` — incorrect (outdated source). Actual rates are 10-17x higher. v4.2.1 corrects to `per_second_by_resolution_and_audio` mode with verified rates from `dev-docs/kwaivgi-kling-v3-video-llms.md`. Kling v3 Omni rates similarly corrected (slightly cheaper on audio). This inverts the v3.8.0 "Kling 7.5x cheaper than VEO" claim — at verified rates, VEO Lite is ~4x cheaper than Kling at 1080p with audio. Queued: post-sub-project-C re-evaluation bake-off.
+- **v4.2.1 Kling pricing correction.** The v4.2.0 registry seeded Kling v3 with `per_second: $0.02/s` - incorrect (outdated source). Actual rates are 10-17x higher. v4.2.1 corrects to `per_second_by_resolution_and_audio` mode with verified rates from `dev-docs/kwaivgi-kling-v3-video-llms.md`. Kling v3 Omni rates similarly corrected (slightly cheaper on audio). This inverts the v3.8.0 "Kling 7.5x cheaper than VEO" claim - at verified rates, VEO Lite is ~4x cheaper than Kling at 1080p with audio. Queued: post-sub-project-C re-evaluation bake-off.
 
 - **v4.2.1 three new pricing modes** in `cost_tracker.py`:
-  - `per_second_by_resolution` — keyed by resolution string (VEO Lite)
-  - `per_second_by_audio` — keyed by audio_enabled bool (VEO Fast + Standard)
-  - `per_second_by_resolution_and_audio` — two-dimensional (Kling v3 + v3 Omni)
+  - `per_second_by_resolution` - keyed by resolution string (VEO Lite)
+  - `per_second_by_audio` - keyed by audio_enabled bool (VEO Fast + Standard)
+  - `per_second_by_resolution_and_audio` - two-dimensional (Kling v3 + v3 Omni)
   Callers pass `resolution`, `audio_enabled`, and `duration_s` as kwargs to `cost_tracker._lookup_cost()`.
 
-- **v4.2.1 canonical schema extension.** `scripts/backends/_canonical.py::validate_canonical_params` now accepts `duration_s: {enum: [...]}` as an alternative to `{min, max, integer}`. VEO uses enum `{4, 6, 8}`; Kling/Fabric/DreamActor continue using range. Mutually exclusive — backend picks based on which key is present.
+- **v4.2.1 canonical schema extension.** `scripts/backends/_canonical.py::validate_canonical_params` now accepts `duration_s: {enum: [...]}` as an alternative to `{min, max, integer}`. VEO uses enum `{4, 6, 8}`; Kling/Fabric/DreamActor continue using range. Mutually exclusive - backend picks based on which key is present.
 
 - **v4.2.1 per-model param filtering in ReplicateBackend.** When a canonical request carries params that the specific model doesn't support (e.g., `negative_prompt` passed to Lyria 3), `_filter_unsupported_params()` silently drops them and logs a WARN via `_logger`. Callers can pass rich canonical payloads without knowing every model's exact surface. Drop table is `_MODEL_PARAM_DROPS` in `scripts/backends/_replicate.py`.
 ```
@@ -3299,7 +3299,7 @@ Find the file responsibilities table (starts around line 67 in CLAUDE.md). Updat
 
 - UPDATE the row for `scripts/backends/_replicate.py`: "Replicate provider backend. v4.2.1 adds the `music-generation` task for Lyria routing and per-model param filtering via `_MODEL_PARAM_DROPS`. VEO 3.1 tiers route here after v4.2.1 Vertex retirement."
 
-- UPDATE the row for `skills/create-video/scripts/audio_pipeline.py`: "v4.2.1 — Lyria code refactored to route through `ReplicateBackend`. New helpers: `detect_lyrics_intent()`, `resolve_lyria_version()`, `LyriaUpgradeGateError`. New CLI flags: `--lyria-version {2,3,3-pro}`, `--confirm-upgrade`. ElevenLabs code paths untouched."
+- UPDATE the row for `skills/create-video/scripts/audio_pipeline.py`: "v4.2.1 - Lyria code refactored to route through `ReplicateBackend`. New helpers: `detect_lyrics_intent()`, `resolve_lyria_version()`, `LyriaUpgradeGateError`. New CLI flags: `--lyria-version {2,3,3-pro}`, `--confirm-upgrade`. ElevenLabs code paths untouched."
 
 - [ ] **Step 3: Commit**
 
@@ -3327,38 +3327,38 @@ changes to _canonical.py, _replicate.py, and audio_pipeline.py."
 Before the `## Expansion Roadmap` section, above Session 24, add:
 
 ```markdown
-### Session 25 (2026-04-23 → YYYY-MM-DD, continuing from Session 24) — v4.2.1 Sub-Project B: Vertex Retirement + Lyria 3 Upgrade
+### Session 25 (2026-04-23 → YYYY-MM-DD, continuing from Session 24) - v4.2.1 Sub-Project B: Vertex Retirement + Lyria 3 Upgrade
 
 **Scope**: Finish the Vertex AI retirement started in v4.2.0. Delete `_vertex_backend.py` (958 lines). Route VEO 3.1 (all three tiers) through `ReplicateBackend` via `google/veo-3.1-*` slugs. Migrate `audio_pipeline.py` Lyria code from inline Vertex URL construction to `ReplicateBackend.submit()`. Upgrade Lyria 2 → Lyria 3 as within-Lyria default. Keep Lyria 2 registered for `negative_prompt` workflows. Add Lyria 3 Pro as a first-class model for full-song generation. Register ElevenLabs Music in the registry (with `(direct)` sentinel slug) to honor the multi-model principle even though ElevenLabs isn't yet a `ProviderBackend`.
 
-**Design process**: 1 round of scope refinement in brainstorming session (spec at `docs/superpowers/specs/2026-04-23-subproject-b-vertex-retirement-lyria-upgrade-design.md`, 4 iterations). User confirmed the full Vertex+Lyria scope (not just VEO), the `--confirm-upgrade` hard-gate for auto-routing, and the multi-model principle. Kling v3 pricing correction surfaced during the spec review when the user shared `dev-docs/kwaivgi-kling-v3-video-llms.md` — the registry's `$0.02/s` figure was wrong; actual rates are 10-17x higher.
+**Design process**: 1 round of scope refinement in brainstorming session (spec at `docs/superpowers/specs/2026-04-23-subproject-b-vertex-retirement-lyria-upgrade-design.md`, 4 iterations). User confirmed the full Vertex+Lyria scope (not just VEO), the `--confirm-upgrade` hard-gate for auto-routing, and the multi-model principle. Kling v3 pricing correction surfaced during the spec review when the user shared `dev-docs/kwaivgi-kling-v3-video-llms.md` - the registry's `$0.02/s` figure was wrong; actual rates are 10-17x higher.
 
 **What shipped**:
 
-1. `scripts/backends/_canonical.py` — new `duration_s.enum` validator shape
-2. `skills/create-image/scripts/cost_tracker.py` — three new pricing modes:
+1. `scripts/backends/_canonical.py` - new `duration_s.enum` validator shape
+2. `skills/create-image/scripts/cost_tracker.py` - three new pricing modes:
    `per_second_by_resolution`, `per_second_by_audio`,
    `per_second_by_resolution_and_audio`. `_lookup_cost()` signature
    extended with `duration_s` and `audio_enabled` kwargs.
-3. `scripts/registry/models.json` — 7 new entries (VEO x3, Lyria x3, ElevenLabs Music) + 2 pricing corrections (Kling v3, v3 Omni) + `family_defaults.music = "elevenlabs-music"`.
-4. `scripts/backends/_replicate.py` — `_TASK_PARAM_MAPS` gains `music-generation`; new `_MODEL_PARAM_DROPS` table drives per-model param filtering with WARN logging.
-5. `skills/create-video/scripts/audio_pipeline.py` — `generate_music_lyria` + `generate_music_lyria_extended` refactored to use `ReplicateBackend`. New helpers: `detect_lyrics_intent()`, `resolve_lyria_version()`, `LyriaUpgradeGateError`. New CLI flags: `--lyria-version {2,3,3-pro}`, `--confirm-upgrade`.
-6. `skills/create-video/scripts/video_generate.py` — Vertex import removed; `_select_backend()` simplified to `gemini`/`replicate`; `--backend vertex-ai` deprecated with auto-routing to Replicate; legacy Vertex model IDs (`veo-3.1-generate-001` etc.) auto-translate to Replicate slugs with deprecation warning.
-7. `skills/create-image/scripts/setup_mcp.py` — Vertex CLI flags removed (`--vertex-api-key`, `--vertex-project`, `--vertex-location`). Migration shim for old config keys preserved.
-8. `skills/create-video/scripts/_vertex_backend.py` — DELETED (958 lines).
+3. `scripts/registry/models.json` - 7 new entries (VEO x3, Lyria x3, ElevenLabs Music) + 2 pricing corrections (Kling v3, v3 Omni) + `family_defaults.music = "elevenlabs-music"`.
+4. `scripts/backends/_replicate.py` - `_TASK_PARAM_MAPS` gains `music-generation`; new `_MODEL_PARAM_DROPS` table drives per-model param filtering with WARN logging.
+5. `skills/create-video/scripts/audio_pipeline.py` - `generate_music_lyria` + `generate_music_lyria_extended` refactored to use `ReplicateBackend`. New helpers: `detect_lyrics_intent()`, `resolve_lyria_version()`, `LyriaUpgradeGateError`. New CLI flags: `--lyria-version {2,3,3-pro}`, `--confirm-upgrade`.
+6. `skills/create-video/scripts/video_generate.py` - Vertex import removed; `_select_backend()` simplified to `gemini`/`replicate`; `--backend vertex-ai` deprecated with auto-routing to Replicate; legacy Vertex model IDs (`veo-3.1-generate-001` etc.) auto-translate to Replicate slugs with deprecation warning.
+7. `skills/create-image/scripts/setup_mcp.py` - Vertex CLI flags removed (`--vertex-api-key`, `--vertex-project`, `--vertex-location`). Migration shim for old config keys preserved.
+8. `skills/create-video/scripts/_vertex_backend.py` - DELETED (958 lines).
 9. Reference docs: `references/models/veo-3.1.md` (replaced placeholder with real content), new `lyria-2.md`, `lyria-3.md`, `lyria-3-pro.md`, `elevenlabs-music.md`. `references/providers/replicate.md` updated with VEO + Lyria + pricing modes.
 10. Tests: new `tests/test_lyria_migration.py` (15 tests for detect_lyrics_intent + resolve_lyria_version). New `tests/test_cost_tracker.py` (11 tests for the three new pricing modes). Extensions to `test_canonical.py`, `test_registry.py`, `test_replicate_backend.py`. Total: ~120 tests (up from 74).
 
 **Behavior changes for users**:
 
-- `--music-source lyria` without `--lyria-version` now produces output from **Lyria 3 Clip** (via Replicate) instead of Lyria 2 (via Vertex). Cost drops from $0.06 to $0.04 per 30s clip. User may notice subtle quality difference — bake-off will quantify.
+- `--music-source lyria` without `--lyria-version` now produces output from **Lyria 3 Clip** (via Replicate) instead of Lyria 2 (via Vertex). Cost drops from $0.06 to $0.04 per 30s clip. User may notice subtle quality difference - bake-off will quantify.
 - `--music-source lyria --negative-prompt "drums"` auto-selects Lyria 2 (only variant that accepts `negative_prompt`). Keeps the exclusion feature alive.
-- `--music-source lyria` with a prompt containing `[Verse]`, `[Chorus]`, or timestamp ranges aborts with a `LyriaUpgradeGateError` unless `--confirm-upgrade` is passed. Auto-routing would use Lyria 3 Pro at 2x the cost of Clip — user has to acknowledge explicitly.
+- `--music-source lyria` with a prompt containing `[Verse]`, `[Chorus]`, or timestamp ranges aborts with a `LyriaUpgradeGateError` unless `--confirm-upgrade` is passed. Auto-routing would use Lyria 3 Pro at 2x the cost of Clip - user has to acknowledge explicitly.
 - `--provider veo` still works but logs deprecation; routes through Replicate via `google/veo-3.1-fast`. Removed in v4.3.0.
 - `--backend vertex-ai` same behavior. Removed in v4.3.0.
 - Users with Vertex config (`vertex_api_key`, etc. in `~/.banana/config.json`) see zero errors. Keys are migrated to `providers.vertex.*` by the v4.2.0 shim and harmlessly ignored.
 
-**Surprise finding — Kling pricing inversion**:
+**Surprise finding - Kling pricing inversion**:
 
 The v3.8.0 spike 5 narrative was "Kling v3 is 7.5x cheaper than VEO at comparable quality." That claim was based on `$0.02/s` for Kling, which turned out to be wrong (carried forward from an outdated source). At verified Replicate rates:
 
@@ -3388,14 +3388,14 @@ git commit -m "docs: add PROGRESS.md Session 25 entry for v4.2.1"
 
 - [ ] **Step 1: Mark sub-project B as shipped + add new queued items**
 
-Find the row for `10n-B | v4.2.1 — **Vertex retirement ...` in the Priority Summary table. Change its status column from `**Next**` to `**✅ Shipped 2026-04-XX**` (fill in actual date).
+Find the row for `10n-B | v4.2.1 - **Vertex retirement ...` in the Priority Summary table. Change its status column from `**Next**` to `**✅ Shipped 2026-04-XX**` (fill in actual date).
 
 Find row `10k-omg` / `10n-B` (wherever sub-project B is tracked) and add a follow-up row below it:
 
 ```markdown
-| 10n-B-bake | v4.3.x+ — **Kling v3 vs VEO 3.1 Lite bake-off re-evaluation**. Triggered by v4.2.1 pricing correction: at verified rates, VEO Lite is ~4x CHEAPER than Kling at 1080p with audio. Original v3.8.0 spike 5 scoreboard assumed Kling was cheaper; with that premise inverted, a fresh 15-shot-type quality comparison is justified. Possible outcomes: (a) Kling quality still wins decisively → keep default, note VEO Lite as cost-optimized opt-in; (b) VEO Lite quality within 1-2 shots → flip default; (c) VEO Lite wins outright → flip default and promote to primary. | Medium | Medium | Queued (post-C) |
-| 10n-C-music-bake | v4.3.x+ — **4-way music bake-off post-Suno**. Contenders: ElevenLabs Music, Lyria 3 Clip, Lyria 3 Pro, Suno (Kie.ai). 2-part methodology: Part 1 instrumental × 12 genres; Part 2 full songs with lyrics × 6 archetypes. Ideal-prompt format per contender to avoid handicapping. Methodology carries v3.7.2 F13: subjective listening only, not benchmark scores. Depends on sub-project C shipping Suno access. | Medium | Medium | Queued (post-C) |
-| 10n-motion | v4.3.x+ — **Register Kling 3.0 motion-control**. `kwaivgi/kling-v3-motion-control` — transfers motion from a reference video onto a character from a reference image. $0.07/s (std) or $0.12/s (pro). Different canonical task shape than existing image-to-video; needs canonical-schema extension. Out of scope for B; registered as a future candidate. | Small | Low | Queued |
+| 10n-B-bake | v4.3.x+ - **Kling v3 vs VEO 3.1 Lite bake-off re-evaluation**. Triggered by v4.2.1 pricing correction: at verified rates, VEO Lite is ~4x CHEAPER than Kling at 1080p with audio. Original v3.8.0 spike 5 scoreboard assumed Kling was cheaper; with that premise inverted, a fresh 15-shot-type quality comparison is justified. Possible outcomes: (a) Kling quality still wins decisively → keep default, note VEO Lite as cost-optimized opt-in; (b) VEO Lite quality within 1-2 shots → flip default; (c) VEO Lite wins outright → flip default and promote to primary. | Medium | Medium | Queued (post-C) |
+| 10n-C-music-bake | v4.3.x+ - **4-way music bake-off post-Suno**. Contenders: ElevenLabs Music, Lyria 3 Clip, Lyria 3 Pro, Suno (Kie.ai). 2-part methodology: Part 1 instrumental × 12 genres; Part 2 full songs with lyrics × 6 archetypes. Ideal-prompt format per contender to avoid handicapping. Methodology carries v3.7.2 F13: subjective listening only, not benchmark scores. Depends on sub-project C shipping Suno access. | Medium | Medium | Queued (post-C) |
+| 10n-motion | v4.3.x+ - **Register Kling 3.0 motion-control**. `kwaivgi/kling-v3-motion-control` - transfers motion from a reference video onto a character from a reference image. $0.07/s (std) or $0.12/s (pro). Different canonical task shape than existing image-to-video; needs canonical-schema extension. Out of scope for B; registered as a future candidate. | Small | Low | Queued |
 ```
 
 - [ ] **Step 2: Commit**
@@ -3406,7 +3406,7 @@ git commit -m "docs: ROADMAP updates for v4.2.1 ship + post-C bake-off queue
 
 - Mark sub-project B (v4.2.1) as shipped
 - Queue Kling vs VEO Lite re-evaluation bake-off (triggered by v4.2.1
-  pricing correction — VEO Lite is now ~4x cheaper than Kling at
+  pricing correction - VEO Lite is now ~4x cheaper than Kling at
   comparable settings, inverting the v3.8.0 cost narrative)
 - Queue 4-way music bake-off (ElevenLabs / Lyria 3 Clip / Lyria 3 Pro /
   Suno) for post-sub-project-C
@@ -3415,7 +3415,7 @@ git commit -m "docs: ROADMAP updates for v4.2.1 ship + post-C bake-off queue
 
 ---
 
-## Phase 11 — Release (version bump → merge → tag → push → GitHub release)
+## Phase 11 - Release (version bump → merge → tag → push → GitHub release)
 
 ### Task 33: Version bump across 3 files
 
@@ -3468,61 +3468,61 @@ Below the intro paragraph, BEFORE the existing `## [4.2.0]` entry, add:
 
 ### Headline
 
-**Vertex AI retired. VEO 3.1 and Lyria 3 both on Replicate.** Sub-project B of the multi-provider roadmap. `_vertex_backend.py` deleted (958 lines). VEO 3.1 (all three tiers) routes through `ReplicateBackend` via `google/veo-3.1-*`. Lyria upgraded from Lyria 2 (Vertex) to Lyria 3 Clip (Replicate) as within-Lyria default — cheaper, newer, image-input support. Lyria 2 kept for `negative_prompt` workflows. Lyria 3 Pro registered for full-song generation. Zero user-visible behavior change for non-Vertex flows.
+**Vertex AI retired. VEO 3.1 and Lyria 3 both on Replicate.** Sub-project B of the multi-provider roadmap. `_vertex_backend.py` deleted (958 lines). VEO 3.1 (all three tiers) routes through `ReplicateBackend` via `google/veo-3.1-*`. Lyria upgraded from Lyria 2 (Vertex) to Lyria 3 Clip (Replicate) as within-Lyria default - cheaper, newer, image-input support. Lyria 2 kept for `negative_prompt` workflows. Lyria 3 Pro registered for full-song generation. Zero user-visible behavior change for non-Vertex flows.
 
 ### Added
 
 - **Three VEO 3.1 tiers** in the model registry: `veo-3.1-lite`, `veo-3.1-fast`, `veo-3.1`. All route through `ReplicateBackend`. Correct pricing per tier with resolution-keyed (Lite) and audio-keyed (Fast, Standard) modes.
 - **Three Lyria variants** in the model registry: `lyria-2` ($0.06/clip, 30s, negative_prompt), `lyria-3` ($0.04/clip, 30s, reference_images), `lyria-3-pro` ($0.08/file, up to 3 min, structure tags + custom lyrics + timestamp control).
-- **ElevenLabs Music** registered in the registry with `(direct)` sentinel slug — honoring the multi-model principle while the ElevenLabs backend refactor is deferred to a future sub-project.
+- **ElevenLabs Music** registered in the registry with `(direct)` sentinel slug - honoring the multi-model principle while the ElevenLabs backend refactor is deferred to a future sub-project.
 - **Three new pricing modes** in `cost_tracker.py`:
-  - `per_second_by_resolution` — keyed by resolution string
-  - `per_second_by_audio` — keyed by audio_enabled bool
-  - `per_second_by_resolution_and_audio` — two-dimensional
-- **Canonical schema extension** — `_canonical.py::validate_canonical_params` accepts `duration_s: {enum: [...]}` as an alternative to `{min, max, integer}`. VEO uses enum; Kling / Fabric / DreamActor continue using range.
+  - `per_second_by_resolution` - keyed by resolution string
+  - `per_second_by_audio` - keyed by audio_enabled bool
+  - `per_second_by_resolution_and_audio` - two-dimensional
+- **Canonical schema extension** - `_canonical.py::validate_canonical_params` accepts `duration_s: {enum: [...]}` as an alternative to `{min, max, integer}`. VEO uses enum; Kling / Fabric / DreamActor continue using range.
 - **`music-generation` task type** wired into `ReplicateBackend._TASK_PARAM_MAPS`. Canonical params: `prompt`, `negative_prompt`, `reference_images`, `seed`. Per-model filtering via `_MODEL_PARAM_DROPS` silently drops unsupported params with WARN log.
 - **Lyria auto-routing helpers** in `audio_pipeline.py`: `detect_lyrics_intent()`, `resolve_lyria_version()`, `LyriaUpgradeGateError`. Pattern-match song-structure markers to route between Lyria 3 Clip and Pro. Hard-gated via `--confirm-upgrade` flag to prevent silent 2x cost surprises.
 - **New CLI flags** on `audio_pipeline.py music` and `pipeline` subcommands:
-  - `--lyria-version {2,3,3-pro}` — force a specific Lyria variant
-  - `--confirm-upgrade` — acknowledge 2x cost when auto-detection would upgrade to Pro
-- **Test suite grew from 74 to ~120 tests** — stdlib `unittest`, zero new dependencies. New files: `test_lyria_migration.py`, `test_cost_tracker.py`.
+  - `--lyria-version {2,3,3-pro}` - force a specific Lyria variant
+  - `--confirm-upgrade` - acknowledge 2x cost when auto-detection would upgrade to Pro
+- **Test suite grew from 74 to ~120 tests** - stdlib `unittest`, zero new dependencies. New files: `test_lyria_migration.py`, `test_cost_tracker.py`.
 - **Reference docs** for all new models:
-  - `references/models/veo-3.1.md` — replaced v4.2.0 placeholder with full content
+  - `references/models/veo-3.1.md` - replaced v4.2.0 placeholder with full content
   - `references/models/lyria-2.md`, `lyria-3.md`, `lyria-3-pro.md`
   - `references/models/elevenlabs-music.md`
 
 ### Changed
 
-- **`audio_pipeline.py` Lyria paths** — `generate_music_lyria` and `generate_music_lyria_extended` rewritten to use `ReplicateBackend.submit/poll/parse_result` instead of inline Vertex URL construction. Default within-Lyria model changes from Lyria 2 (`lyria-002`) to Lyria 3 Clip.
-- **`video_generate.py` backend selector** — `_select_backend()` returns `gemini` or `replicate` only; the `vertex` branch is gone. `--backend vertex-ai` and `--provider veo` become deprecation aliases that auto-route to Replicate with deprecation warnings. Legacy Vertex model IDs (`veo-3.1-generate-001` etc.) auto-translate to Replicate slugs.
+- **`audio_pipeline.py` Lyria paths** - `generate_music_lyria` and `generate_music_lyria_extended` rewritten to use `ReplicateBackend.submit/poll/parse_result` instead of inline Vertex URL construction. Default within-Lyria model changes from Lyria 2 (`lyria-002`) to Lyria 3 Clip.
+- **`video_generate.py` backend selector** - `_select_backend()` returns `gemini` or `replicate` only; the `vertex` branch is gone. `--backend vertex-ai` and `--provider veo` become deprecation aliases that auto-route to Replicate with deprecation warnings. Legacy Vertex model IDs (`veo-3.1-generate-001` etc.) auto-translate to Replicate slugs.
 - **Kling v3 and v3 Omni pricing corrected** in the registry and `cost_tracker.py`. v4.2.0 shipped with `per_second: $0.02/s` from an outdated source; v4.2.1 uses `per_second_by_resolution_and_audio` with verified rates from `dev-docs/kwaivgi-kling-v3-*-llms.md`. See the Notes section below for the cost-narrative implication.
-- **`setup_mcp.py`** — Vertex CLI flags (`--vertex-api-key`, `--vertex-project`, `--vertex-location`) removed. Config migration shim unchanged: existing users' `vertex_*` keys are still read into `providers.vertex.*` for graceful upgrade (harmless — nothing consumes them).
+- **`setup_mcp.py`** - Vertex CLI flags (`--vertex-api-key`, `--vertex-project`, `--vertex-location`) removed. Config migration shim unchanged: existing users' `vertex_*` keys are still read into `providers.vertex.*` for graceful upgrade (harmless - nothing consumes them).
 - **`family_defaults.music`** in registry set to `elevenlabs-music` (matches v3.8.3 12-0 bake-off verdict).
 
 ### Deprecated
 
-- **`--backend vertex-ai`** (in `video_generate.py`) — honored for one release; removed in v4.3.0.
-- **`--provider veo`** (in `video_generate.py`) — honored for one release; removed in v4.3.0. Users should pass `--provider replicate --model {veo-3.1-lite,veo-3.1-fast,veo-3.1}` explicitly.
-- **Legacy Vertex model IDs** (`veo-3.1-generate-001` etc.) — auto-translate to Replicate slugs with deprecation warning; translation removed in v4.3.0.
+- **`--backend vertex-ai`** (in `video_generate.py`) - honored for one release; removed in v4.3.0.
+- **`--provider veo`** (in `video_generate.py`) - honored for one release; removed in v4.3.0. Users should pass `--provider replicate --model {veo-3.1-lite,veo-3.1-fast,veo-3.1}` explicitly.
+- **Legacy Vertex model IDs** (`veo-3.1-generate-001` etc.) - auto-translate to Replicate slugs with deprecation warning; translation removed in v4.3.0.
 
 ### Removed
 
-- **`skills/create-video/scripts/_vertex_backend.py`** — 958 lines. Every consumer migrated to `ReplicateBackend` in prior commits. Verified no imports remain.
+- **`skills/create-video/scripts/_vertex_backend.py`** - 958 lines. Every consumer migrated to `ReplicateBackend` in prior commits. Verified no imports remain.
 - **Vertex setup CLI flags** in `setup_mcp.py`.
 - **Inline `aiplatform.googleapis.com` URL construction** in `audio_pipeline.py`.
 
 ### Preserved (deliberately)
 
-- **`~/.banana/` config directory path** — unchanged. Queued as v4.2.2 separately.
-- **ElevenLabs TTS / music / voice-design code** — untouched. ElevenLabs-as-ProviderBackend is a future sub-project.
-- **Gemini direct (`generate.py`, `edit.py`) code paths** — untouched. Gemini-as-ProviderBackend is a future sub-project.
-- **`--music-source elevenlabs` behavior** — identical output for identical input.
+- **`~/.banana/` config directory path** - unchanged. Queued as v4.2.2 separately.
+- **ElevenLabs TTS / music / voice-design code** - untouched. ElevenLabs-as-ProviderBackend is a future sub-project.
+- **Gemini direct (`generate.py`, `edit.py`) code paths** - untouched. Gemini-as-ProviderBackend is a future sub-project.
+- **`--music-source elevenlabs` behavior** - identical output for identical input.
 - **Existing `--music-source lyria`** users see Lyria 3 Clip by default now instead of Lyria 2. Users who need Lyria 2 pass `--lyria-version 2`.
-- **`@ycse/nanobanana-mcp` MCP package** — third-party dependency, not renamed.
+- **`@ycse/nanobanana-mcp` MCP package** - third-party dependency, not renamed.
 
 ### Notes
 
-**Kling pricing correction — cost narrative inverted.** The v3.8.0 decision to default to Kling over VEO was partly justified by a "7.5× cheaper than VEO" claim based on an outdated `$0.02/s` Kling figure. At verified v4.2.1 rates for an 8-second 1080p clip with audio:
+**Kling pricing correction - cost narrative inverted.** The v3.8.0 decision to default to Kling over VEO was partly justified by a "7.5× cheaper than VEO" claim based on an outdated `$0.02/s` Kling figure. At verified v4.2.1 rates for an 8-second 1080p clip with audio:
 
 | Model | Cost |
 |---|---|
@@ -3535,12 +3535,12 @@ VEO 3.1 Lite is now ~4× **cheaper** than Kling at comparable settings. Doesn't 
 
 ### Deferred (explicit follow-up releases)
 
-- **v4.2.2 — `~/.banana/` → `~/.creators-studio/` config rename** with auto-migration.
-- **v4.3.0 — Sub-project C (Kie.ai backend + Suno music)**. Unlocks the 4-way music bake-off.
-- **v4.3.x — Kling-vs-VEO default re-evaluation bake-off** (triggered by the v4.2.1 pricing correction).
-- **v4.3.x — 4-way music bake-off** (ElevenLabs / Lyria 3 Clip / Lyria 3 Pro / Suno via Kie.ai), 2-part methodology.
-- **v4.3.x+ — Kling 3.0 motion-control** registration as a new canonical task (motion transfer).
-- **v4.4.0+ — Sub-project D (Hugging Face Inference Providers)**.
+- **v4.2.2 - `~/.banana/` → `~/.creators-studio/` config rename** with auto-migration.
+- **v4.3.0 - Sub-project C (Kie.ai backend + Suno music)**. Unlocks the 4-way music bake-off.
+- **v4.3.x - Kling-vs-VEO default re-evaluation bake-off** (triggered by the v4.2.1 pricing correction).
+- **v4.3.x - 4-way music bake-off** (ElevenLabs / Lyria 3 Clip / Lyria 3 Pro / Suno via Kie.ai), 2-part methodology.
+- **v4.3.x+ - Kling 3.0 motion-control** registration as a new canonical task (motion transfer).
+- **v4.4.0+ - Sub-project D (Hugging Face Inference Providers)**.
 
 ### Design documents
 
@@ -3567,9 +3567,9 @@ Find the Release History section with `<details>` blocks. Above the `v4.2.0` ent
 
 ```markdown
 <details>
-<summary><b>🔌 v4.2.1 (current) — Vertex retirement + Lyria 3 upgrade · YYYY-MM-DD</b></summary>
+<summary><b>🔌 v4.2.1 (current) - Vertex retirement + Lyria 3 upgrade · YYYY-MM-DD</b></summary>
 
-Sub-project B of the provider-agnostic roadmap. Deleted `_vertex_backend.py` (958 lines). VEO 3.1 (all three tiers) and Lyria all route through Replicate now. Lyria upgraded from Lyria 2 → Lyria 3 Clip as the new within-Lyria default (30% cheaper, adds image-input support). Lyria 2 still available for `negative_prompt` workflows via `--lyria-version 2`. Lyria 3 Pro registered for full-song generation with structure tags, auto-selected when prompt contains `[Verse]` / `[Chorus]` / timestamp markers (gated by `--confirm-upgrade` to prevent 2x cost surprises). Bonus: Kling v3 pricing corrected (v4.2.0 figure was 10-17× too low) — VEO Lite turns out to be ~4× cheaper than Kling at 1080p with audio, inverting the v3.8.0 cost narrative. Bake-off to re-evaluate default queued for post-sub-project-C.
+Sub-project B of the provider-agnostic roadmap. Deleted `_vertex_backend.py` (958 lines). VEO 3.1 (all three tiers) and Lyria all route through Replicate now. Lyria upgraded from Lyria 2 → Lyria 3 Clip as the new within-Lyria default (30% cheaper, adds image-input support). Lyria 2 still available for `negative_prompt` workflows via `--lyria-version 2`. Lyria 3 Pro registered for full-song generation with structure tags, auto-selected when prompt contains `[Verse]` / `[Chorus]` / timestamp markers (gated by `--confirm-upgrade` to prevent 2x cost surprises). Bonus: Kling v3 pricing corrected (v4.2.0 figure was 10-17× too low) - VEO Lite turns out to be ~4× cheaper than Kling at 1080p with audio, inverting the v3.8.0 cost narrative. Bake-off to re-evaluate default queued for post-sub-project-C.
 
 </details>
 ```
@@ -3734,7 +3734,7 @@ v4.2.1 scope review:
 - _vertex_backend.py deleted (958 lines)
 - VEO 3.1 all tiers route through Replicate
 - Lyria family expanded: Lyria 2 (kept for negative_prompt), Lyria 3
-  Clip (new default), Lyria 3 Pro (new — full songs)
+  Clip (new default), Lyria 3 Pro (new - full songs)
 - ElevenLabs Music registered in registry with (direct) sentinel
 - Kling v3 + v3 Omni pricing corrected (v4.2.0 had wrong numbers)
 - Three new pricing modes in cost_tracker.py
@@ -3749,7 +3749,7 @@ Proceed with merge to main + tag v4.2.1 + push + zip + gh release?
 
 Wait for user approval. If changes are requested, address them before continuing.
 
-- [ ] **Step 3: After user approves — merge feature branch to main**
+- [ ] **Step 3: After user approves - merge feature branch to main**
 
 ```bash
 git checkout main
@@ -3773,7 +3773,7 @@ Follow-ups queued:
 - [ ] **Step 4: Tag v4.2.1**
 
 ```bash
-git tag -a v4.2.1 -m "v4.2.1 — Vertex Retirement + Lyria 3 Upgrade (Sub-Project B)
+git tag -a v4.2.1 -m "v4.2.1 - Vertex Retirement + Lyria 3 Upgrade (Sub-Project B)
 
 Vertex AI is gone. VEO 3.1 (all tiers) and Lyria (2, 3, 3-Pro) route
 through the v4.2.0 Replicate abstraction. Lyria 2 -> Lyria 3 Clip
@@ -3813,7 +3813,7 @@ Expected: zip file produced, size ~550-600 KB.
 ```bash
 gh release create v4.2.1 \
   ../creators-studio-v4.2.1.zip \
-  --title "v4.2.1 — Vertex Retirement + Lyria 3 Upgrade" \
+  --title "v4.2.1 - Vertex Retirement + Lyria 3 Upgrade" \
   --notes "$(cat <<'EOF'
 ## Highlights
 
@@ -3823,17 +3823,17 @@ This is **sub-project B** of the multi-provider roadmap.
 
 ## What landed
 
-- **VEO 3.1 × 3 tiers** registered — cost-optimized routing based on tier + audio flag
-- **Lyria upgrade** — Lyria 3 Clip as new within-Lyria default (30% cheaper than Lyria 2)
-- **Lyria 3 Pro** registered as a first-class model — full-length songs with structure tags + custom lyrics + timestamp control, auto-selected when prompt contains `[Verse]`/`[Chorus]`/timestamp markers (gated by `--confirm-upgrade`)
-- **Lyria 2** kept for `negative_prompt` workflows — auto-selected when `--negative-prompt` is passed
+- **VEO 3.1 × 3 tiers** registered - cost-optimized routing based on tier + audio flag
+- **Lyria upgrade** - Lyria 3 Clip as new within-Lyria default (30% cheaper than Lyria 2)
+- **Lyria 3 Pro** registered as a first-class model - full-length songs with structure tags + custom lyrics + timestamp control, auto-selected when prompt contains `[Verse]`/`[Chorus]`/timestamp markers (gated by `--confirm-upgrade`)
+- **Lyria 2** kept for `negative_prompt` workflows - auto-selected when `--negative-prompt` is passed
 - **ElevenLabs Music** registered in the registry (honoring the multi-model principle)
 - **Three new pricing modes** for cost tracker: `per_second_by_resolution`, `per_second_by_audio`, `per_second_by_resolution_and_audio`
-- **Canonical schema extension** — `duration_s: {enum: [...]}` alongside the existing `{min, max, integer}` shape
-- **Per-model param filtering** in ReplicateBackend — canonical requests can carry extras; backend silently drops unsupported with WARN log
+- **Canonical schema extension** - `duration_s: {enum: [...]}` alongside the existing `{min, max, integer}` shape
+- **Per-model param filtering** in ReplicateBackend - canonical requests can carry extras; backend silently drops unsupported with WARN log
 - **Lyria auto-routing helpers** with `--confirm-upgrade` hard gate
 
-## Surprise finding — cost narrative inversion
+## Surprise finding - cost narrative inversion
 
 The v3.8.0 spike 5 narrative was "Kling is 7.5× cheaper than VEO." That was based on outdated pricing. At verified v4.2.1 rates for 8s @ 1080p with audio:
 
@@ -3848,10 +3848,10 @@ VEO Lite is actually **~4× cheaper** than Kling at comparable settings. Default
 
 ## Next up
 
-- **v4.2.2** — `~/.banana/` → `~/.creators-studio/` config dir rename with auto-migration
-- **v4.3.0** — Sub-project C: Kie.ai backend + Suno music access
-- **v4.3.x** — Kling-vs-VEO Lite default re-evaluation bake-off
-- **v4.3.x** — 4-way music bake-off (ElevenLabs / Lyria 3 Clip / Lyria 3 Pro / Suno)
+- **v4.2.2** - `~/.banana/` → `~/.creators-studio/` config dir rename with auto-migration
+- **v4.3.0** - Sub-project C: Kie.ai backend + Suno music access
+- **v4.3.x** - Kling-vs-VEO Lite default re-evaluation bake-off
+- **v4.3.x** - 4-way music bake-off (ElevenLabs / Lyria 3 Clip / Lyria 3 Pro / Suno)
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 EOF
@@ -3862,7 +3862,7 @@ EOF
 
 ```bash
 git branch -d feature/vertex-retirement-v4.2.1
-git push origin --delete feature/vertex-retirement-v4.2.1 2>/dev/null || echo "(remote branch never pushed — OK)"
+git push origin --delete feature/vertex-retirement-v4.2.1 2>/dev/null || echo "(remote branch never pushed - OK)"
 ```
 
 - [ ] **Step 9: Verify release**
@@ -3883,24 +3883,24 @@ Expected: release shows with zip asset; main is at the merge commit; feature bra
 
 | Spec section | Implementation task |
 |---|---|
-| §2.1 VEO migration — registry | Task 6 |
-| §2.1 VEO migration — video_generate.py | Tasks 20–21 |
-| §2.1 VEO migration — _vertex_backend.py deletion | Task 23 |
-| §2.1 VEO migration — veo-3.1.md real content | Task 24 |
-| §2.1 Lyria migration — registry | Task 7 |
-| §2.1 Lyria migration — music-generation task | Task 11 |
-| §2.1 Lyria migration — audio_pipeline.py refactor | Tasks 15–19 |
+| §2.1 VEO migration - registry | Task 6 |
+| §2.1 VEO migration - video_generate.py | Tasks 20-21 |
+| §2.1 VEO migration - _vertex_backend.py deletion | Task 23 |
+| §2.1 VEO migration - veo-3.1.md real content | Task 24 |
+| §2.1 Lyria migration - registry | Task 7 |
+| §2.1 Lyria migration - music-generation task | Task 11 |
+| §2.1 Lyria migration - audio_pipeline.py refactor | Tasks 15-19 |
 | §2.1 Lyria default upgrade | Task 15 `resolve_lyria_version` |
 | §2.1 intent-aware routing | Task 15 |
 | §2.1 `--lyria-version` + `--confirm-upgrade` flags | Task 19 |
 | §2.1 ElevenLabs Music registry stub | Task 7 |
-| §2.1 Config migration — remove Vertex CLI | Task 22 |
-| §2.1 Documentation — model refs | Tasks 24–28 |
-| §2.1 Documentation — provider ref update | Task 29 |
-| §2.1 Documentation — bake-off roadmap | Task 32 |
-| §2.1 Documentation — CLAUDE.md updates | Task 30 |
-| §2.1 Documentation — PROGRESS Session 25 | Task 31 |
-| §3.1 Registry entries — exact JSON | Tasks 6, 7, 8, 9 |
+| §2.1 Config migration - remove Vertex CLI | Task 22 |
+| §2.1 Documentation - model refs | Tasks 24-28 |
+| §2.1 Documentation - provider ref update | Task 29 |
+| §2.1 Documentation - bake-off roadmap | Task 32 |
+| §2.1 Documentation - CLAUDE.md updates | Task 30 |
+| §2.1 Documentation - PROGRESS Session 25 | Task 31 |
+| §3.1 Registry entries - exact JSON | Tasks 6, 7, 8, 9 |
 | §3.1b `duration_s.enum` canonical | Task 1 |
 | §3.1c Three new pricing modes | Tasks 3, 4, 5 |
 | §3.1d Kling pricing correction | Tasks 5 + 8 |
@@ -3913,7 +3913,7 @@ Expected: release shows with zip asset; main is at the merge commit; feature bra
 | §4 Multi-model principle | Tasks 7 (registration) + 30 (CLAUDE.md) |
 | §5 Pricing mode additions | Tasks 3, 4, 5 |
 | §6 Test coverage | Tasks 1, 3, 4, 5, 10, 13, 14, 15 |
-| §7 Migration story for users | Tasks 20–22 (flags + shim preservation) |
+| §7 Migration story for users | Tasks 20-22 (flags + shim preservation) |
 | §8 Roadmap additions | Task 32 |
 | §11 Success criteria | Task 36 (final validation) |
 
@@ -3925,7 +3925,7 @@ No `TBD` / `TODO` / "implement later" / "add validation" / "write tests for the 
 
 ### 3. Type consistency
 
-- `resolve_lyria_version` signature: `(prompt: str, *, explicit_version: str | None, confirm_upgrade: bool, has_negative_prompt: bool) -> str` — consistent across Task 15 (definition) + Task 16 (caller) + Task 17 (caller) + `test_lyria_migration.py` tests.
+- `resolve_lyria_version` signature: `(prompt: str, *, explicit_version: str | None, confirm_upgrade: bool, has_negative_prompt: bool) -> str` - consistent across Task 15 (definition) + Task 16 (caller) + Task 17 (caller) + `test_lyria_migration.py` tests.
 - `LyriaUpgradeGateError` referenced consistently in Task 15 (definition), Task 19 (handler), tests.
 - `_MODEL_PARAM_DROPS: dict[str, set[str]]` defined in Task 12; used in Task 13 via mock log assertion.
 - `_TASK_PARAM_MAPS["music-generation"]` keys (`prompt`, `negative_prompt`, `reference_images`, `seed`) are the same canonical names used in the registry entries (Task 7) and the tests (Task 13).
@@ -3933,5 +3933,5 @@ No `TBD` / `TODO` / "implement later" / "add validation" / "write tests for the 
 
 ### 4. Execution sequencing
 
-Tasks 1–5 (foundation: schema + pricing modes) must complete before Task 6+ (registry entries reference `duration_s.enum` and new pricing modes). Task 11 (music-generation task) must complete before Task 13 (music tests). Task 12 (per-model filtering) before Task 13 (tests assert WARN). Tasks 15–19 (audio_pipeline migration) must precede Task 18 (dead Vertex code deletion). Task 23 (delete `_vertex_backend.py`) must come last among code changes. Tasks 24–32 (docs) can run anytime after the code is stable. Tasks 33–37 (release) MUST come last, gated on user approval for the release step.
+Tasks 1-5 (foundation: schema + pricing modes) must complete before Task 6+ (registry entries reference `duration_s.enum` and new pricing modes). Task 11 (music-generation task) must complete before Task 13 (music tests). Task 12 (per-model filtering) before Task 13 (tests assert WARN). Tasks 15-19 (audio_pipeline migration) must precede Task 18 (dead Vertex code deletion). Task 23 (delete `_vertex_backend.py`) must come last among code changes. Tasks 24-32 (docs) can run anytime after the code is stable. Tasks 33-37 (release) MUST come last, gated on user approval for the release step.
 

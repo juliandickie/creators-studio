@@ -3,16 +3,16 @@
 
 Converts a generated PNG/JPG/WEBP logo or icon into a clean, editable SVG
 with scalable vector paths. Closes the gap where Gemini-generated logos
-distort when scaled up — SVG output is resolution-independent and works
+distort when scaled up - SVG output is resolution-independent and works
 with Illustrator / Figma / Sketch.
 
 Typical workflow (two-step, pairs with /create-image generate):
 
-    # Step 1 — generate a logo with Gemini
+    # Step 1 - generate a logo with Gemini
     /create-image generate "minimalist geometric logo for a tech startup,
     single color, clean lines, negative space, isolated on pure white"
 
-    # Step 2 — vectorize the output
+    # Step 2 - vectorize the output
     python3 vectorize.py --image ~/Documents/creators_generated/logo.png
 
 Uses only Python stdlib via plugin-root scripts/backends/_replicate.py
@@ -37,7 +37,7 @@ from pathlib import Path
 
 # Cross-skill import of the shared Replicate backend helper.
 # Path: skills/create-image/scripts/vectorize.py →
-#       scripts/backends/_replicate.py   (as of v4.2.0 — plugin-root)
+#       scripts/backends/_replicate.py   (as of v4.2.0 - plugin-root)
 # Prior to v4.2.0 this reached into skills/create-video/scripts/ via a
 # cross-skill shim. The shared provider abstraction now lives at plugin
 # root so both skills can import without cross-skill path reach-through.
@@ -50,7 +50,7 @@ from scripts.backends import _replicate as replicate  # noqa: E402
 # ─── Constants ──────────────────────────────────────────────────────
 
 RECRAFT_MODEL_SLUG = "recraft-ai/recraft-vectorize"
-DEFAULT_POLL_INTERVAL = 5         # fast operation — poll more often than video
+DEFAULT_POLL_INTERVAL = 5         # fast operation - poll more often than video
 DEFAULT_MAX_WAIT = 180            # typical completion ~10-30s; 3min is plenty
 OUTPUT_DIR = Path.home() / "Documents" / "creators_generated"
 
