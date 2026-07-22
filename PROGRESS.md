@@ -7,7 +7,7 @@
 
 - **Repo:** https://github.com/juliandickie/creators-studio
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
-- **Current version:** 4.3.0
+- **Current version:** 4.4.0
 - **Local path:** `/Users/juliandickie/code/creators-studio-project/creators-studio/`
 - **Plugin layout:** `.claude-plugin/` + `skills/create-image/` (image) + `skills/create-video/` (video) + `skills/create-transcript/` (speech-to-text) + `agents/`
 
@@ -881,6 +881,18 @@ VEO Lite is now ~4× **cheaper** than Kling at comparable settings. Doesn't chan
 7. Verified live end-to-end: a real 50s transcription accepted the hand-built multipart body, keyterms demonstrably fixed brand spelling ("StoryBrand" / "U-Haul" vs the earlier keyterm-free "story brand"), and `rename` re-rendered from cache in 0.05s with no network. 34 new tests, 210 total, all offline. Removed the test entries this created from the real cost ledger.
 
 **Session spend:** one ~50s Scribe transcription (subscription-billed) for live verification.
+
+### Session 28 (2026-07-23) - v4.4.0 keyterm sets for /create-transcript
+
+**Scope:** Follow-up to the transcript skill. Julian asked how to activate keyterms only on specific videos rather than every run; the answer is named, per-video keyterm sets.
+
+1. Added `resolve_keyterm_sets()` (expands `transcription.keyterm_sets.<name>` from config, reports unknown names) and a `--keyterm-set dental,agency` flag.
+2. `resolve_keyterms()` now unions ad-hoc `--keyterms` + activated set terms + the always-on `transcription.keyterms` base + default. `--keyterms-replace` redefined to "only the terms named this run" (flags + sets), the per-video escape hatch from a standing list. Backwards-compatible (defaulted `set_terms`, existing calls and configs unaffected).
+3. Unknown set name fails loud and lists available sets; `status` now lists configured sets with counts.
+4. Docs: rewrote `keyterms.md` around the always-on-vs-per-video distinction with a two-set (dental/agency) config seed; updated SKILL.md Step 3 + command table.
+5. 7 new tests (217 total). Verified: full suite green, `status` renders sets, keyterms.md JSON seed valid, live behaviour matches (set expand, union priority, replace skips base).
+
+**Session spend:** $0 (offline; no new transcriptions).
 
 ## Expansion Roadmap
 

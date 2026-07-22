@@ -12,7 +12,7 @@
 Let an AI that's been trained on the best practices for every model write the prompts for you, instead of spending hours teaching yourself to prompt-engineer a moving target.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-4.3.0-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.4.0-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <details>
@@ -310,7 +310,8 @@ Claude acts as Creative Director for every call - selecting domain modes, constr
 |---------|-------------|
 | `/create-transcript <file>` | **v4.3.0** Transcribe audio/video via ElevenLabs Scribe v2 with smart default formats |
 | `/create-transcript <file> --formats md,srt,vtt,json` | **v4.3.0** Choose outputs (`all` for every format; JSON cache always written) |
-| `/create-transcript <file> --keyterms "Medit,iTero,iDD"` | **v4.3.0** Bias vocabulary toward brand/product names (adds to the config standing list) |
+| `/create-transcript <file> --keyterm-set dental` | **v4.4.0** Activate a named keyterm set (per-category vocab from config) on this video only |
+| `/create-transcript <file> --keyterms "Medit,iTero,iDD"` | **v4.3.0** Add ad-hoc bias terms for this run (one-offs, union on top of any set) |
 | `/create-transcript <file> --speakers "0=Julian,1=Dr Ahmad"` | **v4.3.0** Name diarized speakers up front |
 | `/create-transcript <folder> --batch` | **v4.3.0** Transcribe every audio/video file in a folder |
 | `/create-transcript rename --json X.json --speakers "0=Name,1=Name"` | **v4.3.0** Re-render formats with named speakers - no API call, no charge |
@@ -478,7 +479,14 @@ creators-studio/                       # Claude Code Plugin
 ## Release History
 
 <details open>
-<summary><b>📝 v4.3.0 (current) - /create-transcript speech-to-text · 2026-07-23</b></summary>
+<summary><b>🏷️ v4.4.0 (current) - Keyterm sets for /create-transcript · 2026-07-23</b></summary>
+
+Curate named keyterm vocabularies in config (e.g. `dental`, `agency`) and activate one per video with `--keyterm-set dental`, so brand-name bias (and its cost) applies only to the videos that need it instead of every transcription. Ad-hoc `--keyterms` still stacks on top for one-offs. Backwards-compatible with existing configs.
+
+</details>
+
+<details>
+<summary><b>📝 v4.3.0 - /create-transcript speech-to-text · 2026-07-23</b></summary>
 
 Transcribe audio or video into speaker-labelled markdown, subtitles (SRT/VTT), YouTube chapters, and plaintext with ElevenLabs Scribe v2 - the plugin's first ingest capability. Diarization separates each speaker, keyterm prompting fixes brand-name spelling, and every format re-renders from a single cached API call, so renaming a speaker or adding a format never re-transcribes. New `/create-transcript` skill; reuses your existing ElevenLabs key.
 

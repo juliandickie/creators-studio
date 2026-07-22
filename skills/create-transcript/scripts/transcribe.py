@@ -37,7 +37,7 @@ import formats  # noqa: E402  (sibling module)
 ELEVENLABS_STT_URL = "https://api.elevenlabs.io/v1/speech-to-text"
 API_MODEL_ID = "scribe_v2"          # API model_id (underscore)
 REGISTRY_MODEL = "scribe-v2"        # registry / cost-tracker id (hyphen)
-USER_AGENT = "creators-studio/4.3.0 (+https://github.com/juliandickie/creators-studio)"
+USER_AGENT = "creators-studio/4.4.0 (+https://github.com/juliandickie/creators-studio)"
 
 MEDIA_EXTS = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".opus",
               ".webm", ".mp4", ".mov", ".mkv", ".m4v", ".wmv", ".avi"}
@@ -124,21 +124,49 @@ def sanitize_keyterms(terms: list[str]) -> tuple[list[str], list[str]]:
     return kept[:KEYTERM_MAX], dropped
 
 
-def resolve_keyterms(cli_keyterms: str | None, replace: bool, config: dict) -> list[str]:
-    """Three-tier merge: CLI > config (transcription.keyterms) > shipped default.
-    Lists UNION (deduped) unless --keyterms-replace, in which case CLI wins alone."""
+def resolve_keyterm_sets(set_names: str | None, config: dict) -> tuple[list[str], list[str]]:
+    """Expand named --keyterm-set values into their terms.
+
+    Named sets live under config.transcription.keyterm_sets. Returns
+    (terms, unknown_set_names) so the caller can fail loud on a typo'd set name
+    instead of silently transcribing with no bias applied.
+    """
+    available = config.get("transcription", {}).get("keyterm_sets", {}) or {}
+    names = [s.strip() for s in set_names.split(",")] if set_names else []
+    terms: list[str] = []
+    unknown: list[str] = []
+    for n in (n for n in names if n):
+        if n in available:
+            for t in (available[n] or []):
+                if t and t not in terms:
+                    terms.append(t)
+        else:
+            unknown.append(n)
+    return terms, unknown
+
+
+def resolve_keyterms(cli_keyterms: str | None, set_terms: list[str] | None = None,
+                     replace: bool = False, config: dict | None = None) -> list[str]:
+    """Merge every keyterm source into the final deduped, sanitised list.
+
+    Union priority: ad-hoc --keyterms, then activated --keyterm-set terms, then
+    the always-on config base (transcription.keyterms), then the shipped default.
+    With replace=True (--keyterms-replace) only the terms named THIS run are used
+    (ad-hoc flags + activated sets); the always-on base and default are skipped.
+    That is the per-video escape hatch from a standing list.
+    """
+    config = config or {}
     cli = [k.strip() for k in cli_keyterms.split(",")] if cli_keyterms else []
     cli = [k for k in cli if k]
-    cfg = config.get("transcription", {}).get("keyterms", []) or []
+    sets = list(set_terms or [])
+    base = config.get("transcription", {}).get("keyterms", []) or []
 
-    if replace and cli:
-        merged = list(cli)
-    else:
-        merged = []
-        for source in (cli, cfg, DEFAULT_KEYTERMS):
-            for k in source:
-                if k and k not in merged:
-                    merged.append(k)
+    sources = (cli, sets) if replace else (cli, sets, base, DEFAULT_KEYTERMS)
+    merged: list[str] = []
+    for source in sources:
+        for k in source:
+            if k and k not in merged:
+                merged.append(k)
     kept, _ = sanitize_keyterms(merged)
     return kept
 
@@ -365,7 +393,14 @@ def default_out_dir(target: Path) -> Path:
 def cmd_transcribe(args) -> int:
     config = load_config()
     api_key = get_api_key(args.api_key, config, os.environ)
-    keyterms = resolve_keyterms(args.keyterms, args.keyterms_replace, config)
+    set_terms, unknown_sets = resolve_keyterm_sets(args.keyterm_set, config)
+    if unknown_sets:
+        available = sorted((config.get("transcription", {}).get("keyterm_sets", {}) or {}))
+        print(f"ERROR: unknown keyterm set(s): {', '.join(unknown_sets)}. "
+              f"Available: {', '.join(available) if available else '(none defined in config)'}",
+              file=sys.stderr)
+        return 1
+    keyterms = resolve_keyterms(args.keyterms, set_terms, args.keyterms_replace, config)
     fmts = _parse_formats(args.formats)
     speaker_names = parse_speakers(args.speakers) or None
 
@@ -381,7 +416,8 @@ def cmd_transcribe(args) -> int:
     out_dir = Path(args.output_dir).expanduser() if args.output_dir else default_out_dir(target)
 
     if keyterms:
-        print(f"Keyterms active ({len(keyterms)}): {', '.join(keyterms[:8])}"
+        via = f" via set(s) {args.keyterm_set}" if args.keyterm_set else ""
+        print(f"Keyterms active ({len(keyterms)}){via}: {', '.join(keyterms[:8])}"
               f"{'...' if len(keyterms) > 8 else ''}")
         print(f"  NOTE: {KEYTERM_SURCHARGE_NOTE}.")
         if len(keyterms) > 100:
@@ -482,8 +518,14 @@ def cmd_status(args) -> int:
         print(f"{tool}: {'found' if found else 'MISSING'}")
         ok = ok and found
     cfg_terms = config.get("transcription", {}).get("keyterms", []) or []
-    print(f"Config keyterms: {len(cfg_terms)}"
+    print(f"Config keyterms (always-on): {len(cfg_terms)}"
           + (f" ({', '.join(cfg_terms[:6])}{'...' if len(cfg_terms) > 6 else ''})" if cfg_terms else ""))
+    cfg_sets = config.get("transcription", {}).get("keyterm_sets", {}) or {}
+    if cfg_sets:
+        print("Keyterm sets: "
+              + ", ".join(f"{name} ({len(terms or [])})" for name, terms in cfg_sets.items()))
+    else:
+        print("Keyterm sets: none defined (add transcription.keyterm_sets to config)")
     print(f"Model: {API_MODEL_ID}  |  formats: {', '.join(ALL_FORMATS)}")
     return 0 if ok else 1
 
@@ -535,9 +577,13 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("target", help="Audio/video file, or a directory (with --batch).")
     t.add_argument("--formats", help=f"Comma list from {','.join(ALL_FORMATS)} or 'all'. "
                                      f"Default: {','.join(DEFAULT_FORMATS)} (json always written).")
-    t.add_argument("--keyterms", help="Comma-separated bias terms (brand/product names).")
+    t.add_argument("--keyterms", help="Comma-separated ad-hoc bias terms (brand/product names).")
+    t.add_argument("--keyterm-set",
+                   help="Activate named keyterm set(s) from config.transcription.keyterm_sets, "
+                        "comma-separated (e.g. 'dental' or 'dental,agency'). See status for available sets.")
     t.add_argument("--keyterms-replace", action="store_true",
-                   help="Use only --keyterms, ignoring the config standing list.")
+                   help="Use only the terms named this run (--keyterms + --keyterm-set), "
+                        "ignoring the always-on config keyterms list.")
     t.add_argument("--language", help="ISO-639 code (e.g. eng). Default: auto-detect.")
     t.add_argument("--speakers", help='Name speakers, e.g. "0=Julian,1=Dr Ahmad".')
     t.add_argument("--output-dir", help="Where to write outputs. Default: <source>/transcripts.")

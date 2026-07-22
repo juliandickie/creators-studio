@@ -181,5 +181,50 @@ class TestIntegration(unittest.TestCase):
             self.assertIn("Renamed", (Path(tmp) / "clip.md").read_text())
 
 
+class TestKeytermSets(unittest.TestCase):
+    CFG = {"transcription": {
+        "keyterms": ["AlwaysOn"],
+        "keyterm_sets": {"dental": ["Medit", "iTero"], "agency": ["Ascot", "Medit"]},
+    }}
+
+    def test_expand_known_set(self):
+        terms, unknown = transcribe.resolve_keyterm_sets("dental", self.CFG)
+        self.assertEqual(terms, ["Medit", "iTero"])
+        self.assertEqual(unknown, [])
+
+    def test_multiple_sets_union_deduped(self):
+        terms, unknown = transcribe.resolve_keyterm_sets("dental,agency", self.CFG)
+        self.assertEqual(terms, ["Medit", "iTero", "Ascot"])  # Medit not repeated
+        self.assertEqual(unknown, [])
+
+    def test_unknown_set_reported(self):
+        terms, unknown = transcribe.resolve_keyterm_sets("dental,bogus", self.CFG)
+        self.assertEqual(unknown, ["bogus"])
+
+    def test_merge_adhoc_set_and_base_priority(self):
+        set_terms, _ = transcribe.resolve_keyterm_sets("dental", self.CFG)
+        merged = transcribe.resolve_keyterms("Extra", set_terms, False, self.CFG)
+        self.assertEqual(merged, ["Extra", "Medit", "iTero", "AlwaysOn"])
+
+    def test_replace_skips_always_on_base(self):
+        set_terms, _ = transcribe.resolve_keyterm_sets("dental", self.CFG)
+        merged = transcribe.resolve_keyterms(None, set_terms, True, self.CFG)
+        self.assertEqual(merged, ["Medit", "iTero"])  # AlwaysOn base skipped
+
+    def test_no_sets_no_adhoc_is_just_base(self):
+        merged = transcribe.resolve_keyterms(None, None, False, self.CFG)
+        self.assertEqual(merged, ["AlwaysOn"])
+
+    def test_cmd_transcribe_unknown_set_fails_loud_before_network(self):
+        cfg = {"elevenlabs_api_key": "k", **self.CFG}
+        args = transcribe.build_parser().parse_args(
+            ["transcribe", "/tmp/whatever.mp4", "--keyterm-set", "nope"])
+        with patch.object(transcribe, "load_config", return_value=cfg), \
+             patch("transcribe.urllib.request.urlopen") as mock_open:
+            rc = transcribe.cmd_transcribe(args)
+        self.assertEqual(rc, 1)
+        mock_open.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

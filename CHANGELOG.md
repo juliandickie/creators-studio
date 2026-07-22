@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0] - 2026-07-23
+
+### Added
+
+- **Keyterm sets for `/create-transcript`.** Curate named keyterm vocabularies in config (`transcription.keyterm_sets`, e.g. `dental`, `agency`) and activate one per video with `--keyterm-set <name>`, so brand/product bias (and its +20% surcharge) applies only to the videos that need it instead of every run. Ad-hoc `--keyterms` still unions on top for one-offs. `--keyterms-replace` now means "only the terms named this run" (flags + sets), the per-video escape hatch from the always-on `transcription.keyterms` list. Unknown set names fail loud and list what is available; `/create-transcript status` lists the configured sets. Backwards-compatible: configs without `keyterm_sets` are unaffected. 7 new tests (217 total).
+
 ## [4.3.0] - 2026-07-23
 
 ### Added
@@ -82,6 +88,7 @@ If the migration produces an unexpected result, users can:
 - **Empirical bake-off** PixVerse V6 vs Kling v3 Std vs VEO 3.1 Standard.
 - **Wire PixVerse into `video_sequence.py`** as a quality-tier alternative - needs a different shape than Kling's `multi_prompt` JSON array (PixVerse uses a single structured prompt + boolean toggle).
 
+[4.4.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.4.0
 [4.3.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.3.0
 [4.2.3]: https://github.com/juliandickie/creators-studio/releases/tag/v4.2.3
 [4.2.2]: https://github.com/juliandickie/creators-studio/releases/tag/v4.2.2

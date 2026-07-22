@@ -22,7 +22,8 @@ argument-hint: "[transcribe|rename|cost|status] <file, folder, or command>"
 |---------|-------------|
 | `/create-transcript <file>` | Transcribe one file with smart default formats. |
 | `/create-transcript <file> --formats md,srt,vtt,json` | Choose output formats (`all` for every format; `json` always written). |
-| `/create-transcript <file> --keyterms "Medit,iTero,iDD"` | Bias vocabulary toward brand/product names (adds to the standing config list). |
+| `/create-transcript <file> --keyterm-set dental` | Activate a named keyterm set (per-category vocab from config) on this video only. |
+| `/create-transcript <file> --keyterms "Medit,iTero,iDD"` | Add ad-hoc bias terms for this run (one-offs, unions on top of any set). |
 | `/create-transcript <file> --speakers "0=Julian,1=Dr Ahmad"` | Name diarized speakers up front. |
 | `/create-transcript <folder> --batch` | Transcribe every audio/video file in a folder. |
 | `/create-transcript rename --json X.json --speakers "0=Name,1=Name"` | Re-render formats with named speakers - no API call, no charge. |
@@ -52,12 +53,18 @@ Default to **auto-detect** (omit `--language`). Only pin `--language <iso>` (e.g
 
 ### Step 3: Keyterms
 
-Check `status` for the standing config keyterms. If the recording clearly involves brand/product/person names that a general model would mis-spell, and they are not already in the config list, add them for this run with `--keyterms`. Surface the merged list to the user before running if it is non-trivial, and mention the cost note (keyterms add a +20% surcharge; >100 keyterms force a 20 s minimum billable). See `references/keyterms.md`.
+Keyterms fix brand/product/person names a general model mis-spells. Run `status` to see the configured **keyterm sets** and the always-on list, then:
+
+- If the video fits a category with a set (e.g. `dental`, `agency`), activate it with `--keyterm-set <name>`. This is how keyterms apply to *specific* videos only - nothing is biased unless you name a set.
+- For one-off names not in any set (a guest, a specific model), add `--keyterms "..."` for the run (unions on top of the set).
+- If nothing fits, run without keyterms - no bias, no surcharge.
+
+Surface the resolved list before running if it is non-trivial, and mention the cost note (keyterms add a +20% surcharge; >100 keyterms force a 20 s minimum billable). See `references/keyterms.md`.
 
 ### Step 4: Run
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/transcribe.py "<file-or-folder>" --formats <chosen> [--keyterms "..."] [--speakers "..."] [--output-dir DIR]
+python3 ${CLAUDE_SKILL_DIR}/scripts/transcribe.py "<file-or-folder>" --formats <chosen> [--keyterm-set NAME] [--keyterms "..."] [--speakers "..."] [--output-dir DIR]
 ```
 
 Outputs land in `<source>/transcripts/` unless `--output-dir` is given. Batch prints a per-file PASS/FAIL summary - if any file failed, report it, do not claim the batch succeeded.
@@ -88,10 +95,10 @@ Read back one rendered artifact (the markdown) and confirm the speaker count and
 
 ## Setup
 
-Needs an ElevenLabs API key (shared with `/create-video audio`) at `~/.creators-studio/config.json` (`elevenlabs_api_key`), plus `ffmpeg` and `ffprobe` on PATH. Run `/create-transcript status` to check all three. Keyterm standing list lives under `transcription.keyterms` in the same config - see `references/keyterms.md`.
+Needs an ElevenLabs API key (shared with `/create-video audio`) at `~/.creators-studio/config.json` (`elevenlabs_api_key`), plus `ffmpeg` and `ffprobe` on PATH. Run `/create-transcript status` to check all three. Keyterm sets live under `transcription.keyterm_sets` (per-video) and the always-on base under `transcription.keyterms` in the same config - see `references/keyterms.md`.
 
 ## References
 
 - `references/scribe-models.md` - Scribe v2 roster, endpoint, constraints, billing.
 - `references/transcript-formats.md` - the five formats, timecodes, turn vs cue grouping.
-- `references/keyterms.md` - keyterm prompting, three-tier precedence, recommended standing list.
+- `references/keyterms.md` - keyterm prompting, per-video sets vs always-on list, precedence, recommended config seed.
