@@ -167,5 +167,19 @@ class TestCostLoggingSmoke(unittest.TestCase):
             self.assertNotIn(b"error: argument", result.stderr)
 
 
+class TestSubscriptionBilling(unittest.TestCase):
+    """v4.3.0: ElevenLabs Scribe v2 is subscription-billed — logs 0.0 marginal
+    cost rather than a fabricated per-minute rate, and never triggers the
+    unknown-model image-pricing fallback."""
+
+    def test_scribe_v2_costs_zero(self):
+        self.assertEqual(cost_tracker._lookup_cost("scribe-v2", "50s"), 0.0)
+
+    def test_scribe_v2_is_a_known_model(self):
+        # Known key → no partial-match / unknown-model fallback path.
+        self.assertIn("scribe-v2", cost_tracker.PRICING)
+        self.assertTrue(cost_tracker.PRICING["scribe-v2"].get("subscription"))
+
+
 if __name__ == "__main__":
     unittest.main()
