@@ -187,13 +187,15 @@ def segment_cues(words: list[dict],
 # Renderers
 # --------------------------------------------------------------------------- #
 def render_markdown(data: dict, source_name: str | None = None,
-                    speaker_names: dict | None = None) -> str:
+                    speaker_names: dict | None = None, title: str | None = None) -> str:
     words = data.get("words", [])
     turns = group_turns(words, speaker_names)
     speakers = sorted({w.get("speaker_id") for w in words if w.get("speaker_id")})
 
-    title = source_name or "Transcript"
-    lines = [f"# {title}", ""]
+    # H1 is the descriptive title when set (via retitle / --title); the Source
+    # file line below always keeps the real video filename for reference.
+    heading = title or source_name or "Transcript"
+    lines = [f"# {heading}", ""]
     if source_name:
         lines.append(f"- Source file: `{source_name}`")
     dur = data.get("audio_duration_secs")

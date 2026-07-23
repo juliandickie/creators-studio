@@ -59,3 +59,21 @@ both of which cost **no API call**:
 
 `render_markdown` and `group_turns` accept a `speaker_names` dict keyed by either
 `"0"` or `"speaker_0"` - both forms work.
+
+## Descriptive titles
+
+By default the markdown H1 and the output filenames come from the source video's
+name. A descriptive title overrides both, keeping the video name at the end for
+reference and search:
+
+- `retitle --json <name>.json --title "Design Videos in Reverse"` re-renders every
+  co-located format from cache, sets the H1 to the title, and renames the files to
+  `<title> - <video stem>.<ext>` (e.g. `Design Videos in Reverse - Video by adley - 1280p.md`).
+  No API call.
+- `transcribe --title "..."` does the same in one pass when the title is known up
+  front (single file only).
+
+`render_markdown(data, source_name, speaker_names, title)`: the H1 is `title` when
+set, else `source_name`. The `Source file:` line always shows the real video
+filename. The title and source name are persisted in the cache JSON (`_title`,
+`_source_name`) so re-runs stay idempotent (no stacked prefixes).

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.0] - 2026-07-23
+
+### Added
+
+- **Descriptive titles for `/create-transcript`.** Transcripts now get a meaningful title instead of just the video filename. A new `retitle --json <cache> --title "..."` subcommand sets the markdown H1 and prefixes every co-located output filename with `<title> - `, keeping the original video name at the end for reference and search (e.g. `Design Videos in Reverse - Video by adley - 1280p.md`). It re-renders from the cached JSON with **no API call** and preserves speaker names. `transcribe --title "..."` does the same in one pass when the title is known up front (single file). Title and source name are persisted in the cache (`_title`, `_source_name`) so re-runs are idempotent (no stacked prefixes). SKILL.md now derives and applies a descriptive title on every transcription, following the house title rules (no colons, no em/en dashes, Drive-safe characters). Backwards-compatible: `render_markdown` gains an optional `title` (falls back to the source name). 5 new tests (222 total).
+
 ## [4.4.0] - 2026-07-23
 
 ### Added
@@ -88,6 +94,7 @@ If the migration produces an unexpected result, users can:
 - **Empirical bake-off** PixVerse V6 vs Kling v3 Std vs VEO 3.1 Standard.
 - **Wire PixVerse into `video_sequence.py`** as a quality-tier alternative - needs a different shape than Kling's `multi_prompt` JSON array (PixVerse uses a single structured prompt + boolean toggle).
 
+[4.5.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.5.0
 [4.4.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.4.0
 [4.3.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.3.0
 [4.2.3]: https://github.com/juliandickie/creators-studio/releases/tag/v4.2.3

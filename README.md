@@ -12,7 +12,7 @@
 Let an AI that's been trained on the best practices for every model write the prompts for you, instead of spending hours teaching yourself to prompt-engineer a moving target.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-4.4.0-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.5.0-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <details>
@@ -315,6 +315,7 @@ Claude acts as Creative Director for every call - selecting domain modes, constr
 | `/create-transcript <file> --speakers "0=Julian,1=Dr Ahmad"` | **v4.3.0** Name diarized speakers up front |
 | `/create-transcript <folder> --batch` | **v4.3.0** Transcribe every audio/video file in a folder |
 | `/create-transcript rename --json X.json --speakers "0=Name,1=Name"` | **v4.3.0** Re-render formats with named speakers - no API call, no charge |
+| `/create-transcript retitle --json X.json --title "..."` | **v4.5.0** Set a descriptive H1 + filename prefix (video name kept at the end) - no API call |
 | `/create-transcript cost <file or folder>` | **v4.3.0** Estimate audio-minutes before running |
 | `/create-transcript status` | **v4.3.0** Check ElevenLabs key + ffmpeg/ffprobe + config keyterms |
 
@@ -479,7 +480,14 @@ creators-studio/                       # Claude Code Plugin
 ## Release History
 
 <details open>
-<summary><b>🏷️ v4.4.0 (current) - Keyterm sets for /create-transcript · 2026-07-23</b></summary>
+<summary><b>🏷️ v4.5.0 (current) - Descriptive transcript titles · 2026-07-23</b></summary>
+
+Transcripts now get a meaningful title, not just the video filename. `retitle --json <cache> --title "..."` sets the markdown H1 and prefixes every output filename with `<title> - `, keeping the video name at the end for search (e.g. `Design Videos in Reverse - Video by adley - 1280p.md`). No API call - it re-renders from cache. The skill derives and applies a title on every transcription.
+
+</details>
+
+<details>
+<summary><b>🏷️ v4.4.0 - Keyterm sets for /create-transcript · 2026-07-23</b></summary>
 
 Curate named keyterm vocabularies in config (e.g. `dental`, `agency`) and activate one per video with `--keyterm-set dental`, so brand-name bias (and its cost) applies only to the videos that need it instead of every transcription. Ad-hoc `--keyterms` still stacks on top for one-offs. Backwards-compatible with existing configs.
 
