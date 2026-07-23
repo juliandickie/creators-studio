@@ -7,7 +7,7 @@
 
 - **Repo:** https://github.com/juliandickie/creators-studio
 - **Origin:** https://github.com/AgriciDaniel/banana-claude (forked at v1.4.1, detached at v2.1.0)
-- **Current version:** 4.4.0
+- **Current version:** 4.5.0
 - **Local path:** `/Users/juliandickie/code/creators-studio-project/creators-studio/`
 - **Plugin layout:** `.claude-plugin/` + `skills/create-image/` (image) + `skills/create-video/` (video) + `skills/create-transcript/` (speech-to-text) + `agents/`
 
@@ -893,6 +893,18 @@ VEO Lite is now ~4× **cheaper** than Kling at comparable settings. Doesn't chan
 5. 7 new tests (217 total). Verified: full suite green, `status` renders sets, keyterms.md JSON seed valid, live behaviour matches (set expand, union priority, replace skips base).
 
 **Session spend:** $0 (offline; no new transcriptions).
+
+### Session 29 (2026-07-23) - v4.5.0 descriptive transcript titles
+
+**Scope:** Julian wanted transcript files to lead with a descriptive title of what they contain (video filename kept at the end for search), and the skill to do it automatically. Also transcribed a 4th clip (adley) with the shipped skill and renamed all four existing transcript sets by hand first.
+
+1. `render_markdown` gained an optional `title` (H1 = title, else source name); the `Source file:` line always keeps the real video filename.
+2. New `retitle --json <cache> --title "..."` subcommand: re-renders every co-located format from cache, sets the H1, and renames the files to `<title> - <video stem>.<ext>`, removing the old-named files. No API call. Preserves speaker names.
+3. `transcribe --title "..."` applies a title in one pass (single file). `_title` + `_source_name` persisted in the cache so re-runs are idempotent (no stacked prefixes).
+4. SKILL.md pipeline gained Step 6 "Title the transcript (every time)" with the house title rules (no colons, no em/en dashes, Drive-safe chars).
+5. 5 new tests (222 total). Verified offline end-to-end: retitle renames + sets H1 + Source line + removes old, idempotent on re-run.
+
+**Session spend:** one ~30s Scribe transcription (adley clip) via the shipped skill; the title feature work was $0 (offline).
 
 ## Expansion Roadmap
 

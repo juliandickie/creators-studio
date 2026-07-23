@@ -226,5 +226,72 @@ class TestKeytermSets(unittest.TestCase):
         mock_open.assert_not_called()
 
 
+class TestRetitle(unittest.TestCase):
+    def _make_cache(self, tmp, stem="Video by x - 720p"):
+        """A cache JSON plus placeholder md/srt siblings (retitle re-renders them)."""
+        data = {**SCRIBE_RESPONSE, "_source_name": "Video by x - 720p.webm"}
+        (Path(tmp) / f"{stem}.json").write_text(json.dumps(data))
+        (Path(tmp) / f"{stem}.md").write_text("# placeholder\n")
+        (Path(tmp) / f"{stem}.srt").write_text("1\n")
+        return Path(tmp) / f"{stem}.json"
+
+    def test_retitle_renames_sets_h1_removes_old_offline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            j = self._make_cache(tmp)
+            args = transcribe.build_parser().parse_args(
+                ["retitle", "--json", str(j), "--title", "Clear Descriptive Title"])
+            with patch("transcribe.urllib.request.urlopen") as mock_open:
+                rc = args.func(args)
+            self.assertEqual(rc, 0)
+            mock_open.assert_not_called()                      # cache-only, no charge
+            new_md = Path(tmp) / "Clear Descriptive Title - Video by x - 720p.md"
+            self.assertTrue(new_md.exists())
+            body = new_md.read_text()
+            self.assertTrue(body.startswith("# Clear Descriptive Title"))   # H1 = title
+            self.assertIn("Source file: `Video by x - 720p.webm`", body)    # video kept
+            # every sibling renamed, old ones gone
+            self.assertTrue((Path(tmp) / "Clear Descriptive Title - Video by x - 720p.srt").exists())
+            self.assertTrue((Path(tmp) / "Clear Descriptive Title - Video by x - 720p.json").exists())
+            self.assertFalse((Path(tmp) / "Video by x - 720p.md").exists())
+
+    def test_retitle_is_idempotent_on_rerun(self):
+        # Re-titling a second time must not stack prefixes (uses stored _source_name).
+        with tempfile.TemporaryDirectory() as tmp:
+            j = self._make_cache(tmp)
+            a1 = transcribe.build_parser().parse_args(["retitle", "--json", str(j), "--title", "First"])
+            a1.func(a1)
+            j2 = Path(tmp) / "First - Video by x - 720p.json"
+            a2 = transcribe.build_parser().parse_args(["retitle", "--json", str(j2), "--title", "Second"])
+            a2.func(a2)
+            self.assertTrue((Path(tmp) / "Second - Video by x - 720p.md").exists())
+            self.assertFalse((Path(tmp) / "First - Video by x - 720p.md").exists())
+            # not "Second - First - Video by x ..."
+            self.assertFalse(any("Second - First" in p.name for p in Path(tmp).iterdir()))
+
+
+class TestTranscribeTitle(unittest.TestCase):
+    def test_transcribe_with_title_prefixes_filename_and_h1(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "out"
+            fake_audio = Path(tmp) / "c.mp3"
+            fake_audio.write_bytes(b"\x00")
+            with patch.object(transcribe, "probe_media", return_value=(3.0, True)), \
+                 patch.object(transcribe, "extract_audio", return_value=fake_audio), \
+                 patch.object(transcribe, "log_cost"), \
+                 patch("transcribe.urllib.request.urlopen",
+                       return_value=_fake_urlopen(SCRIBE_RESPONSE)):
+                transcribe.transcribe_file(
+                    str(Path(tmp) / "Video by clip - 720p.mp4"), api_key="k", keyterms=[],
+                    language=None, diarize=True, out_dir=out, fmts=["md", "json"],
+                    speaker_names=None, title="Cool Title",
+                )
+            md = out / "Cool Title - Video by clip - 720p.md"
+            self.assertTrue(md.exists())
+            self.assertTrue(md.read_text().startswith("# Cool Title"))
+            cached = json.loads((out / "Cool Title - Video by clip - 720p.json").read_text())
+            self.assertEqual(cached["_source_name"], "Video by clip - 720p.mp4")
+            self.assertEqual(cached["_title"], "Cool Title")
+
+
 if __name__ == "__main__":
     unittest.main()

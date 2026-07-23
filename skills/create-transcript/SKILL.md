@@ -27,6 +27,7 @@ argument-hint: "[transcribe|rename|cost|status] <file, folder, or command>"
 | `/create-transcript <file> --speakers "0=Julian,1=Dr Ahmad"` | Name diarized speakers up front. |
 | `/create-transcript <folder> --batch` | Transcribe every audio/video file in a folder. |
 | `/create-transcript rename --json X.json --speakers "0=Name,1=Name"` | Re-render formats with named speakers - no API call, no charge. |
+| `/create-transcript retitle --json X.json --title "..."` | Set a descriptive H1 + filename prefix (video name kept at the end) - no API call. |
 | `/create-transcript cost <file or folder>` | Estimate audio-minutes before running (no fabricated price). |
 | `/create-transcript status` | Check ElevenLabs key + ffmpeg/ffprobe + config keyterms. |
 
@@ -85,13 +86,25 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/transcribe.py rename --json "<name>.json" --
 
 Watch for mis-attributed identity in the *content itself* - diarization labels who spoke, not who they are. (In the reference clips, the speaker is Harry Dry, not the interviewer David Perell.)
 
-### Step 6: Name the chapters (if requested)
+### Step 6: Title the transcript (every time)
+
+Every transcript gets a descriptive title. After transcribing (and naming speakers), read the transcript and write a concise title of *what it is about* - not the video filename. Then apply it:
+
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/transcribe.py retitle --json "<name>.json" --title "Design Videos in Reverse From the Comment Section"
+```
+
+This sets the markdown H1 and prefixes every co-located output filename with `<title> - `, keeping the original video name at the end for reference and search (e.g. `Design Videos in Reverse From the Comment Section - Video by adley - 1280p.md`). No API call - it re-renders from cache and preserves speaker names.
+
+Title rules (house style): no colons (use ` - ` to separate segments), no em or en dashes, straight quotes, and only Drive-safe characters (letters, digits, spaces, hyphens, underscores, parentheses, full stops, commas). Keep it to the substantive idea; where a named speaker aids search, include them (e.g. `Three Rules For Every Sentence - Harry Dry`).
+
+### Step 7: Name the chapters (if requested)
 
 `chapters.txt` ships with placeholder titles (lead snippets) and a forced `0:00` first marker. **Rewrite each placeholder into a meaningful title** based on the content - the script finds the boundaries, you name them. This mirrors the Descript YouTube-chapter convention (per-cue paragraphs + timestamped markers).
 
-### Step 7: Verify before done
+### Step 8: Verify before done
 
-Read back one rendered artifact (the markdown) and confirm the speaker count and detected language match the JSON. Report the output paths. Never report "transcribed" on an exit code alone - confirm the rendered file reads correctly.
+Read back one rendered artifact (the markdown) and confirm the H1 title, speaker count, and detected language match the JSON. Report the final output paths. Never report "transcribed" on an exit code alone - confirm the rendered file reads correctly.
 
 ## Setup
 

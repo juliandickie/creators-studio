@@ -109,6 +109,19 @@ class TestMarkdown(unittest.TestCase):
         self.assertNotIn("Speaker 0", md)
 
 
+class TestTitle(unittest.TestCase):
+    def test_title_becomes_h1_source_line_preserved(self):
+        md = formats.render_markdown(load("scribe_single_speaker"),
+                                     source_name="clip.mp4", title="My Great Talk")
+        self.assertTrue(md.startswith("# My Great Talk"))    # H1 is the title
+        self.assertIn("Source file: `clip.mp4`", md)         # video name still referenced
+        self.assertNotIn("# clip.mp4", md)                   # not the filename as H1
+
+    def test_no_title_falls_back_to_source_name(self):
+        md = formats.render_markdown(load("scribe_single_speaker"), source_name="clip.mp4")
+        self.assertTrue(md.startswith("# clip.mp4"))
+
+
 class TestSubtitles(unittest.TestCase):
     def _starts(self, cue_block, sep):
         # Pull the start timestamp out of each "start --> end" line.

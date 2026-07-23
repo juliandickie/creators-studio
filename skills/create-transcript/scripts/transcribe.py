@@ -37,7 +37,7 @@ import formats  # noqa: E402  (sibling module)
 ELEVENLABS_STT_URL = "https://api.elevenlabs.io/v1/speech-to-text"
 API_MODEL_ID = "scribe_v2"          # API model_id (underscore)
 REGISTRY_MODEL = "scribe-v2"        # registry / cost-tracker id (hyphen)
-USER_AGENT = "creators-studio/4.4.0 (+https://github.com/juliandickie/creators-studio)"
+USER_AGENT = "creators-studio/4.5.0 (+https://github.com/juliandickie/creators-studio)"
 
 MEDIA_EXTS = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".opus",
               ".webm", ".mp4", ".mov", ".mkv", ".m4v", ".wmv", ".avi"}
@@ -298,7 +298,8 @@ def write_formats(data: dict, stem: str, out_dir: Path, fmts, source_name: str,
             emit("json", json.dumps(data, indent=2))
         elif fmt == "md":
             emit("md", formats.render_markdown(data, source_name=source_name,
-                                               speaker_names=speaker_names))
+                                               speaker_names=speaker_names,
+                                               title=data.get("_title")))
         elif fmt == "srt":
             emit("srt", formats.render_srt(data))
         elif fmt == "vtt":
@@ -332,7 +333,8 @@ def log_cost(duration_secs: float) -> None:
 # Core: transcribe one file
 # --------------------------------------------------------------------------- #
 def transcribe_file(path: str, *, api_key: str, keyterms: list[str], language: str | None,
-                    diarize: bool, out_dir: Path, fmts, speaker_names: dict | None) -> dict:
+                    diarize: bool, out_dir: Path, fmts, speaker_names: dict | None,
+                    title: str | None = None) -> dict:
     duration, has_audio = probe_media(path)
     if not has_audio:
         raise NoAudioStreamError(f"{path} has no audio stream - nothing to transcribe")
@@ -352,11 +354,15 @@ def transcribe_file(path: str, *, api_key: str, keyterms: list[str], language: s
         files = [("file", audio.name, audio.read_bytes())]
         data = post_multipart(ELEVENLABS_STT_URL, fields, files, api_key)
 
+    data["_source_name"] = Path(path).name
     if speaker_names:
         data["_speaker_names"] = speaker_names
+    if title:
+        data["_title"] = title
 
-    stem = Path(path).stem
-    written = write_formats(data, stem, out_dir, fmts, Path(path).name, speaker_names)
+    source_stem = Path(path).stem
+    out_stem = f"{title} - {source_stem}" if title else source_stem
+    written = write_formats(data, out_stem, out_dir, fmts, Path(path).name, speaker_names)
     log_cost(data.get("audio_duration_secs", duration))
 
     speakers = sorted({w.get("speaker_id") for w in data.get("words", []) if w.get("speaker_id")})
@@ -366,7 +372,7 @@ def transcribe_file(path: str, *, api_key: str, keyterms: list[str], language: s
         "language": data.get("language_code"),
         "speakers": len(speakers),
         "formats": [p.name for p in written],
-        "json": str(out_dir / f"{stem}.json"),
+        "json": str(out_dir / f"{out_stem}.json"),
         "status": "ok",
     }
 
@@ -431,7 +437,7 @@ def cmd_transcribe(args) -> int:
             res = transcribe_file(
                 str(m), api_key=api_key, keyterms=keyterms, language=args.language,
                 diarize=not args.no_diarize, out_dir=out_dir, fmts=fmts,
-                speaker_names=speaker_names,
+                speaker_names=speaker_names, title=(args.title if len(media) == 1 else None),
             )
             results.append(res)
             print(f"{label} - ok ({res['speakers']} speaker(s), "
@@ -471,6 +477,68 @@ def cmd_rename(args) -> int:
           f"({', '.join(f'{k}={v}' for k, v in speaker_names.items())}):")
     for p in written:
         print(f"  {p}")
+    print("No API call made - regenerated from cached JSON.")
+    return 0
+
+
+def existing_formats(out_dir: Path, stem: str) -> list[str]:
+    """Which output formats currently exist on disk for a given stem."""
+    checks = {"md": f"{stem}.md", "srt": f"{stem}.srt", "vtt": f"{stem}.vtt",
+              "json": f"{stem}.json", "txt": f"{stem}.txt",
+              "chapters": f"{stem}.chapters.txt"}
+    return [fmt for fmt, name in checks.items() if (out_dir / name).exists()]
+
+
+def _format_path(out_dir: Path, stem: str, fmt: str) -> Path:
+    return out_dir / (f"{stem}.chapters.txt" if fmt == "chapters" else f"{stem}.{fmt}")
+
+
+def cmd_retitle(args) -> int:
+    """Apply a descriptive title from cache: set the markdown H1 and prefix every
+    co-located output filename with '<title> - '. No API call - re-renders from
+    the cached JSON. The real video filename is kept as the tail of the name and
+    in the Source file line."""
+    json_path = Path(args.json).expanduser()
+    if not json_path.exists():
+        print(f"ERROR: not found: {json_path}", file=sys.stderr)
+        return 1
+    title = (args.title or "").strip()
+    if not title:
+        print("ERROR: --title is required.", file=sys.stderr)
+        return 1
+
+    data = json.loads(json_path.read_text())
+    data["_title"] = title
+    src_name = args.source_name or data.get("_source_name")
+    if src_name:
+        data["_source_name"] = src_name
+        source_stem = Path(src_name).stem
+    else:
+        # Pre-4.5.0 cache with no stored source name: fall back to the current
+        # stem. Pass --source-name to avoid a doubled title prefix on re-runs.
+        source_stem = json_path.stem
+
+    out_dir = json_path.parent
+    cur_stem = json_path.stem
+    new_stem = f"{title} - {source_stem}"
+    speaker_names = data.get("_speaker_names")
+
+    fmts = existing_formats(out_dir, cur_stem)
+    if "json" not in fmts:
+        fmts.append("json")
+
+    written = write_formats(data, new_stem, out_dir, fmts, src_name or source_stem, speaker_names)
+
+    if new_stem != cur_stem:
+        for fmt in fmts:
+            old = _format_path(out_dir, cur_stem, fmt)
+            new = _format_path(out_dir, new_stem, fmt)
+            if old.exists() and old.resolve() != new.resolve():
+                old.unlink()
+
+    print(f"Retitled to \"{title}\" - {len(written)} file(s) re-rendered (H1 + filename):")
+    for p in written:
+        print(f"  {p.name}")
     print("No API call made - regenerated from cached JSON.")
     return 0
 
@@ -589,6 +657,8 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--output-dir", help="Where to write outputs. Default: <source>/transcripts.")
     t.add_argument("--batch", action="store_true", help="Treat a directory target as a batch.")
     t.add_argument("--no-diarize", action="store_true", help="Disable speaker separation.")
+    t.add_argument("--title", help="Descriptive title for the H1 and filename prefix "
+                                   "(single file only). Usually applied afterwards via retitle.")
     t.add_argument("--api-key", help="Override ElevenLabs key.")
     t.set_defaults(func=cmd_transcribe)
 
@@ -598,6 +668,14 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--formats", help="Formats to re-render (default: those already present).")
     r.add_argument("--source-name", help="Source filename for the markdown header.")
     r.set_defaults(func=cmd_rename)
+
+    rt = sub.add_parser("retitle", help="Set a descriptive H1 + filename prefix from cache "
+                                        "(keeps the video name at the end). No API call.")
+    rt.add_argument("--json", required=True, help="Cached <name>.json to retitle.")
+    rt.add_argument("--title", required=True, help='Descriptive title, e.g. "Design Videos in Reverse".')
+    rt.add_argument("--source-name", help="Original video filename (for pre-4.5.0 caches "
+                                          "with no stored source name).")
+    rt.set_defaults(func=cmd_retitle)
 
     c = sub.add_parser("cost", help="Estimate audio-minutes before running.")
     c.add_argument("target", help="File or directory.")
@@ -611,7 +689,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    known = {"transcribe", "rename", "cost", "status"}
+    known = {"transcribe", "rename", "retitle", "cost", "status"}
     # Ergonomic bare form: `transcribe.py foo.mp4` == `transcribe.py transcribe foo.mp4`.
     if argv and argv[0] not in known and not argv[0].startswith("-"):
         argv.insert(0, "transcribe")
