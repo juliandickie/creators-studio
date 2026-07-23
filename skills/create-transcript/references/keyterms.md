@@ -18,62 +18,87 @@ can never 400 the whole request:
 
 Terms breaking a rule are dropped with a printed reason; the rest still go.
 
-## Three-tier precedence
+## Two levers - always-on vs per-video
 
-Resolved by `resolve_keyterms(cli, replace, config)`:
+There are two places keyterms come from, and the distinction is the whole point:
 
-1. `--keyterms "a,b,c"` - per-run terms (CLI).
-2. `transcription.keyterms` in `~/.creators-studio/config.json` - your standing list.
-3. `DEFAULT_KEYTERMS` in `transcribe.py` - shipped default (empty; the standing
-   list belongs in your config, not in the plugin).
+- **`transcription.keyterms` (always-on)** - a flat list applied to *every*
+  transcription automatically. Convenient, but it means the +20% surcharge and
+  those terms hit every run, relevant or not.
+- **`transcription.keyterm_sets` (per-video)** - *named* vocabularies you activate
+  only on the videos that need them, with `--keyterm-set <name>`. Nothing applies
+  unless you name a set (or pass ad-hoc `--keyterms`).
 
-Tiers **union** (deduped, order-preserving) so a per-run `--keyterms` **adds** to
-your standing list rather than replacing it - you almost always still want your
-brand names. Use `--keyterms-replace` for the rare pure-override case.
+**To activate keyterms only on specific videos:** put your vocabulary in
+**sets**, keep the always-on `keyterms` list empty (or tiny). Then a plain
+`/create-transcript video.mp4` applies no bias and no surcharge, while
+`/create-transcript dental-webinar.mp4 --keyterm-set dental` applies the dental
+vocabulary to that one video. Driving through Claude, you just say "this is a
+dental video" and the orchestrator picks the set.
+
+## Full precedence
+
+Resolved by `resolve_keyterm_sets()` then `resolve_keyterms()`:
+
+1. `--keyterms "a,b,c"` - ad-hoc per-run terms (CLI).
+2. `--keyterm-set dental,agency` - terms from named sets in config.
+3. `transcription.keyterms` - the always-on base list.
+4. `DEFAULT_KEYTERMS` in `transcribe.py` - shipped default (empty).
+
+All four **union** (deduped, order-preserving). `--keyterms-replace` uses only the
+terms named **this run** (1 + 2), skipping the always-on base and default - the
+per-video escape hatch when you keep a standing list but want none of it on a
+particular video. A typo'd set name fails loud and lists the available sets;
+`/create-transcript status` also lists them.
 
 ## Cost note
 
-Using keyterms adds a documented **+20% surcharge** on the base transcription
-cost, and **more than 100 keyterms** forces a **20-second minimum billable
-duration** per request. The skill prints both notes when keyterms are active.
-Practically: a large standing list is free-ish on long recordings but can dominate
-cost on a batch of very short clips - the run-time notes make that visible.
+Using keyterms (from any source) adds a documented **+20% surcharge** on the base
+transcription cost, and **more than 100 keyterms** forces a **20-second minimum
+billable duration** per request. The skill prints both notes when keyterms are
+active. Sets keep this contained: only the videos you tag pay the surcharge.
 
-## Recommended standing list (config seed)
+## Recommended config seed (sets by category)
 
-Add the names your recordings actually use to `~/.creators-studio/config.json`.
-A starting point for the dental-education and agency work:
+Two businesses, two categories, so two sets. Keep the always-on `keyterms` list
+empty so random downloads get no bias:
 
 ```json
 {
   "elevenlabs_api_key": "sk_...",
   "transcription": {
-    "keyterms": [
-      "Institute of Digital Dentistry",
-      "iDD",
-      "Dr Ahmad Al-Hassiny",
-      "Al-Hassiny",
-      "Pro Marketing",
-      "intraoral scanner",
-      "CAD/CAM",
-      "Medit",
-      "iTero",
-      "3Shape",
-      "Primescan",
-      "TRIOS",
-      "Dentsply Sirona",
-      "Straumann",
-      "Spiffy",
-      "Ascot",
-      "ClickUp",
-      "Cloudflare",
-      "WordPress"
-    ]
+    "keyterms": [],
+    "keyterm_sets": {
+      "dental": [
+        "Institute of Digital Dentistry",
+        "iDD",
+        "Dr Ahmad Al-Hassiny",
+        "Al-Hassiny",
+        "intraoral scanner",
+        "CAD/CAM",
+        "Medit",
+        "iTero",
+        "3Shape",
+        "Primescan",
+        "TRIOS",
+        "Dentsply Sirona",
+        "Straumann"
+      ],
+      "agency": [
+        "Pro Marketing",
+        "Ascot",
+        "Spiffy",
+        "ClickUp",
+        "Cloudflare",
+        "WordPress"
+      ]
+    }
   }
 }
 ```
 
-Keep it to names that are genuinely non-obvious to a general model - common English
-words gain nothing from being listed and only eat into the ≤ 5-word budget. Add
-per-video one-offs (a guest's name, a specific product model) with `--keyterms` on
-the run rather than bloating the standing list.
+Then: `--keyterm-set dental` on dental content, `--keyterm-set agency` on client
+work, nothing on the rest. Keep sets to names genuinely non-obvious to a general
+model - common English words gain nothing and eat the ≤ 5-word budget. Add a
+one-off (a guest's name, a specific product model) with `--keyterms` on the run
+rather than editing the set.
