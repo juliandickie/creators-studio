@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   validate:
@@ -17,52 +18,126 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Check SKILL.md line count
+      - name: Check SKILL.md line counts
         shell: bash
         run: |
-          lines=$(wc -l < skills/banana/SKILL.md)
-          echo "SKILL.md: ${lines} lines"
-          if [ "${lines}" -gt 500 ]; then
-            echo "::error::SKILL.md exceeds 500 lines"
+          shopt -s nullglob
+          skills=(skills/*/SKILL.md)
+          if [ "${#skills[@]}" -eq 0 ]; then
+            echo "::error::No skills/*/SKILL.md found - has the skill layout changed?"
             exit 1
           fi
+          status=0
+          for f in "${skills[@]}"; do
+            lines=$(wc -l < "${f}")
+            echo "${f}: ${lines} lines"
+            if [ "${lines}" -gt 500 ]; then
+              echo "::error file=${f}::${f} exceeds the 500-line limit (${lines} lines)"
+              status=1
+            fi
+          done
+          exit "${status}"
 
       - name: Verify required files exist
         shell: bash
         run: |
           files=(
             .claude-plugin/plugin.json
-            skills/banana/SKILL.md
-            skills/banana/references/gemini-models.md
-            skills/banana/references/mcp-tools.md
-            skills/banana/references/post-processing.md
-            skills/banana/references/prompt-engineering.md
-            skills/banana/references/cost-tracking.md
-            skills/banana/references/presets.md
-            skills/banana/scripts/setup_mcp.py
-            skills/banana/scripts/validate_setup.py
-            skills/banana/scripts/generate.py
-            skills/banana/scripts/edit.py
-            skills/banana/scripts/cost_tracker.py
-            skills/banana/scripts/presets.py
-            skills/banana/scripts/batch.py
-            install.sh
+            .claude-plugin/marketplace.json
+            skills/create-image/SKILL.md
+            skills/create-image/references/gemini-models.md
+            skills/create-image/references/mcp-tools.md
+            skills/create-image/references/post-processing.md
+            skills/create-image/references/prompt-engineering.md
+            skills/create-image/references/cost-tracking.md
+            skills/create-image/references/presets.md
+            skills/create-image/scripts/setup_mcp.py
+            skills/create-image/scripts/validate_setup.py
+            skills/create-image/scripts/generate.py
+            skills/create-image/scripts/edit.py
+            skills/create-image/scripts/cost_tracker.py
+            skills/create-image/scripts/presets.py
+            skills/create-image/scripts/batch.py
+            skills/create-video/SKILL.md
+            skills/create-video/references/kling-models.md
+            skills/create-video/references/veo-models.md
+            skills/create-video/scripts/video_generate.py
+            skills/create-transcript/SKILL.md
+            skills/create-transcript/references/scribe-models.md
+            skills/create-transcript/scripts/transcribe.py
+            skills/create-transcript/scripts/formats.py
+            scripts/backends/_base.py
+            scripts/backends/_canonical.py
+            scripts/backends/_replicate.py
+            scripts/registry/models.json
+            scripts/registry/registry.py
+            scripts/routing.py
+            scripts/paths.py
           )
+          status=0
           for f in "${files[@]}"; do
-            test -f "${f}" && echo "OK: ${f}" || { echo "::error::Missing ${f}"; exit 1; }
+            if [ -f "${f}" ]; then
+              echo "OK: ${f}"
+            else
+              echo "::error::Missing ${f}"
+              status=1
+            fi
           done
+          exit "${status}"
 
       - name: Check Python syntax
         shell: bash
         run: |
-          for f in skills/banana/scripts/*.py; do
-            python3 -m py_compile "$f" && echo "OK: $f" || { echo "::error::Syntax error in $f"; exit 1; }
+          # Portable read loop rather than `mapfile` (bash 4+ only) so this gate
+          # can also be run locally on macOS's bash 3.2.
+          pyfiles=()
+          while IFS= read -r f; do
+            pyfiles+=("${f}")
+          done < <(git ls-files '*.py')
+          if [ "${#pyfiles[@]}" -eq 0 ]; then
+            echo "::error::No Python files found - has the layout changed?"
+            exit 1
+          fi
+          echo "Compiling ${#pyfiles[@]} file(s)"
+          status=0
+          for f in "${pyfiles[@]}"; do
+            if python3 -m py_compile "${f}"; then
+              echo "OK: ${f}"
+            else
+              echo "::error file=${f}::Syntax error in ${f}"
+              status=1
+            fi
           done
+          exit "${status}"
+
+      - name: Validate JSON manifests
+        shell: bash
+        run: |
+          status=0
+          for f in .claude-plugin/plugin.json .claude-plugin/marketplace.json scripts/registry/models.json; do
+            if python3 -c "import json, sys; json.load(open(sys.argv[1]))" "${f}"; then
+              echo "OK: ${f}"
+            else
+              echo "::error file=${f}::Invalid JSON in ${f}"
+              status=1
+            fi
+          done
+          exit "${status}"
+
+      - name: Run test suite
+        shell: bash
+        run: python3 -m unittest discover tests
 
       - name: Check for outdated rate limits
         shell: bash
         run: |
-          if grep -rEl "~10 RPM / ~500 RPD" skills/banana/ README.md 2>/dev/null; then
+          for p in skills README.md; do
+            if [ ! -e "${p}" ]; then
+              echo "::error::Expected path ${p} not found - this gate would pass vacuously"
+              exit 1
+            fi
+          done
+          if grep -rEl "~10 RPM / ~500 RPD" skills README.md; then
             echo "::error::Found outdated rate limits (pre-Dec 2025 cut values)"
             exit 1
           fi
