@@ -1,12 +1,9 @@
 version: 2
 updates:
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-    open-pull-requests-limit: 5
+  # No "pip" ecosystem entry on purpose. This project has ZERO pip
+  # dependencies by design (stdlib only - see CLAUDE.md "Scripts use stdlib
+  # only") and ships no requirements.txt, pyproject.toml or setup.py, so a pip
+  # entry has no manifest to track and can never produce an update.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

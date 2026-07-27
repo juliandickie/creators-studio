@@ -157,7 +157,7 @@ This repo follows the official Claude Code plugin layout:
 | `scripts/registry/models.json` | **v4.2.0 expanded in v4.2.1** - Single-source-of-truth model registry: 13 canonical models across image/video/music families. v4.2.0 seeded 6 models; v4.2.1 added VEO 3.1 (Lite/Fast/Standard), Lyria family (2, 3, 3-Pro), and ElevenLabs Music (with `(direct)` sentinel slug). v4.2.1 also corrected Kling v3 + v3 Omni pricing (the v4.2.0 `per_second: 0.02` was carried from an outdated source). `family_defaults.music = elevenlabs-music`. |
 | `scripts/registry/registry.py` | **v4.2.0** Registry loader + typed query API (`load_registry()`, `get_model()`, `models_by_family()`, `providers_for_model()`, `family_default()`, `validate()`). Stdlib only. |
 | `scripts/routing.py` | **v4.2.0** Two-stage routing: (1) `resolve_model()` - explicit `--model` > config `defaults.<family>_model` > registry `family_defaults[family]`. (2) `resolve_provider()` - explicit `--provider` > config `defaults.<family>` > `default_provider` > first-with-configured-api-key in registry insertion order. |
-| `tests/test_*.py` | **v4.2.0** Test suite (stdlib `unittest`, zero pip deps, 74 tests). Run with `python3 -m unittest discover tests`. HTTP mocked via `urllib.request.urlopen` patch; no network required. Fixtures at `tests/fixtures/*.json`. |
+| `tests/test_*.py` | **v4.2.0** Test suite (stdlib `unittest`, zero pip deps, 222 tests). Run with `python3 -m unittest discover tests`. HTTP mocked via `urllib.request.urlopen` patch; no network required. Fixtures at `tests/fixtures/*.json`. |
 | `references/providers/replicate.md` | **v4.2.0** Provider reference: auth, polling, Cloudflare User-Agent rule, 6-value status enum, pricing modes. Provider references live at plugin-root to be shared across skills. |
 | `references/models/*.md` | **v4.2.0** Per-model references (capabilities, prompt quirks, constraints, authoritative source). Follow-up to sub-project A - initial references seeded from the existing `skills/create-*/references/*-models.md` files as they're migrated. |
 | `references/models/pixverse-v6.md` | **2026-04-27** PixVerse V6 reference (Replicate `pixverse/pixverse-v6`). 4-tier resolution pricing (360p/540p/720p/1080p × audio toggle), up to 15s output, native multilingual text-in-video, multi-shot via `generate_multi_clip_switch` boolean (different shape from Kling's `multi_prompt` array). Registered in `scripts/registry/models.json` and `cost_tracker.py` PRICING dict; backend wiring (canonical-param translation in `_replicate.py`) deferred. Source: `dev-docs/pixverse-pixverse-v6-llms.md`. |
@@ -308,7 +308,8 @@ Progressive Enhancement, expanded character consistency, multilingual support).
 
 ## Installation
 
-Test locally: `claude --plugin-dir .` or standalone: `bash install.sh`
+Test locally: `claude --plugin-dir .`. For the marketplace install, see "How to
+test changes" above. There is no standalone `install.sh` in this repo.
 
 ## Feature Completion Checklist
 
@@ -402,10 +403,14 @@ If any new Python scripts were created:
 ### 8. SKILL.md Size Check
 
 ```bash
-wc -l skills/create-image/SKILL.md  # Must stay under 500 lines
+wc -l skills/*/SKILL.md  # Each must stay under 500 lines
 ```
 
-Current: ~200 lines (lean orchestrator pattern). If approaching 300+, extract to reference files.
+Current: create-image 317, create-video 296, create-transcript 117 (lean
+orchestrator pattern). If one approaches 450, extract to reference files.
+
+The 500-line limit is enforced in CI by `.github/workflows/validate.yml`, which
+globs `skills/*/SKILL.md` and so covers any skill added later automatically.
 
 ### 9. Memory File
 
