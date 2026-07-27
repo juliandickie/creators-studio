@@ -1,6 +1,11 @@
 # Global owner
+#
+# This catch-all covers every path in the repo, including all three skills
+# (create-image, create-video, create-transcript). While there is a single
+# owner, per-path rules add no behaviour on top of it.
+#
+# The previous per-skill rules pointed at /skills/banana/, a path retired by
+# the v4.0.0 rename, so they silently matched nothing for months. If per-path
+# ownership is ever needed (a second owner, or a directory needing a different
+# reviewer), add it then and keep it in step with the actual skill layout.
 * @juliandickie
-
-# Skill core
-/skills/banana/SKILL.md @juliandickie
-/skills/banana/references/ @juliandickie
