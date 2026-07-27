@@ -124,6 +124,15 @@ jobs:
           done
           exit "${status}"
 
+      # Deliberately overlaps with the test suite below, which asserts the same
+      # thing via tests/test_live_config.py. A dedicated step is worth the
+      # milliseconds: it emits ::error annotations with file and line, so a
+      # stale rule shows up inline on the PR diff rather than as a generic
+      # test failure.
+      - name: Check live config references
+        shell: bash
+        run: python3 scripts/dev/check_live_config.py
+
       - name: Run test suite
         shell: bash
         run: python3 -m unittest discover tests
