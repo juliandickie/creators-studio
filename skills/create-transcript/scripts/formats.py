@@ -34,6 +34,13 @@ DEFAULT_CUE_MAX_DUR = 7.0     # seconds
 DEFAULT_CUE_MAX_CHARS = 42    # characters per cue
 DEFAULT_CHAPTER_MIN_GAP = 2.0  # seconds of silence that starts a new chapter
 
+# Human labels for the API model_id recorded in the cache as `_model`.
+# Kept here (not imported from transcribe.py) so this module stays pure.
+ENGINE_LABELS = {
+    "scribe_v2": "ElevenLabs Scribe v2",
+    "scribe_v2_medical": "ElevenLabs Scribe v2 Medical",
+}
+
 
 # --------------------------------------------------------------------------- #
 # Timecodes
@@ -201,7 +208,10 @@ def render_markdown(data: dict, source_name: str | None = None,
     dur = data.get("audio_duration_secs")
     if dur is not None:
         lines.append(f"- Duration: {fmt_time(dur, 'clock')}")
-    lines.append("- Engine: ElevenLabs Scribe v2 (`scribe_v2`), batch")
+    # Caches written before the --model flag existed have no _model key; they
+    # were all scribe_v2, so that is the correct fallback.
+    model = data.get("_model") or "scribe_v2"
+    lines.append(f"- Engine: {ENGINE_LABELS.get(model, model)} (`{model}`), batch")
     lc = data.get("language_code")
     if lc:
         lp = data.get("language_probability")

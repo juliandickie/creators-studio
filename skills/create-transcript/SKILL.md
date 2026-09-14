@@ -24,6 +24,7 @@ argument-hint: "[transcribe|rename|cost|status] <file, folder, or command>"
 | `/create-transcript <file> --formats md,srt,vtt,json` | Choose output formats (`all` for every format; `json` always written). |
 | `/create-transcript <file> --keyterm-set dental` | Activate a named keyterm set (per-category vocab from config) on this video only. |
 | `/create-transcript <file> --keyterms "Medit,iTero,iDD"` | Add ad-hoc bias terms for this run (one-offs, unions on top of any set). |
+| `/create-transcript <file> --model scribe_v2_medical` | Use the clinical-speech model instead of the default `scribe_v2`. Same options, same rate. |
 | `/create-transcript <file> --speakers "0=Julian,1=Dr Ahmad"` | Name diarized speakers up front. |
 | `/create-transcript <folder> --batch` | Transcribe every audio/video file in a folder. |
 | `/create-transcript rename --json X.json --speakers "0=Name,1=Name"` | Re-render formats with named speakers - no API call, no charge. |
@@ -62,10 +63,25 @@ Keyterms fix brand/product/person names a general model mis-spells. Run `status`
 
 Surface the resolved list before running if it is non-trivial, and mention the cost note (keyterms add a +20% surcharge; >100 keyterms force a 20 s minimum billable). See `references/keyterms.md`.
 
+**Keyterms are the accuracy lever, not the model.** A 2026-09-14 bake-off on iDD
+course audio found the medical model fixed no proper noun that the default missed,
+while adding the speakers' surnames as keyterms fixed every one. When a recording
+names people, put those names in `--keyterms`.
+
+### Step 3.5: Model
+
+Default to `scribe_v2` and say nothing. Only reach for `--model scribe_v2_medical`
+when the source is clinical speech AND the user wants a *clean published
+transcript* rather than a verbatim record: the medical model normalises register
+(every "gonna" becomes "going to") and punctuates into shorter sentences. It is a
+separate model, not a quality upgrade, and it does not improve proper nouns. Never
+present it as "the more accurate one". See
+`docs/dev-notes/2026-09-14-scribe-medical-vs-general-bakeoff.md`.
+
 ### Step 4: Run
 
 ```bash
-python3 ${CLAUDE_SKILL_DIR}/scripts/transcribe.py "<file-or-folder>" --formats <chosen> [--keyterm-set NAME] [--keyterms "..."] [--speakers "..."] [--output-dir DIR]
+python3 ${CLAUDE_SKILL_DIR}/scripts/transcribe.py "<file-or-folder>" --formats <chosen> [--model scribe_v2|scribe_v2_medical] [--keyterm-set NAME] [--keyterms "..."] [--speakers "..."] [--output-dir DIR]
 ```
 
 Outputs land in `<source>/transcripts/` unless `--output-dir` is given. Batch prints a per-file PASS/FAIL summary - if any file failed, report it, do not claim the batch succeeded.

@@ -5,7 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.5.0] - 2026-07-23
+## [4.6.0] - 2026-09-14
+
+### Added
+
+- **`--model` on `/create-transcript`, adding ElevenLabs Scribe v2 Medical.** `transcribe --model scribe_v2_medical` routes to the clinical-speech model that went GA on 2026-09-11; `scribe_v2` stays the default and the flag is the only way to change it. Verified against the live API on 2026-09-14: the medical model accepts the identical field set (`diarize`, `tag_audio_events`, `timestamps_granularity`, `language_code`, `keyterms`), returns the identical response shape, and bills at the same subscription rate, so the two are drop-in swappable. The selected model is written into the cached JSON as `_model` and the markdown "Engine:" line renders from it, so a later `rename` or `retitle` reports the engine that actually produced the transcript instead of assuming Scribe v2. Caches written before this release have no `_model` key and correctly fall back to `scribe_v2`. Cost is now logged against the matching registry id (`scribe-v2` or `scribe-v2-medical`). `scribe-v2-medical` registered in `scripts/registry/models.json` and `cost_tracker.py` (subscription mode), which also brings the `transcription` family in line with the v4.2.1 multi-model principle (it was the last single-model family). 6 new tests (228 total).
+
+### Changed
+
+- **`references/scribe-models.md` documents the full batch roster and how to choose.** The endpoint accepts `scribe_v1`, `scribe_v1_experimental`, `scribe_v2` and `scribe_v2_medical` - confirmed by sending a deliberately invalid `model_id` and reading the `unsupported_model` error, which enumerates them. That probe is now documented as the authoritative check when the docs page lags, because `/v1/models` returns text-to-speech models only and never lists Scribe. The reference states plainly that the medical model is a separate model rather than a quality upgrade, and that the honest way to choose is to run both on a sample and diff them (cheap, because re-renders come from the cache).
+
+
 
 ### Added
 
