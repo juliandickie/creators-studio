@@ -124,6 +124,11 @@ PRICING = {
     "scribe-v2": {
         "subscription": True,
     },
+    # Scribe v2 Medical - clinical-speech sibling of scribe-v2, billed at the
+    # same subscription rate per the 2026-09-11 ElevenLabs changelog.
+    "scribe-v2-medical": {
+        "subscription": True,
+    },
     # Vertex AI Lyria 2 (v3.7.2+). Fixed-length 32.768s instrumental music.
     # No longer the default music source as of v3.8.3 (ElevenLabs won the
     # 12-genre blind bake-off 12-0). Available via --music-source lyria.

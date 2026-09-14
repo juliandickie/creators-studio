@@ -295,3 +295,82 @@ class TestTranscribeTitle(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestModelSelection(unittest.TestCase):
+    """--model picks the Scribe batch model and the choice survives into the cache.
+
+    The cache is the single source every format re-renders from, so a transcript
+    produced by the medical model must keep saying so on a later rename/retitle.
+    """
+
+    def test_default_is_scribe_v2(self):
+        args = transcribe.build_parser().parse_args(["transcribe", "x.mp4"])
+        self.assertEqual(args.model, "scribe_v2")
+        self.assertEqual(transcribe.DEFAULT_MODEL, "scribe_v2")
+
+    def test_medical_is_selectable(self):
+        args = transcribe.build_parser().parse_args(
+            ["transcribe", "x.mp4", "--model", "scribe_v2_medical"])
+        self.assertEqual(args.model, "scribe_v2_medical")
+
+    def test_unknown_model_rejected_by_parser(self):
+        with self.assertRaises(SystemExit):
+            transcribe.build_parser().parse_args(
+                ["transcribe", "x.mp4", "--model", "whisper"])
+
+    def test_unknown_model_rejected_before_any_network(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("transcribe.urllib.request.urlopen") as mock_open:
+                with self.assertRaises(ValueError):
+                    transcribe.transcribe_file(
+                        str(Path(tmp) / "clip.mp4"), api_key="k", keyterms=[],
+                        language=None, diarize=True, out_dir=Path(tmp) / "o",
+                        fmts=["md"], speaker_names=None, model="nope",
+                    )
+                mock_open.assert_not_called()
+
+    def test_selected_model_is_sent_cached_and_rendered(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "out"
+            fake_audio = Path(tmp) / "clip.mp3"
+            fake_audio.write_bytes(b"\x00\x00")
+            sent = {}
+
+            def _capture(url, fields, files, api_key):
+                sent.update(fields)
+                return dict(SCRIBE_RESPONSE)
+
+            with patch.object(transcribe, "probe_media", return_value=(3.0, True)), \
+                 patch.object(transcribe, "extract_audio", return_value=fake_audio), \
+                 patch.object(transcribe, "log_cost") as mock_log, \
+                 patch.object(transcribe, "post_multipart", side_effect=_capture):
+                transcribe.transcribe_file(
+                    str(Path(tmp) / "clip.mp4"), api_key="k", keyterms=[],
+                    language=None, diarize=True, out_dir=out,
+                    fmts=["md", "json"], speaker_names=None,
+                    model="scribe_v2_medical",
+                )
+
+            self.assertEqual(sent["model_id"], "scribe_v2_medical")       # sent to API
+            cached = json.loads((out / "clip.json").read_text())
+            self.assertEqual(cached["_model"], "scribe_v2_medical")       # in the cache
+            self.assertIn("Scribe v2 Medical", (out / "clip.md").read_text())
+            # cost is logged against the medical registry id, not plain scribe-v2
+            self.assertEqual(mock_log.call_args[0][1], "scribe-v2-medical")
+
+    def test_retitle_of_a_medical_cache_keeps_the_medical_engine_line(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            j = Path(tmp) / "clip.json"
+            j.write_text(json.dumps({**SCRIBE_RESPONSE,
+                                     "_model": "scribe_v2_medical",
+                                     "_source_name": "clip.mp4"}))
+            # retitle re-renders the formats already on disk, so seed the md.
+            (Path(tmp) / "clip.md").write_text("# placeholder\n")
+            args = transcribe.build_parser().parse_args(
+                ["retitle", "--json", str(j), "--title", "T", "--source-name", "clip.mp4"])
+            with patch("transcribe.urllib.request.urlopen") as mock_open:
+                rc = args.func(args)
+            self.assertEqual(rc, 0)
+            mock_open.assert_not_called()                                 # no re-charge
+            self.assertIn("Scribe v2 Medical", (Path(tmp) / "T - clip.md").read_text())

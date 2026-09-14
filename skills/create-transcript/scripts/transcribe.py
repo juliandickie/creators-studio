@@ -35,8 +35,25 @@ import formats  # noqa: E402  (sibling module)
 
 # ElevenLabs Scribe v2 batch endpoint.
 ELEVENLABS_STT_URL = "https://api.elevenlabs.io/v1/speech-to-text"
-API_MODEL_ID = "scribe_v2"          # API model_id (underscore)
-REGISTRY_MODEL = "scribe-v2"        # registry / cost-tracker id (hyphen)
+
+# Batch models this skill offers. Keys are the API model_id (underscore); the
+# registry / cost-tracker id is the hyphenated form. The full roster the API
+# accepts is scribe_v1, scribe_v1_experimental, scribe_v2, scribe_v2_medical
+# (confirmed 2026-09-14 from the API's own unsupported_model error); the v1
+# models are superseded and deliberately not offered here.
+MODELS: dict[str, dict[str, str]] = {
+    "scribe_v2": {
+        "registry": "scribe-v2",
+        "label": "ElevenLabs Scribe v2",
+    },
+    "scribe_v2_medical": {
+        "registry": "scribe-v2-medical",
+        "label": "ElevenLabs Scribe v2 Medical",
+    },
+}
+DEFAULT_MODEL = "scribe_v2"
+API_MODEL_ID = DEFAULT_MODEL        # back-compat alias for callers/tests
+REGISTRY_MODEL = MODELS[DEFAULT_MODEL]["registry"]
 USER_AGENT = "creators-studio/4.5.0 (+https://github.com/juliandickie/creators-studio)"
 
 MEDIA_EXTS = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".opus",
@@ -312,7 +329,7 @@ def write_formats(data: dict, stem: str, out_dir: Path, fmts, source_name: str,
     return written
 
 
-def log_cost(duration_secs: float) -> None:
+def log_cost(duration_secs: float, registry_model: str = REGISTRY_MODEL) -> None:
     """Non-blocking usage log. Scribe is subscription-billed, so this records
     audio-seconds, not dollars. A logging failure never blocks output."""
     try:
@@ -320,7 +337,7 @@ def log_cost(duration_secs: float) -> None:
         if not tracker.exists():
             return
         subprocess.run(
-            [sys.executable, str(tracker), "log", "--model", REGISTRY_MODEL,
+            [sys.executable, str(tracker), "log", "--model", registry_model,
              "--resolution", f"{int(round(duration_secs))}s",
              "--prompt", "speech-to-text"],
             capture_output=True, timeout=5,
@@ -334,7 +351,9 @@ def log_cost(duration_secs: float) -> None:
 # --------------------------------------------------------------------------- #
 def transcribe_file(path: str, *, api_key: str, keyterms: list[str], language: str | None,
                     diarize: bool, out_dir: Path, fmts, speaker_names: dict | None,
-                    title: str | None = None) -> dict:
+                    title: str | None = None, model: str = DEFAULT_MODEL) -> dict:
+    if model not in MODELS:
+        raise ValueError(f"unknown model {model!r}; choose from {', '.join(MODELS)}")
     duration, has_audio = probe_media(path)
     if not has_audio:
         raise NoAudioStreamError(f"{path} has no audio stream - nothing to transcribe")
@@ -342,7 +361,7 @@ def transcribe_file(path: str, *, api_key: str, keyterms: list[str], language: s
     with tempfile.TemporaryDirectory(prefix="cs-stt-") as tmp:
         audio = extract_audio(path, Path(tmp))
         fields: dict = {
-            "model_id": API_MODEL_ID,
+            "model_id": model,
             "diarize": diarize,
             "tag_audio_events": True,
             "timestamps_granularity": "word",
@@ -354,6 +373,9 @@ def transcribe_file(path: str, *, api_key: str, keyterms: list[str], language: s
         files = [("file", audio.name, audio.read_bytes())]
         data = post_multipart(ELEVENLABS_STT_URL, fields, files, api_key)
 
+    # Record the model in the cache: every other format is a pure re-render of
+    # this JSON, so without it a `rename`/`retitle` would print the wrong engine.
+    data["_model"] = model
     data["_source_name"] = Path(path).name
     if speaker_names:
         data["_speaker_names"] = speaker_names
@@ -363,7 +385,7 @@ def transcribe_file(path: str, *, api_key: str, keyterms: list[str], language: s
     source_stem = Path(path).stem
     out_stem = f"{title} - {source_stem}" if title else source_stem
     written = write_formats(data, out_stem, out_dir, fmts, Path(path).name, speaker_names)
-    log_cost(data.get("audio_duration_secs", duration))
+    log_cost(data.get("audio_duration_secs", duration), MODELS[model]["registry"])
 
     speakers = sorted({w.get("speaker_id") for w in data.get("words", []) if w.get("speaker_id")})
     return {
@@ -421,6 +443,9 @@ def cmd_transcribe(args) -> int:
 
     out_dir = Path(args.output_dir).expanduser() if args.output_dir else default_out_dir(target)
 
+    if args.model != DEFAULT_MODEL:
+        print(f"Model: {MODELS[args.model]['label']} (`{args.model}`)")
+
     if keyterms:
         via = f" via set(s) {args.keyterm_set}" if args.keyterm_set else ""
         print(f"Keyterms active ({len(keyterms)}){via}: {', '.join(keyterms[:8])}"
@@ -438,6 +463,7 @@ def cmd_transcribe(args) -> int:
                 str(m), api_key=api_key, keyterms=keyterms, language=args.language,
                 diarize=not args.no_diarize, out_dir=out_dir, fmts=fmts,
                 speaker_names=speaker_names, title=(args.title if len(media) == 1 else None),
+                model=args.model,
             )
             results.append(res)
             print(f"{label} - ok ({res['speakers']} speaker(s), "
@@ -652,6 +678,11 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--keyterms-replace", action="store_true",
                    help="Use only the terms named this run (--keyterms + --keyterm-set), "
                         "ignoring the always-on config keyterms list.")
+    t.add_argument("--model", choices=sorted(MODELS), default=DEFAULT_MODEL,
+                   help="Scribe batch model. scribe_v2_medical is tuned for clinical "
+                        "speech and takes the same options at the same rate; it is a "
+                        "different model, not a mode, so pick per source. "
+                        f"Default: {DEFAULT_MODEL}.")
     t.add_argument("--language", help="ISO-639 code (e.g. eng). Default: auto-detect.")
     t.add_argument("--speakers", help='Name speakers, e.g. "0=Julian,1=Dr Ahmad".')
     t.add_argument("--output-dir", help="Where to write outputs. Default: <source>/transcripts.")
