@@ -1118,6 +1118,53 @@ def generate_music_elevenlabs(prompt: str, api_key: str,
     }
 
 
+DEFAULT_SFX_MODEL = "eleven_text_to_sound_v2"
+
+
+def generate_sfx(prompt: str, api_key: str, duration_s: float | None = None,
+                 prompt_influence: float = 0.3, loop: bool = False,
+                 output_path: Path | None = None) -> dict:
+    """Call ElevenLabs text-to-sound-effects (POST /v1/sound-generation).
+
+    duration_s None lets the model pick a length from the prompt. API limits:
+    duration 0.5-30 s, prompt_influence 0-1 (higher = more literal, less varied).
+    """
+    if duration_s is not None and not 0.5 <= duration_s <= 30:
+        _error_exit(f"--duration must be 0.5-30 seconds, got {duration_s}")
+    if not 0 <= prompt_influence <= 1:
+        _error_exit(f"--influence must be 0-1, got {prompt_influence}")
+
+    if output_path is None:
+        DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        output_path = DEFAULT_OUTPUT_DIR / f"sfx_{time.strftime('%Y%m%d_%H%M%S')}.mp3"
+
+    body = {"text": prompt, "model_id": DEFAULT_SFX_MODEL,
+            "prompt_influence": prompt_influence, "loop": loop}
+    if duration_s is not None:
+        body["duration_seconds"] = duration_s
+
+    t0 = time.time()
+    try:
+        audio_bytes = _http_post_json(f"{ELEVENLABS_API}/v1/sound-generation", body,
+                                      api_key, accept="audio/mpeg")
+    except urllib.error.HTTPError as e:
+        _error_exit(f"ElevenLabs sound effect failed: {_http_error_message(e)}")
+    except Exception as e:
+        _error_exit(f"ElevenLabs sound effect failed: {type(e).__name__}: {e}")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_bytes(audio_bytes)
+    return {
+        "path": str(output_path),
+        "bytes": len(audio_bytes),
+        "model_id": DEFAULT_SFX_MODEL,
+        "duration_s": duration_s,
+        "prompt_influence": prompt_influence,
+        "loop": loop,
+        "elapsed_seconds": round(time.time() - t0, 2),
+    }
+
+
 def _get_elevenlabs_key() -> str:
     """Helper to look up the ElevenLabs key without requiring it on Lyria-only calls."""
     config = _load_config()
@@ -2191,6 +2238,18 @@ def main() -> None:
                               "Pass this flag to disable the strip and test whether the upstream filter "
                               "has relaxed for a specific term.")
 
+    # sfx
+    p_sfx = sub.add_parser("sfx", help="Generate a sound effect from a text prompt (ElevenLabs)")
+    p_sfx.add_argument("--prompt", required=True)
+    p_sfx.add_argument("--duration", type=float, default=None,
+                       help="Seconds, 0.5-30. Omit to let the model pick from the prompt.")
+    p_sfx.add_argument("--influence", type=float, default=0.3,
+                       help="Prompt influence 0-1 (default 0.3). Higher follows the prompt "
+                            "more literally with less variation.")
+    p_sfx.add_argument("--loop", action="store_true", help="Make a seamless loop")
+    p_sfx.add_argument("--out")
+    p_sfx.add_argument("--api-key")
+
     # mix
     p_mix = sub.add_parser("mix", help="FFmpeg mix narration + music with side-chain ducking")
     p_mix.add_argument("--narration", required=True)
@@ -2422,6 +2481,15 @@ def main() -> None:
         result = voice_measure(role=args.role, api_key=api_key)
     elif args.cmd == "voice-list":
         result = list_voices()
+    elif args.cmd == "sfx":
+        result = generate_sfx(
+            prompt=args.prompt,
+            api_key=_get_api_key(args.api_key),
+            duration_s=args.duration,
+            prompt_influence=args.influence,
+            loop=args.loop,
+            output_path=Path(args.out) if args.out else None,
+        )
     else:
         parser.print_help()
         sys.exit(2)

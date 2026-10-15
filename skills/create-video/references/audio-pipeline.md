@@ -6,7 +6,7 @@ strategic reset session that informed its design.
 
 **Quick links:**
 - Script: `skills/create-video/scripts/audio_pipeline.py` (renamed from `elevenlabs_audio.py` in v3.7.2)
-- Slash commands: `/create-video audio narrate|music|mix|swap|pipeline`, `/create-video voice design|promote|clone|measure|list`
+- Slash commands: `/create-audio music|sfx|narrate|mix|voice|status` (standalone audio, v4.7.0+), `/create-video audio swap|pipeline` (audio into video)
 - Companion reference: `skills/create-video/references/video-audio.md` (VEO native audio)
 - Findings: spike 3 + spike 4 results in `~/Desktop/spike3-elevenlabs-audio/` and `~/Desktop/spike4-lyria/`
 

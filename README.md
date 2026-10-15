@@ -12,7 +12,7 @@
 Let an AI that's been trained on the best practices for every model write the prompts for you, instead of spending hours teaching yourself to prompt-engineer a moving target.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-4.6.0-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.7.0-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <details>
@@ -109,11 +109,11 @@ Three creative surfaces, one Creative Director.
 
 ### 🎙️ Audio
 
-**Narration, music, and mixed audio beds - designed to replace VEO's emergent audio on stitched sequences.** Custom voice design from plain-English descriptions. Instant Voice Cloning. Multi-provider music with negative-prompt support. Side-chain ducking. End-to-end audio-bed replacement in one command.
+**Music, sound effects, narration and mixed audio beds - on their own with `/create-audio`, or laid over your video.** Custom voice design from plain-English descriptions. Instant Voice Cloning. Multi-provider music with negative-prompt support. Side-chain ducking. End-to-end audio-bed replacement in one command.
 
 ![Audio Pipeline](screenshots/audio-pipeline.webp)
 
-**Key features:** ElevenLabs TTS narration (custom voice design + IVC) · ElevenLabs Music (default, won 12-0 blind bake-off vs Lyria) · Lyria 2 alternative ($0.06/clip, negative-prompt support) · Side-chain ducking (music dips under narration automatically) · Auto-measured per-voice WPM for duration-calibrated line lengths · Client-side stripping of copyrighted-creator triggers (so Lyria/Eleven Music don't reject your prompt) · Full audio-bed replacement pipeline for stitched video sequences.
+**Key features:** ElevenLabs Sound Effects (whooshes, impacts, Foley, seamless ambience loops, drum loops) · ElevenLabs TTS narration (custom voice design + IVC) · ElevenLabs Music (default, won 12-0 blind bake-off vs Lyria) · Lyria 2 alternative ($0.06/clip, negative-prompt support) · Side-chain ducking (music dips under narration automatically) · Auto-measured per-voice WPM for duration-calibrated line lengths · Client-side stripping of copyrighted-creator triggers (so Lyria/Eleven Music don't reject your prompt) · Full audio-bed replacement pipeline for stitched video sequences.
 
 ---
 
@@ -234,7 +234,9 @@ Invoke via `/create-video generate "..." --provider veo --tier {lite|fast|standa
 /create-video sequence stitch --clips ~/clips/ --output final.mp4
 
 # --- Audio + Lip-sync ---
-/create-video voice design --description "warm baritone with a slight British accent"
+/create-audio music --prompt "warm acoustic folk, fingerpicked guitar, hopeful, 90 BPM"
+/create-audio sfx --prompt "a single soft whoosh transition" --duration 2
+/create-audio voice design --description "warm baritone with a slight British accent"
 /create-video audio pipeline --video final.mp4 --text "Meet the new..." --music-prompt "cinematic swell"
 /create-video lipsync --image face.jpg --audio narration.mp3
 
@@ -289,20 +291,27 @@ Claude acts as Creative Director for every call - selecting domain modes, constr
 | `/create-video sequence generate --storyboard PATH [--skip-review]` | Batch-generate clips from approved storyboard frames |
 | `/create-video sequence stitch --clips DIR --output PATH` | Assemble clips into final sequence via FFmpeg |
 | `/create-video extend <clip> [--to Ns]` | Extend a clip (+7s per hop, max 148s) - **DEPRECATED in v3.8.0**, requires `--acknowledge-veo-limitations` |
-| `/create-video lipsync --image FACE --audio AUDIO [--resolution 480p\|720p]` | **v3.8.1** lip-sync a face image to audio via Fabric 1.0 - pairs with `/create-video audio narrate` custom voices |
+| `/create-video lipsync --image FACE --audio AUDIO [--resolution 480p\|720p]` | **v3.8.1** lip-sync a face image to audio via Fabric 1.0 - pairs with `/create-audio narrate` custom voices |
 | `/create-video stitch <clips...>` | Concat, trim, convert video via FFmpeg |
 | `/create-video audio pipeline --video V --text "..." --music-prompt "..." [--music-source lyria\|elevenlabs]` | **v3.7.1+v3.8.3** end-to-end: parallel TTS + music (ElevenLabs default, Lyria alt), mix, swap into video |
-| `/create-video audio narrate --text "..." [--voice ROLE]` | **v3.7.1** generate ElevenLabs TTS narration only |
-| `/create-video audio music --prompt "..." [--source lyria\|elevenlabs] [--negative-prompt "..."]` | **v3.8.3** background music - ElevenLabs default, Lyria alt ($0.06/clip, supports negative-prompt) |
-| `/create-video audio mix --narration N --music M` | **v3.7.1** mix existing narration + music with side-chain ducking |
 | `/create-video audio swap --video V --audio A` | **v3.7.1** swap an audio file into a video (lossless video) |
-| `/create-video voice design --description "..."` | **v3.7.1** generate 3 voice previews from a text description |
-| `/create-video voice promote --generated-id ID --name N --role R` | **v3.7.1** save a chosen preview as a permanent custom voice |
-| `/create-video voice list` | **v3.7.1** list saved custom voices from `~/.creators-studio/config.json` (v4.2.2+) |
 | `/create-video cost [estimate]` | Video cost estimation |
 | `/create-video status` | Check VEO API access and FFmpeg availability |
-| `/create-video audio status` | **v3.7.1** check ElevenLabs API key + ffmpeg + custom voices |
 | `/create-video social <idea> --platforms <list>` | **Coming in v4.2.0** - platform-native video generation (spec catalogue shipped in v4.1.2 at `references/social-platforms.md`: 37 placements × 14 platforms with duration ranges) |
+
+### 🎙️ Audio Commands
+
+| Command | Description |
+|---------|-------------|
+| `/create-audio music --prompt "..." [--length-ms N] [--with-vocals] [--source lyria\|elevenlabs]` | **v3.8.3** music track - ElevenLabs default (3 s to 5 min), Lyria alt (supports `--negative-prompt`) |
+| `/create-audio sfx --prompt "..." [--duration S] [--loop] [--influence 0-1]` | **v4.7.0** sound effect, ambience or musical element (0.5 to 30 s), optional seamless loop |
+| `/create-audio narrate --text "..." [--voice ROLE]` | **v3.7.1** ElevenLabs TTS narration |
+| `/create-audio mix --narration N --music M` | **v3.7.1** mix narration over music with side-chain ducking |
+| `/create-audio voice design --description "..."` | **v3.7.1** generate 3 voice previews from a text description |
+| `/create-audio voice promote --generated-id ID --name N --role R` | **v3.7.1** save a chosen preview as a permanent custom voice |
+| `/create-audio voice clone --audio PATH --name N --role R` | **v3.7.4** Instant Voice Cloning from 30+ seconds of audio |
+| `/create-audio voice list` | **v3.7.1** list saved custom voices from `~/.creators-studio/config.json` |
+| `/create-audio status` | **v3.7.1** check ElevenLabs API key + ffmpeg + custom voices |
 
 ### 📝 Transcript Commands
 
@@ -439,6 +448,8 @@ creators-studio/                       # Claude Code Plugin
 │       ├── audio-pipeline.md          # Full audio architecture
 │       ├── image-to-video.md          # Animate-a-still
 │       └── social-platforms.md        # v4.1.2: 37 video placements × 14 platforms with duration ranges
+├── skills/create-audio/               # v4.7.0 Audio skill (music, sound effects, narration, voices)
+│   └── SKILL.md                       # Audio Creative Director; calls create-video/scripts/audio_pipeline.py
 ├── skills/create-transcript/          # v4.3.0 Transcript skill (speech-to-text)
 │   ├── SKILL.md                       # Transcript Creative Director orchestrator
 │   ├── scripts/
@@ -480,7 +491,14 @@ creators-studio/                       # Claude Code Plugin
 ## Release History
 
 <details open>
-<summary><b>🏷️ v4.5.0 (current) - Descriptive transcript titles · 2026-07-23</b></summary>
+<summary><b>🎙️ v4.7.0 (current) - /create-audio with sound effects · 2026-10-15</b></summary>
+
+Make audio on its own, no video needed. The new `/create-audio` skill brings music, narration, mixing and voice design together in one place, and adds ElevenLabs sound effects: whooshes, impacts, Foley, drum loops and seamless ambience loops up to 30 seconds, from a plain-English prompt.
+
+</details>
+
+<details>
+<summary><b>🏷️ v4.5.0 - Descriptive transcript titles · 2026-07-23</b></summary>
 
 Transcripts now get a meaningful title, not just the video filename. `retitle --json <cache> --title "..."` sets the markdown H1 and prefixes every output filename with `<title> - `, keeping the video name at the end for search (e.g. `Design Videos in Reverse - Video by adley - 1280p.md`). No API call - it re-renders from cache. The skill derives and applies a title on every transcription.
 
@@ -646,7 +664,7 @@ Run `/create-image status` to see which of these are installed on your machine.
 | Credential | Configure via | Activates |
 |---|---|---|
 | Replicate API token | `/create-image setup replicate` | Kling v3 video, Fabric lipsync, Recraft vectorize, Gemini-via-Replicate fallback |
-| ElevenLabs API key | `/create-video audio status` | `/create-video audio` pipeline, TTS narration, voice design + cloning |
+| ElevenLabs API key | `/create-audio status` | `/create-audio` music, sound effects, narration, voice design + cloning; `/create-video audio` pipeline; `/create-transcript` |
 | Vertex AI key | Manual `~/.creators-studio/config.json` edit | VEO 3.1 video backup, Lyria 2 music |
 
 ## Uninstall

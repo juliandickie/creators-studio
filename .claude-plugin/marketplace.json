@@ -10,7 +10,7 @@
     {
       "name": "creators-studio",
       "source": "./",
-      "description": "AI image and video generation Creative Director. Claude interprets intent, selects domain expertise, constructs optimized prompts, and orchestrates best-in-class AI models for stunning results.",
+      "description": "AI image, video, audio and transcript Creative Director. Claude interprets intent, selects domain expertise, constructs optimized prompts, and orchestrates best-in-class AI models for stunning results.",
       "author": {
         "name": "juliandickie"
       },
