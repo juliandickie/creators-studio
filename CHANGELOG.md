@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Folded in from the third-party watch plugin** (bradautomates/claude-video, MIT; notice kept in `watch.py`): frame selection and the yt-dlp download. Not ported: its YouTube-caption path, Whisper/WhisperX/Groq/OpenAI speech backends and Gemini engine. Scribe gives speaker labels and better accuracy than platform captions, and burned-in captions drop words, so every transcript comes from Scribe.
+- `release-zip.sh` excludes a `.git` file as well as a `.git/` folder. In a git worktree `.git` is a pointer file holding a local path, and the v4.7.0 zip briefly shipped it before the asset was replaced.
 - `cmd_transcribe` keyterm resolution moved into a shared `run_keyterms()` used by `watch` too; its progress notes now go to stderr.
 
 ## [4.7.0] - 2026-10-15

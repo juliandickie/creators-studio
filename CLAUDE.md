@@ -459,7 +459,7 @@ The script validates: (a) the version arg matches `plugin.json`, (b) a `## [X.Y.
 If you ever need to bypass the script (e.g., to debug a failing pre-flight check), the underlying commands it runs are:
 
 ```bash
-zip -r ../creators-studio-vX.Y.Z.zip . -x ".git/*" ".DS_Store" "*/.DS_Store" \
+zip -r ../creators-studio-vX.Y.Z.zip . -x ".git/*" ".git" ".DS_Store" "*/.DS_Store" \
   "*__pycache__/*" "*.pyc" ".github/*" "screenshots/*" "PROGRESS.md" \
   "ROADMAP.md" "CODEOWNERS" "CODE_OF_CONDUCT.md" "SECURITY.md" \
   "CITATION.cff" ".gitattributes" ".gitignore" ".claude/*" "spikes/*" \
