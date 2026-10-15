@@ -918,6 +918,20 @@ VEO Lite is now ~4× **cheaper** than Kling at comparable settings. Doesn't chan
 
 **Session spend:** one 2 s ElevenLabs sound effect (subscription credits).
 
+### Session 30, part 2 (2026-10-15) - v4.8.0 /create-transcript watch
+
+**Scope:** fold the third-party watch plugin into `/create-transcript` (Julian's call: a subcommand, not a new skill, to keep the loaded skill count down).
+
+1. New `skills/create-transcript/scripts/watch.py`. Ported from watch 0.3.2 (MIT, notice in the file header): ffprobe metadata, scene/uniform frame selection with showinfo timestamps, even sampling, 16x16 thumbnail dedup, cue frames, focus budgets, yt-dlp download. Dropped: captions, all four speech backends, Gemini, keyframe tier, detail presets, cookies, setup wizard (about 2,400 of its roughly 3,000 lines; watch.py is 567 lines including the licence notice).
+2. Transcripts always come from Scribe, not platform captions. The earlier plan said captions first for URLs; changed because Scribe adds speaker labels and accuracy and cost is not a reason to reduce depth.
+3. Re-watch is free: URL downloads live in a folder named by a hash of the URL, and `find_cached()` matches the Scribe JSON on `_source_name` + `_model`.
+4. Live checks: the MATE clip (cached transcript, 26 frames, identical to watch's selection; a frame at 0:25 matches the transcript line at 0:25), a focus window with an in-range and an out-of-range cue, "Me at the zoo" by URL (download + new Scribe call, then a second run with no download and no API call), and a 12-cut silent test video (scene engine, 6-frame cap, black frame at 0:07 as expected).
+5. 13 new tests (269 total).
+
+**Session spend:** one ~19 s Scribe transcription (Me at the zoo).
+
+**After merge:** remove watch from the outfit marketplace and its README, uninstall it, and delete the interim /watch rule in ~/.claude/CLAUDE.md.
+
 ## Expansion Roadmap
 
 See `ROADMAP.md` for the full prioritized feature roadmap.

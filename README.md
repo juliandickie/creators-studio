@@ -12,7 +12,7 @@
 Let an AI that's been trained on the best practices for every model write the prompts for you, instead of spending hours teaching yourself to prompt-engineer a moving target.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
-[![Version](https://img.shields.io/badge/version-4.7.0-coral)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.8.0-coral)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <details>
@@ -327,6 +327,7 @@ Claude acts as Creative Director for every call - selecting domain modes, constr
 | `/create-transcript retitle --json X.json --title "..."` | **v4.5.0** Set a descriptive H1 + filename prefix (video name kept at the end) - no API call |
 | `/create-transcript cost <file or folder>` | **v4.3.0** Estimate audio-minutes before running |
 | `/create-transcript status` | **v4.3.0** Check ElevenLabs key + ffmpeg/ffprobe + config keyterms |
+| `/create-transcript watch <file or URL> [--start T --end T] [--timestamps T1,T2]` | **v4.8.0** Watch a video: timestamped frames plus the Scribe transcript, URLs via yt-dlp; re-watching reuses the cached transcript |
 
 ## How It Works
 
@@ -454,7 +455,8 @@ creators-studio/                       # Claude Code Plugin
 │   ├── SKILL.md                       # Transcript Creative Director orchestrator
 │   ├── scripts/
 │   │   ├── transcribe.py              # Scribe v2 CLI: prep, upload, cache, render, rename, cost, status
-│   │   └── formats.py                 # Pure renderers: JSON → md/srt/vtt/chapters/txt
+│   │   ├── formats.py                 # Pure renderers: JSON → md/srt/vtt/chapters/txt
+│   │   └── watch.py                   # v4.8.0 watch: yt-dlp download, scene/uniform frames, report
 │   └── references/
 │       ├── scribe-models.md           # Scribe v2 roster, endpoint, constraints, billing
 │       ├── transcript-formats.md      # The 5 formats, timecodes, turn vs cue grouping
@@ -491,7 +493,14 @@ creators-studio/                       # Claude Code Plugin
 ## Release History
 
 <details open>
-<summary><b>🎙️ v4.7.0 (current) - /create-audio with sound effects · 2026-10-15</b></summary>
+<summary><b>👀 v4.8.0 (current) - Watch any video with /create-transcript · 2026-10-15</b></summary>
+
+Ask Claude to watch a video file or a YouTube, Instagram or TikTok link and it sees the frames and reads an accurate Scribe transcript, lined up by time. Scene-aware frame picking covers the whole video, `--start`/`--end` zooms in, and asking a follow-up question on the same video costs nothing because the download and transcript are reused.
+
+</details>
+
+<details>
+<summary><b>🎙️ v4.7.0 - /create-audio with sound effects · 2026-10-15</b></summary>
 
 Make audio on its own, no video needed. The new `/create-audio` skill brings music, narration, mixing and voice design together in one place, and adds ElevenLabs sound effects: whooshes, impacts, Foley, drum loops and seamless ambience loops up to 30 seconds, from a plain-English prompt.
 
