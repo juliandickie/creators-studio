@@ -418,17 +418,35 @@ def default_out_dir(target: Path) -> Path:
 # --------------------------------------------------------------------------- #
 # Subcommand handlers
 # --------------------------------------------------------------------------- #
-def cmd_transcribe(args) -> int:
-    config = load_config()
-    api_key = get_api_key(args.api_key, config, os.environ)
+def run_keyterms(args, config: dict) -> list[str] | None:
+    """Resolve this run's keyterms (flags + sets + config) and print the cost notes.
+
+    Returns None after printing an error when a named set does not exist.
+    """
     set_terms, unknown_sets = resolve_keyterm_sets(args.keyterm_set, config)
     if unknown_sets:
         available = sorted((config.get("transcription", {}).get("keyterm_sets", {}) or {}))
         print(f"ERROR: unknown keyterm set(s): {', '.join(unknown_sets)}. "
               f"Available: {', '.join(available) if available else '(none defined in config)'}",
               file=sys.stderr)
-        return 1
+        return None
     keyterms = resolve_keyterms(args.keyterms, set_terms, args.keyterms_replace, config)
+    if keyterms:
+        via = f" via set(s) {args.keyterm_set}" if args.keyterm_set else ""
+        print(f"Keyterms active ({len(keyterms)}){via}: {', '.join(keyterms[:8])}"
+              f"{'...' if len(keyterms) > 8 else ''}", file=sys.stderr)
+        print(f"  NOTE: {KEYTERM_SURCHARGE_NOTE}.", file=sys.stderr)
+        if len(keyterms) > 100:
+            print(f"  NOTE: {KEYTERM_MIN_BILL_NOTE}.", file=sys.stderr)
+    return keyterms
+
+
+def cmd_transcribe(args) -> int:
+    config = load_config()
+    api_key = get_api_key(args.api_key, config, os.environ)
+    keyterms = run_keyterms(args, config)
+    if keyterms is None:
+        return 1
     fmts = _parse_formats(args.formats)
     speaker_names = parse_speakers(args.speakers) or None
 
@@ -445,14 +463,6 @@ def cmd_transcribe(args) -> int:
 
     if args.model != DEFAULT_MODEL:
         print(f"Model: {MODELS[args.model]['label']} (`{args.model}`)")
-
-    if keyterms:
-        via = f" via set(s) {args.keyterm_set}" if args.keyterm_set else ""
-        print(f"Keyterms active ({len(keyterms)}){via}: {', '.join(keyterms[:8])}"
-              f"{'...' if len(keyterms) > 8 else ''}")
-        print(f"  NOTE: {KEYTERM_SURCHARGE_NOTE}.")
-        if len(keyterms) > 100:
-            print(f"  NOTE: {KEYTERM_MIN_BILL_NOTE}.")
 
     results = []
     for i, m in enumerate(media, 1):
@@ -611,6 +621,8 @@ def cmd_status(args) -> int:
         found = subprocess.run(["which", tool], capture_output=True, text=True).returncode == 0
         print(f"{tool}: {'found' if found else 'MISSING'}")
         ok = ok and found
+    ytdlp = subprocess.run(["which", "yt-dlp"], capture_output=True, text=True).returncode == 0
+    print(f"yt-dlp: {'found' if ytdlp else 'missing (only needed to watch a URL: brew install yt-dlp)'}")
     cfg_terms = config.get("transcription", {}).get("keyterms", []) or []
     print(f"Config keyterms (always-on): {len(cfg_terms)}"
           + (f" ({', '.join(cfg_terms[:6])}{'...' if len(cfg_terms) > 6 else ''})" if cfg_terms else ""))
@@ -657,6 +669,11 @@ def _summarize(results: list[dict], out_dir: Path) -> int:
         print(f"\n{len(fail)} file(s) FAILED - see errors above.")
         return 1
     return 0
+
+
+def _cmd_watch(args) -> int:
+    import watch  # imported on use: watch imports this module
+    return watch.cmd_watch(args)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -712,6 +729,29 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("target", help="File or directory.")
     c.set_defaults(func=cmd_cost)
 
+    w = sub.add_parser("watch", help="Frames plus a transcript of a video file or URL, "
+                                     "so Claude can watch it. Re-watching reuses the cached transcript.")
+    w.add_argument("source", help="Local video/audio file, or a URL yt-dlp can download.")
+    w.add_argument("--start", help="Focus range start (SS, MM:SS or HH:MM:SS).")
+    w.add_argument("--end", help="Focus range end.")
+    w.add_argument("--timestamps", help="Comma list of times to grab one frame each, "
+                                        "e.g. a moment the speaker says 'look at this'.")
+    w.add_argument("--max-frames", type=int, default=100, help="Frame cap, cue frames included. Default 100.")
+    w.add_argument("--resolution", type=int, default=512,
+                   help="Frame width in px. Default 512; use 1024 to read small on-screen text.")
+    w.add_argument("--no-dedup", action="store_true", help="Keep near-identical frames.")
+    w.add_argument("--keyterms", help="Comma-separated bias terms (brand/product names).")
+    w.add_argument("--keyterm-set", help="Named keyterm set(s) from config.")
+    w.add_argument("--keyterms-replace", action="store_true",
+                   help="Use only the terms named this run.")
+    w.add_argument("--model", choices=sorted(MODELS), default=DEFAULT_MODEL)
+    w.add_argument("--language", help="ISO-639 code. Default: auto-detect.")
+    w.add_argument("--speakers", help='Name speakers, e.g. "0=Julian,1=Dr Ahmad".')
+    w.add_argument("--output-dir", help="Transcripts folder for a local file (default <source>/transcripts), "
+                                        "or the download root for a URL (default ~/Documents/creators_watch).")
+    w.add_argument("--api-key", help="Override ElevenLabs key.")
+    w.set_defaults(func=_cmd_watch)
+
     s = sub.add_parser("status", help="Check key + ffmpeg + config.")
     s.add_argument("--api-key", help="Override ElevenLabs key.")
     s.set_defaults(func=cmd_status)
@@ -720,7 +760,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    known = {"transcribe", "rename", "retitle", "cost", "status"}
+    known = {"transcribe", "rename", "retitle", "cost", "status", "watch"}
     # Ergonomic bare form: `transcribe.py foo.mp4` == `transcribe.py transcribe foo.mp4`.
     if argv and argv[0] not in known and not argv[0].startswith("-"):
         argv.insert(0, "transcribe")

@@ -148,6 +148,7 @@ This repo follows the official Claude Code plugin layout:
 | `skills/create-audio/SKILL.md` | **v4.7.0** Audio Creative Director for `/create-audio`: music, sound effects, narration, mix, voice design/clone/list. Owns no scripts - calls `skills/create-video/scripts/audio_pipeline.py`, which stays there because the video audio pipeline, lip-sync docs and tests use that path. |
 | `skills/create-transcript/SKILL.md` | **v4.3.0** Transcript Creative Director orchestrator for `/create-transcript`. Intent → format defaults, language auto-detect, speaker-naming prompt, chapter-naming split responsibility (script finds boundaries, Claude titles them), keyterm confirm, verify-before-done. |
 | `skills/create-transcript/scripts/transcribe.py` | **v4.3.0 (keyterm sets v4.4.0)** Scribe v2 speech-to-text CLI. Reuses the ElevenLabs key, `_http_post_multipart` (repeated `keyterms` fields), ffprobe/ffmpeg mono-16kHz prep (fail-loud on no-audio), one STT call, JSON cache, render dispatch, plus `rename`/`cost`/`status` subcommands and batch. v4.4.0 adds per-video keyterm sets: `resolve_keyterm_sets()` expands named `transcription.keyterm_sets` via `--keyterm-set`, `resolve_keyterms()` unions ad-hoc + sets + always-on base + default (`--keyterms-replace` = terms named this run only). v4.5.0 adds descriptive titles: `render_markdown` gains an optional `title` (H1), the `retitle` subcommand + `--title` flag set the H1 and prefix output filenames with `<title> - ` (video name kept at the tail), `_title`/`_source_name` persisted in cache for idempotent re-runs. Stdlib only. Pure helpers (auth/keyterms/sets/probe/multipart) are unit-tested. |
+| `skills/create-transcript/scripts/watch.py` | **v4.8.0** `transcribe.py watch`: yt-dlp download (URL-hash folder under `~/Documents/creators_watch/`), ffprobe metadata, scene/uniform frame selection with showinfo timestamps, even sampling, near-duplicate removal, cue frames, report renderer. Transcript via `transcribe_file()`, reused from cache by `find_cached()`. Frame code adapted from bradautomates/claude-video (MIT, notice in the file header). Stdlib only; needs ffmpeg, and yt-dlp for URLs. |
 | `skills/create-transcript/scripts/formats.py` | **v4.3.0** Pure renderers (no network/fs): markdown (speaker turns), SRT + VTT (cue segmentation, independent of speakers), chapters (pause boundaries + placeholder titles), plaintext. The cached JSON is the single source every format re-renders from. |
 | `skills/create-transcript/references/scribe-models.md` | **v4.3.0** Scribe v2 roster, endpoint + fields, constraints, audio-prep rationale, response shape, subscription billing + keyterm surcharge/min-billable notes. |
 | `skills/create-transcript/references/transcript-formats.md` | **v4.3.0** The five formats, timecode styles, turn-grouping vs cue-segmentation, chapter split responsibility, speaker naming. |
@@ -409,7 +410,7 @@ If any new Python scripts were created:
 wc -l skills/*/SKILL.md  # Each must stay under 500 lines
 ```
 
-Current: create-image 317, create-video 275, create-transcript 133, create-audio 89 (lean
+Current: create-image 317, create-video 275, create-transcript 152, create-audio 89 (lean
 orchestrator pattern). If one approaches 450, extract to reference files.
 
 The 500-line limit is enforced in CI by `.github/workflows/validate.yml`, which
@@ -458,7 +459,7 @@ The script validates: (a) the version arg matches `plugin.json`, (b) a `## [X.Y.
 If you ever need to bypass the script (e.g., to debug a failing pre-flight check), the underlying commands it runs are:
 
 ```bash
-zip -r ../creators-studio-vX.Y.Z.zip . -x ".git/*" ".DS_Store" "*/.DS_Store" \
+zip -r ../creators-studio-vX.Y.Z.zip . -x ".git/*" ".git" ".DS_Store" "*/.DS_Store" \
   "*__pycache__/*" "*.pyc" ".github/*" "screenshots/*" "PROGRESS.md" \
   "ROADMAP.md" "CODEOWNERS" "CODE_OF_CONDUCT.md" "SECURITY.md" \
   "CITATION.cff" ".gitattributes" ".gitignore" ".claude/*" "spikes/*" \

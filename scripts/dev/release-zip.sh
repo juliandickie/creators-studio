@@ -159,6 +159,7 @@ fi
 
 zip -r "$zip_target" . \
   -x ".git/*" \
+  -x ".git" \
   -x ".DS_Store" \
   -x "*/.DS_Store" \
   -x "*__pycache__/*" \

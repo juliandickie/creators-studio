@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.8.0] - 2026-10-15
+
+### Added
+
+- **`/create-transcript watch <file or URL>`, so Claude can watch a video.** It prints a report with timestamped frames for Claude to view and the Scribe transcript as short timestamped lines, and writes the usual md/srt/vtt/json transcript files. URLs download through yt-dlp (720p cap) into `~/Documents/creators_watch/<url-hash>/`. Re-watching the same file or URL reuses the download and the cached transcript (matched on `_source_name` and `_model`), so a follow-up question makes no API call. Frame selection: scene changes across the whole range even-sampled to `--max-frames` (default 100, first and last kept), uniform sampling for static videos, near-duplicate removal (`--no-dedup` to keep), `--start`/`--end` focus with a denser budget, `--timestamps` cue frames that reserve budget, `--resolution` for small text. 13 new tests (269 total), including an ffmpeg end-to-end run on a 12-cut test video that proves no network call.
+- **`status` reports yt-dlp** (needed only to watch a URL).
+
+### Changed
+
+- **Folded in from the third-party watch plugin** (bradautomates/claude-video, MIT; notice kept in `watch.py`): frame selection and the yt-dlp download. Not ported: its YouTube-caption path, Whisper/WhisperX/Groq/OpenAI speech backends and Gemini engine. Scribe gives speaker labels and better accuracy than platform captions, and burned-in captions drop words, so every transcript comes from Scribe.
+- `release-zip.sh` excludes a `.git` file as well as a `.git/` folder. In a git worktree `.git` is a pointer file holding a local path, and the v4.7.0 zip briefly shipped it before the asset was replaced.
+- `cmd_transcribe` keyterm resolution moved into a shared `run_keyterms()` used by `watch` too; its progress notes now go to stderr.
+
 ## [4.7.0] - 2026-10-15
 
 ### Added
@@ -111,6 +124,7 @@ If the migration produces an unexpected result, users can:
 - **Empirical bake-off** PixVerse V6 vs Kling v3 Std vs VEO 3.1 Standard.
 - **Wire PixVerse into `video_sequence.py`** as a quality-tier alternative - needs a different shape than Kling's `multi_prompt` JSON array (PixVerse uses a single structured prompt + boolean toggle).
 
+[4.8.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.8.0
 [4.7.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.7.0
 [4.6.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.6.0
 [4.5.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.5.0

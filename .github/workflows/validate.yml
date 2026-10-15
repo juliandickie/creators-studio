@@ -68,6 +68,7 @@ jobs:
             skills/create-transcript/references/scribe-models.md
             skills/create-transcript/scripts/transcribe.py
             skills/create-transcript/scripts/formats.py
+            skills/create-transcript/scripts/watch.py
             scripts/backends/_base.py
             scripts/backends/_canonical.py
             scripts/backends/_replicate.py
