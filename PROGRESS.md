@@ -906,6 +906,18 @@ VEO Lite is now ~4× **cheaper** than Kling at comparable settings. Doesn't chan
 
 **Session spend:** one ~30s Scribe transcription (adley clip) via the shipped skill; the title feature work was $0 (offline).
 
+### Session 30 (2026-10-15) - v4.7.0 /create-audio with sound effects
+
+**Scope:** Julian needed audio with no video and found no obvious way to make it. Music and narration already existed, but only inside `/create-video`. Sound effects did not exist. He also wants fewer plugins loaded, so the third-party watch plugin is to be folded into `/create-transcript` next (intent note `docs/dev-notes/2026-10-10-fold-watch-into-creators-studio.md`).
+
+1. New `skills/create-audio/SKILL.md`: music, sfx, narrate, mix, voice design/promote/clone/list, status. It calls `../create-video/scripts/audio_pipeline.py` rather than moving the script, because 15+ live files (tests, lipsync docs, model references) point at the current path.
+2. `audio_pipeline.py` gained `generate_sfx()` and the `sfx` subcommand (ElevenLabs `POST /v1/sound-generation`, `eleven_text_to_sound_v2`). Range checks run before the request. API facts taken from the live API reference on 2026-10-15; the capabilities page says the minimum duration is 0.1 s, but the API reference says 0.5 s, so the client enforces 0.5.
+3. `/create-video` SKILL.md and README: standalone audio rows moved to `/create-audio`; `audio pipeline` and `audio swap` stay with video.
+4. CHANGELOG: restored the missing `## [4.5.0]` heading and the missing `[4.6.0]` link reference left by the v4.6.0 release.
+5. 3 new tests (256 total). Live check: a 2 s whoosh came back as a 2.000 s 44.1 kHz stereo MP3, peak -2.6 dB.
+
+**Session spend:** one 2 s ElevenLabs sound effect (subscription credits).
+
 ## Expansion Roadmap
 
 See `ROADMAP.md` for the full prioritized feature roadmap.

@@ -62,6 +62,8 @@ jobs:
             skills/create-video/references/kling-models.md
             skills/create-video/references/veo-models.md
             skills/create-video/scripts/video_generate.py
+            skills/create-video/scripts/audio_pipeline.py
+            skills/create-audio/SKILL.md
             skills/create-transcript/SKILL.md
             skills/create-transcript/references/scribe-models.md
             skills/create-transcript/scripts/transcribe.py

@@ -1,7 +1,7 @@
 {
   "name": "creators-studio",
-  "version": "4.6.0",
-  "description": "AI image and video generation Creative Director. Claude interprets intent, selects domain expertise, constructs optimized prompts, and orchestrates best-in-class AI models for stunning results.",
+  "version": "4.7.0",
+  "description": "AI image, video, audio and transcript Creative Director. Claude interprets intent, selects domain expertise, constructs optimized prompts, and orchestrates best-in-class AI models for stunning results.",
   "author": {
     "name": "juliandickie",
     "url": "https://github.com/juliandickie"

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.7.0] - 2026-10-15
+
+### Added
+
+- **`/create-audio` skill for audio on its own.** Music, narration, mixing and voice design or cloning were only documented inside `/create-video`, so they were hard to find when no video was involved. They now have their own entry point. `audio_pipeline.py` stays in `skills/create-video/scripts/`, because the video audio pipeline and the lip-sync docs use the same code; `/create-audio` calls it there. `/create-video` keeps `audio pipeline` and `audio swap` (audio into video) and points to `/create-audio` for the rest.
+- **Sound effects.** New `audio_pipeline.py sfx` subcommand calls ElevenLabs text-to-sound-effects (`POST /v1/sound-generation`, model `eleven_text_to_sound_v2`) with `--prompt`, `--duration` (0.5 to 30 s, omit to let the model choose), `--influence` (0 to 1, default 0.3) and `--loop`. Out-of-range values fail before any API call. Verified against the live API on 2026-10-15: a 2 s prompt returned a 2.000 s, 44.1 kHz stereo MP3 with real signal (peak -2.6 dB). 3 new tests (256 total).
+
 ## [4.6.0] - 2026-09-14
 
 ### Added
@@ -15,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`references/scribe-models.md` documents the full batch roster and how to choose.** The endpoint accepts `scribe_v1`, `scribe_v1_experimental`, `scribe_v2` and `scribe_v2_medical` - confirmed by sending a deliberately invalid `model_id` and reading the `unsupported_model` error, which enumerates them. That probe is now documented as the authoritative check when the docs page lags, because `/v1/models` returns text-to-speech models only and never lists Scribe. The reference states plainly that the medical model is a separate model rather than a quality upgrade, and that the honest way to choose is to run both on a sample and diff them (cheap, because re-renders come from the cache).
 
-
+## [4.5.0] - 2026-07-23
 
 ### Added
 
@@ -104,6 +111,8 @@ If the migration produces an unexpected result, users can:
 - **Empirical bake-off** PixVerse V6 vs Kling v3 Std vs VEO 3.1 Standard.
 - **Wire PixVerse into `video_sequence.py`** as a quality-tier alternative - needs a different shape than Kling's `multi_prompt` JSON array (PixVerse uses a single structured prompt + boolean toggle).
 
+[4.7.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.7.0
+[4.6.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.6.0
 [4.5.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.5.0
 [4.4.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.4.0
 [4.3.0]: https://github.com/juliandickie/creators-studio/releases/tag/v4.3.0

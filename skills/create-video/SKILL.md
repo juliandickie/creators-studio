@@ -29,19 +29,13 @@ argument-hint: "[generate|animate|sequence|extend|stitch|cost|status] <idea, pat
 | `/create-video sequence generate --storyboard PATH [--skip-review]` | Batch-generate clips from approved frames (review-gated) |
 | `/create-video sequence stitch --clips DIR --output PATH` | Assemble clips into final sequence |
 | `/create-video extend <clip> [--to Ns]` | Extend a clip (+7s per hop, max 148s) - **DEPRECATED in v3.8.0**, requires `--acknowledge-veo-limitations` |
-| `/create-video lipsync --image FACE --audio AUDIO [--resolution 480p\|720p]` | **v3.8.1** lip-sync a face image to audio via Fabric 1.0 - pairs perfectly with `/create-video audio narrate` custom voices |
+| `/create-video lipsync --image FACE --audio AUDIO [--resolution 480p\|720p]` | **v3.8.1** lip-sync a face image to audio via Fabric 1.0 - pairs perfectly with `/create-audio narrate` custom voices |
 | `/create-video stitch <clips...>` | Concatenate arbitrary clips via FFmpeg |
 | `/create-video audio pipeline --video V --text "..." --music-prompt "..." [--music-source lyria\|elevenlabs]` | **v3.7.1+v3.8.3** end-to-end: parallel TTS + music (ElevenLabs default, Lyria alt), mix, swap into video |
-| `/create-video audio narrate --text "..." [--voice ROLE]` | **v3.7.1** generate ElevenLabs TTS narration only |
-| `/create-video audio music --prompt "..." [--source lyria\|elevenlabs] [--negative-prompt "..."]` | **v3.8.3** generate background music - ElevenLabs default, Lyria alternative ($0.06/clip, supports negative-prompt) |
-| `/create-video audio mix --narration N --music M` | **v3.7.1** mix existing narration + music with side-chain ducking |
 | `/create-video audio swap --video V --audio A` | **v3.7.1** swap an audio file into a video (lossless video) |
-| `/create-video voice design --description "..."` | **v3.7.1** generate 3 voice previews from a text description |
-| `/create-video voice promote --generated-id ID --name N --role R` | **v3.7.1** save a chosen preview as a permanent custom voice |
-| `/create-video voice list` | **v3.7.1** list saved custom voices from `~/.creators-studio/config.json` |
+| `/create-audio ...` | **v4.7.0** standalone audio (music, sound effects, voiceover, mix, voice design and cloning) moved to the `/create-audio` skill |
 | `/create-video cost [estimate]` | Video cost estimation |
 | `/create-video status` | Check VEO API access and FFmpeg availability |
-| `/create-video audio status` | **v3.7.1** check ElevenLabs API key + ffmpeg + custom voices |
 | `/create-video social <idea> --platforms <list>` | **Coming in v4.2.0** - platform-native video generation. Spec catalogue is available now at `references/social-platforms.md` (37 placements across 14 platforms with duration min/max). |
 
 ## Video Creative Director Pipeline
@@ -256,22 +250,7 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/audio_pipeline.py pipeline \
 - **Multi-shot sequence (2+ clips) with narration** → use the v3.7.1 pipeline. VEO's per-clip music seams will otherwise be audible at every cut.
 - **Multi-shot sequence without narration** → VEO native ambient + SFX is fine. Music seams are still present but less obvious without speech to draw attention to them.
 
-**Voice selection:**
-
-- Default: `--voice narrator` reads the saved `custom_voices.narrator` from `~/.creators-studio/config.json`.
-- To use a different role: `--voice character_a` (reads `custom_voices.character_a`).
-- To use a literal ElevenLabs voice ID: `--voice 21m00Tcm4TlvDq8ikWAM` (any non-role string is treated as a literal ID).
-- To create a new custom voice: `voice-design` then `voice-promote`. See `references/audio-pipeline.md`.
-
-**Music prompt restriction (TOS guardrail):** Eleven Music blocks prompts that name copyrighted creators or brands (e.g. "Annie Leibovitz", "BBC Earth"). Use generic descriptors only - genre, mood, instrumentation, tempo. This is music-API-specific - image generation prompts welcome creator names.
-
-**Prompt engineering for ElevenLabs TTS narration:**
-
-- Use `eleven_v3` model (default) for expressiveness
-- Insert audio tags like `[exhales]`, `[reverent]`, `[contemplative]` for emotional beats - tag set is open-ended, not whitelisted
-- Use ellipses (`...`) for contemplative pauses
-- Use selective CAPS for emphasis on key words
-- Match line length to the *voice's* WPM (different voices have different pacing - see `references/audio-pipeline.md` line-length calibration section)
+**Voices, narration and music prompts:** `--voice` takes a saved role (default `narrator`) or a literal ElevenLabs voice ID. Voice selection, voice design, TTS prompt engineering and the music-prompt rules (no named creators or brands) live in the `/create-audio` skill; generate standalone narration, music or sound effects there.
 
 See `references/audio-pipeline.md` for the full architecture, FFmpeg parameter rationale, voice design flow, custom voice schema, and prompt engineering for both TTS and music.
 
